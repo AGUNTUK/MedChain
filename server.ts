@@ -440,24 +440,32 @@ let db = {
     {
       id: "usr_owner_1",
       name: "Zahid Hasan",
+      email: "owner@medichain.com",
+      password: "password123",
       phone: "01712345678",
       role: "Pharmacy Owner"
     },
     {
       id: "usr_admin_1",
       name: "MediChain Administrator",
+      email: "admin@medichain.com",
+      password: "password123",
       phone: "01799999999",
       role: "Admin"
     },
     {
       id: "usr_depot_1",
       name: "Depot Logistics Officer",
+      email: "depot@medichain.com",
+      password: "password123",
       phone: "01788888888",
       role: "Depot Staff"
     },
     {
       id: "usr_delivery_1",
       name: "Delivery Express Courier",
+      email: "delivery@medichain.com",
+      password: "password123",
       phone: "01777777777",
       role: "Delivery Staff"
     }
@@ -477,24 +485,32 @@ function loadDb() {
           {
             id: "usr_owner_1",
             name: "Zahid Hasan",
+            email: "owner@medichain.com",
+            password: "password123",
             phone: "01712345678",
             role: "Pharmacy Owner"
           },
           {
             id: "usr_admin_1",
             name: "MediChain Administrator",
+            email: "admin@medichain.com",
+            password: "password123",
             phone: "01799999999",
             role: "Admin"
           },
           {
             id: "usr_depot_1",
             name: "Depot Logistics Officer",
+            email: "depot@medichain.com",
+            password: "password123",
             phone: "01788888888",
             role: "Depot Staff"
           },
           {
             id: "usr_delivery_1",
             name: "Delivery Express Courier",
+            email: "delivery@medichain.com",
+            password: "password123",
             phone: "01777777777",
             role: "Delivery Staff"
           }
@@ -660,6 +676,45 @@ app.get("/api/depot/assigned-orders", requireRole(["Admin", "Depot Staff"]), (re
   });
 });
 
+app.get("/api/depot/orders", requireRole(["Admin", "Depot Staff"]), (req, res) => {
+  res.json({
+    success: true,
+    orders: db.orders
+  });
+});
+
+app.post("/api/depot/orders/:id/accept", requireRole(["Admin", "Depot Staff"]), (req, res) => {
+  const order = db.orders.find(o => o.id === req.params.id);
+  if (!order) return res.status(404).json({ error: "Order not found" });
+  order.status = "Confirmed";
+  saveDb();
+  res.json({ success: true, order });
+});
+
+app.post("/api/depot/orders/:id/process", requireRole(["Admin", "Depot Staff"]), (req, res) => {
+  const order = db.orders.find(o => o.id === req.params.id);
+  if (!order) return res.status(404).json({ error: "Order not found" });
+  order.status = "Processing";
+  saveDb();
+  res.json({ success: true, order });
+});
+
+app.post("/api/depot/orders/:id/pack", requireRole(["Admin", "Depot Staff"]), (req, res) => {
+  const order = db.orders.find(o => o.id === req.params.id);
+  if (!order) return res.status(404).json({ error: "Order not found" });
+  order.status = "Packed";
+  saveDb();
+  res.json({ success: true, order });
+});
+
+app.post("/api/depot/orders/:id/assign-delivery", requireRole(["Admin", "Depot Staff"]), (req, res) => {
+  const order = db.orders.find(o => o.id === req.params.id);
+  if (!order) return res.status(404).json({ error: "Order not found" });
+  order.status = "Out for Delivery";
+  saveDb();
+  res.json({ success: true, order });
+});
+
 app.post("/api/depot/update-packing", requireRole(["Admin", "Depot Staff"]), (req, res) => {
   const { orderId, status } = req.body;
   if (!orderId || !status) {
@@ -719,12 +774,111 @@ app.post("/api/delivery/update-status", requireRole(["Admin", "Delivery Staff"])
 
 
 // Auth Endpoints
+app.post("/api/auth/sync-session", (req, res) => {
+  const { id, email, name, phone } = req.body;
+  if (!id || !email) {
+    return res.status(400).json({ error: "Missing required session parameters (id, email)." });
+  }
+
+  if (!db.users) {
+    db.users = [];
+  }
+
+  let user = db.users.find((u: any) => u.id === id || u.email === email);
+  if (!user) {
+    user = {
+      id,
+      name: name || "Pharmacy Owner",
+      email,
+      phone: phone || "",
+      role: "Pharmacy Owner" // Secure default: new registrations are always Pharmacy Owner
+    };
+    db.users.push(user);
+  } else {
+    // Update existing user fields if provided (role is NEVER modified via user-controlled body parameters)
+    if (name) user.name = name;
+    if (phone) user.phone = phone;
+  }
+
+  db.currentUser = user;
+  saveDb();
+
+  const needsSetup = !db.pharmacy || !db.pharmacy.pharmacyName;
+
+  res.json({
+    success: true,
+    user: db.currentUser,
+    needsSetup,
+    pharmacy: db.pharmacy
+  });
+});
+
+app.post("/api/auth/local-signup", (req, res) => {
+  const { email, password, name } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: "Email and password are required." });
+  }
+
+  if (!db.users) {
+    db.users = [];
+  }
+
+  const existingUser = db.users.find((u: any) => u.email === email);
+  if (existingUser) {
+    return res.status(400).json({ error: "An account with this email already exists." });
+  }
+
+  const user = {
+    id: "usr_" + Math.floor(10000 + Math.random() * 90000),
+    name: name || "Pharmacy Owner",
+    email,
+    password,
+    phone: "",
+    role: "Pharmacy Owner" // Secure default: new local registrations are always Pharmacy Owner
+  };
+
+  db.users.push(user);
+  db.currentUser = user;
+  saveDb();
+
+  res.json({
+    success: true,
+    user: db.currentUser,
+    needsSetup: true,
+    pharmacy: db.pharmacy
+  });
+});
+
+app.post("/api/auth/local-login", (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: "Email and password are required." });
+  }
+
+  const user = db.users.find((u: any) => u.email === email && u.password === password);
+  if (!user) {
+    return res.status(400).json({ error: "Invalid email or password. Try using owner@medichain.com / password123" });
+  }
+
+  db.currentUser = user;
+  saveDb();
+
+  const needsSetup = !db.pharmacy || !db.pharmacy.pharmacyName;
+
+  res.json({
+    success: true,
+    user: db.currentUser,
+    needsSetup,
+    pharmacy: db.pharmacy
+  });
+});
+
+// Legacy OTP paths kept for full backward compatibility
 app.post("/api/auth/send-otp", (req, res) => {
   const { phone } = req.body;
   if (!phone || phone.length < 10) {
     return res.status(400).json({ error: "Please enter a valid mobile number." });
   }
-  // Simulate sending OTP
   res.json({ success: true, message: "OTP sent to " + phone + ". Use verification code 123456.", mockOtp: "123456" });
 });
 
@@ -734,7 +888,6 @@ app.post("/api/auth/verify-otp", (req, res) => {
     return res.status(400).json({ error: "Invalid OTP code. Please use 123456." });
   }
 
-  // Find or create user in db.users
   if (!db.users) {
     db.users = [];
   }
@@ -743,17 +896,16 @@ app.post("/api/auth/verify-otp", (req, res) => {
     user = {
       id: "usr_" + Math.floor(10000 + Math.random() * 90000),
       name: "Pharmacy Owner",
+      email: phone + "@medichain.com",
       phone,
       role: "Pharmacy Owner"
     };
     db.users.push(user);
   }
 
-  // Set logged in user
   db.currentUser = user;
   saveDb();
 
-  // Determine if profile setup is required
   const needsSetup = !db.pharmacy || !db.pharmacy.pharmacyName;
 
   res.json({
@@ -781,8 +933,8 @@ app.post("/api/auth/switch-role", (req, res) => {
   }
 
   db.currentUser.role = role;
-  // Also update in db.users
-  const userInDb = db.users.find((u: any) => u.phone === db.currentUser.phone);
+  // Update in db.users
+  const userInDb = db.users.find((u: any) => u.id === db.currentUser.id || u.email === db.currentUser.email || u.phone === db.currentUser.phone);
   if (userInDb) {
     userInDb.role = role;
   }
@@ -1019,7 +1171,7 @@ app.post("/api/orders", (req, res) => {
   const newOrder = {
     id: orderId,
     pharmacyId: db.pharmacy.id,
-    status: "Confirmed", // Initial order status immediately Confirmed
+    status: "Pending", // Initial order status immediately Pending
     paymentMethod,
     paymentStatus: paymentMethod === "Cash on Delivery" ? "Pending" : "Paid",
     totalAmount,
@@ -1027,6 +1179,7 @@ app.post("/api/orders", (req, res) => {
     totalMrp,
     items: orderItems,
     notes,
+    deliveryAddress,
     createdAt: new Date().toISOString(),
     estimatedDelivery: "Estimated delivery: Tomorrow, 2:00 PM"
   };
@@ -1055,7 +1208,13 @@ app.post("/api/orders", (req, res) => {
 });
 
 app.get("/api/orders", (req, res) => {
-  res.json(db.orders);
+  if (db.currentUser?.role === "Pharmacy") {
+    const pharmacyOrders = db.orders.filter(o => o.pharmacyId === db.pharmacy?.id);
+    return res.json(pharmacyOrders);
+  } else if (db.currentUser?.role === "Admin" || db.currentUser?.role === "Depot Staff") {
+    return res.json(db.orders);
+  }
+  res.json([]);
 });
 
 app.get("/api/orders/:id", (req, res) => {
@@ -1063,7 +1222,65 @@ app.get("/api/orders/:id", (req, res) => {
   if (!order) {
     return res.status(404).json({ error: "Order not found." });
   }
+
+  // Security check: pharmacies can only see their own orders
+  if (db.currentUser?.role === "Pharmacy" && order.pharmacyId !== db.pharmacy?.id) {
+    return res.status(403).json({ error: "Forbidden: You do not have permission to view this order." });
+  }
+
   res.json(order);
+});
+
+app.get("/api/orders/:id/invoice", (req, res) => {
+  const order = db.orders.find(o => o.id === req.params.id);
+  if (!order) {
+    return res.status(404).json({ error: "Order not found." });
+  }
+
+  // Security check: pharmacies can only see their own orders
+  if (db.currentUser?.role === "Pharmacy" && order.pharmacyId !== db.pharmacy?.id) {
+    return res.status(403).json({ error: "Forbidden: You do not have permission to download this invoice." });
+  }
+
+  // For simulation, just return a success payload with an invoice PDF url or structure
+  res.json({
+    success: true,
+    invoiceUrl: `/invoices/${order.id}.pdf`,
+    orderDetails: order
+  });
+});
+
+// Cancel Order
+app.post("/api/orders/:id/cancel", (req, res) => {
+  const order = db.orders.find(o => o.id === req.params.id);
+
+  if (!order) {
+    return res.status(404).json({ error: "Order not found." });
+  }
+
+  if (order.status !== "Pending" && order.status !== "Confirmed") {
+    return res.status(400).json({ error: "Cannot cancel order that is already being processed." });
+  }
+
+  order.status = "Cancelled";
+
+  // Reverse inventory reservations
+  for (const item of order.items) {
+    const product = db.products.find(p => p.id === item.productId);
+    if (product) {
+      product.availableStock += item.quantity;
+      product.reservedStock -= item.quantity;
+    }
+  }
+
+  // Restore credit if applicable
+  if (order.paymentMethod === "Cash on Delivery" && db.pharmacy) {
+    db.pharmacy.usedCredit -= order.totalAmount;
+    db.pharmacy.availableCredit = db.pharmacy.creditLimit - db.pharmacy.usedCredit;
+  }
+
+  saveDb();
+  res.json({ success: true, order });
 });
 
 // Update Order Status Flow (Demo action for simulation)
@@ -1075,7 +1292,7 @@ app.post("/api/orders/:id/status", (req, res) => {
     return res.status(404).json({ error: "Order not found." });
   }
 
-  const validStatuses = ["Confirmed", "Processing", "Packed", "Out for Delivery", "Delivered"];
+  const validStatuses = ["Pending", "Confirmed", "Processing", "Packed", "Out for Delivery", "Delivered", "Completed", "Cancelled"];
   if (!validStatuses.includes(status)) {
     return res.status(400).json({ error: "Invalid status." });
   }
@@ -1304,7 +1521,7 @@ app.get("/api/analytics", requireRole(["Admin", "Pharmacy Owner"]), (req, res) =
 
 // Prescription Upload & Intelligent Gemini AI Parsing Endpoint
 app.post("/api/prescription/upload", async (req, res) => {
-  const { imageBase64 } = req.body;
+  const { imageBase64, storageUrl } = req.body;
 
   if (!imageBase64) {
     return res.status(400).json({ error: "Prescription image base64 is required." });
@@ -1314,7 +1531,7 @@ app.post("/api/prescription/upload", async (req, res) => {
   const newPrescriptionEntry: any = {
     id: prescriptionId,
     date: new Date().toISOString(),
-    imageUrl: imageBase64,
+    imageUrl: storageUrl || imageBase64,
     status: "Processing"
   };
 

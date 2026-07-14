@@ -1,66 +1,78 @@
 import React, { useState } from "react";
 import MediChainLogo from "./MediChainLogo";
 import { motion } from "motion/react";
-import { Smartphone, ShieldCheck, ArrowRight, RefreshCw, AlertCircle } from "lucide-react";
+import { Mail, Lock, User, RefreshCw, AlertCircle, ArrowRight, ShieldCheck, UserPlus, LogIn } from "lucide-react";
 import { authService } from "../services";
 
 interface LoginProps {
-  onLoginSuccess: (phone: string, needsSetup: boolean) => void;
+  onLoginSuccess: (phoneOrEmail: string, needsSetup: boolean) => void;
 }
 
 export default function Login({ onLoginSuccess }: LoginProps) {
-  const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
-  const [step, setStep] = useState<"phone" | "otp">("phone");
+  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [role, setRole] = useState("Pharmacy Owner");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
-  const handleSendOtp = async (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phone || phone.length < 10 || phone.length > 11) {
-      setError("Please enter a valid 10 or 11-digit mobile number.");
+    if (!email || !password) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+
+    if (mode === "signup" && !name) {
+      setError("Please provide your full name.");
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
       return;
     }
 
     setLoading(true);
     setError("");
+    setSuccessMsg("");
 
     try {
-      const data = await authService.sendOtp(phone);
-      setStep("otp");
-      setSuccessMsg(data.message || "Verification code sent successfully.");
+      if (mode === "login") {
+        const data = await authService.login(email, password);
+        setSuccessMsg("Logged in successfully!");
+        setTimeout(() => {
+          onLoginSuccess(data.user.phone || data.user.email, data.needsSetup);
+        }, 500);
+      } else {
+        const data = await authService.signUp(email, password, name, "Pharmacy Owner");
+        setSuccessMsg("Registration successful!");
+        setTimeout(() => {
+          onLoginSuccess(data.user.phone || data.user.email, data.needsSetup);
+        }, 500);
+      }
     } catch (err: any) {
-      setError(err.message || "Failed to send OTP.");
+      setError(err.message || "Authentication failed. Please check your credentials.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (otp !== "123456") {
-      setError("Invalid OTP code. Please use 123456.");
-      return;
-    }
-
-    setLoading(true);
+  const handleSandboxAutofill = (roleEmail: string, roleName: string, roleType: string) => {
+    setEmail(roleEmail);
+    setPassword("password123");
+    setName(roleName);
+    setRole(roleType);
+    setMode("login");
     setError("");
-
-    try {
-      const data = await authService.verifyOtp(phone, otp);
-      onLoginSuccess(phone, data.needsSetup);
-    } catch (err: any) {
-      setError(err.message || "Failed to verify OTP.");
-    } finally {
-      setLoading(false);
-    }
   };
 
   return (
     <div className="w-full h-full bg-brand-bg flex flex-col justify-between p-6 select-none relative overflow-y-auto">
       {/* Upper Logo Section */}
-      <div className="flex flex-col items-center mt-6">
+      <div className="flex flex-col items-center mt-3">
         <MediChainLogo size="sm" withText={true} textColor="dark" />
       </div>
 
@@ -69,17 +81,53 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="my-auto py-6"
+        className="my-auto py-4"
       >
-        <div className="mb-6">
+        <div className="mb-5">
           <h1 className="text-xl font-extrabold text-brand-charcoal tracking-tight">
-            Welcome to MediChain
+            {mode === "login" ? "Welcome Back" : "Create B2B Account"}
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            {step === "phone"
-              ? "Pharmacy owner's portal. Enter mobile to securely log in."
-              : "Verification required. Input the security code sent."}
+            {mode === "login"
+              ? "Sign in with your email to access the B2B pharmacy portal."
+              : "Register trade credentials to join DGDA-certified procurement."}
           </p>
+        </div>
+
+        {/* Tab Selector */}
+        <div className="flex bg-slate-100 p-1 rounded-xl mb-4 border border-slate-200/50">
+          <button
+            type="button"
+            onClick={() => {
+              setMode("login");
+              setError("");
+              setSuccessMsg("");
+            }}
+            className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              mode === "login"
+                ? "bg-white text-brand-purple shadow-sm"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <LogIn className="w-3.5 h-3.5" />
+            Sign In
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMode("signup");
+              setError("");
+              setSuccessMsg("");
+            }}
+            className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              mode === "signup"
+                ? "bg-white text-brand-purple shadow-sm"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            Sign Up
+          </button>
         </div>
 
         {error && (
@@ -89,137 +137,130 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           </div>
         )}
 
-        {successMsg && step === "otp" && (
+        {successMsg && (
           <div className="flex items-start gap-2 bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] p-3 rounded-xl mb-4 leading-relaxed font-medium">
             <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
             <span>{successMsg}</span>
           </div>
         )}
 
-        {step === "phone" ? (
-          <form onSubmit={handleSendOtp} className="space-y-4">
-            <div className="relative">
-              <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">
-                Pharmacy Owner Mobile Number
+        <form onSubmit={handleAuth} className="space-y-3.5">
+          {mode === "signup" && (
+            <div>
+              <label className="text-[9px] uppercase font-bold text-slate-400 tracking-wider block mb-1">
+                Full Name
               </label>
-              <div className="flex items-center bg-white border border-slate-200 rounded-xl px-3.5 py-3 focus-within:border-brand-purple focus-within:ring-1 focus-within:ring-brand-purple transition-all">
-                <Smartphone className="text-slate-400 w-4 h-4 mr-2" />
-                <span className="text-slate-600 font-semibold text-xs mr-1">+880</span>
+              <div className="flex items-center bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 focus-within:border-brand-purple focus-within:ring-1 focus-within:ring-brand-purple transition-all">
+                <User className="text-slate-400 w-4 h-4 mr-2 flex-shrink-0" />
                 <input
-                  type="tel"
-                  placeholder="17XXXXXXXX"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
+                  type="text"
+                  placeholder="Zahid Hasan"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   className="w-full outline-none text-slate-800 font-semibold text-xs bg-transparent"
                   required
                 />
               </div>
             </div>
+          )}
 
-            <button
-              type="submit"
-              disabled={loading || phone.length < 10}
-              className="w-full bg-brand-lime hover:bg-brand-lime-dark text-slate-900 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-brand-lime/20 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  Continue
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-
-            {/* Tap-to-Autofill Role-Based Sandbox */}
-            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3.5 mt-4 space-y-2">
-              <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider">
-                💡 Sandbox Role Accounts (OTP: 123456)
-              </span>
-              <div className="grid grid-cols-2 gap-2 text-[10px]">
-                <button
-                  type="button"
-                  onClick={() => setPhone("01712345678")}
-                  className="bg-white border border-slate-200/80 hover:border-brand-purple p-2 rounded-lg text-left font-semibold text-slate-700 transition-all flex flex-col cursor-pointer"
-                >
-                  <span className="text-slate-400 text-[8px] font-bold">PHARMACY OWNER</span>
-                  <span>01712345678</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPhone("01799999999")}
-                  className="bg-white border border-slate-200/80 hover:border-brand-purple p-2 rounded-lg text-left font-semibold text-slate-700 transition-all flex flex-col cursor-pointer"
-                >
-                  <span className="text-slate-400 text-[8px] font-bold">ADMIN</span>
-                  <span>01799999999</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPhone("01788888888")}
-                  className="bg-white border border-slate-200/80 hover:border-brand-purple p-2 rounded-lg text-left font-semibold text-slate-700 transition-all flex flex-col cursor-pointer"
-                >
-                  <span className="text-slate-400 text-[8px] font-bold">DEPOT STAFF</span>
-                  <span>01788888888</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPhone("01777777777")}
-                  className="bg-white border border-slate-200/80 hover:border-brand-purple p-2 rounded-lg text-left font-semibold text-slate-700 transition-all flex flex-col cursor-pointer"
-                >
-                  <span className="text-slate-400 text-[8px] font-bold">DELIVERY STAFF</span>
-                  <span>01777777777</span>
-                </button>
-              </div>
+          <div>
+            <label className="text-[9px] uppercase font-bold text-slate-400 tracking-wider block mb-1">
+              Email Address
+            </label>
+            <div className="flex items-center bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 focus-within:border-brand-purple focus-within:ring-1 focus-within:ring-brand-purple transition-all">
+              <Mail className="text-slate-400 w-4 h-4 mr-2 flex-shrink-0" />
+              <input
+                type="email"
+                placeholder="owner@medichain.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full outline-none text-slate-800 font-semibold text-xs bg-transparent"
+                required
+              />
             </div>
-          </form>
-        ) : (
-          <form onSubmit={handleVerifyOtp} className="space-y-4">
-            <div className="relative">
-              <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">
-                Enter Verification Code (OTP)
-              </label>
-              <div className="flex items-center bg-white border border-slate-200 rounded-xl px-3.5 py-3 focus-within:border-brand-purple focus-within:ring-1 focus-within:ring-brand-purple transition-all">
-                <ShieldCheck className="text-slate-400 w-4 h-4 mr-2" />
-                <input
-                  type="text"
-                  maxLength={6}
-                  placeholder="XXXXXX (use 123456)"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                  className="w-full outline-none text-slate-800 font-mono tracking-[0.5em] font-extrabold text-sm text-center bg-transparent"
-                  required
-                />
-              </div>
+          </div>
+
+          <div>
+            <label className="text-[9px] uppercase font-bold text-slate-400 tracking-wider block mb-1">
+              Password
+            </label>
+            <div className="flex items-center bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 focus-within:border-brand-purple focus-within:ring-1 focus-within:ring-brand-purple transition-all">
+              <Lock className="text-slate-400 w-4 h-4 mr-2 flex-shrink-0" />
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full outline-none text-slate-800 font-semibold text-xs bg-transparent"
+                required
+              />
             </div>
+          </div>
 
-            <button
-              type="submit"
-              disabled={loading || otp.length < 6}
-              className="w-full bg-brand-purple hover:bg-brand-purple-dark text-white py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-brand-purple/20 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  Verify OTP
-                  <ShieldCheck className="w-4 h-4" />
-                </>
-              )}
-            </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setStep("phone");
-                setSuccessMsg("");
-                setError("");
-              }}
-              className="w-full text-center text-xs font-semibold text-brand-purple hover:underline cursor-pointer"
-            >
-              Change Mobile Number
-            </button>
-          </form>
-        )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-brand-lime hover:bg-brand-lime-dark text-slate-900 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-brand-lime/20 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+          >
+            {loading ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : mode === "login" ? (
+              <>
+                Sign In
+                <ArrowRight className="w-4 h-4" />
+              </>
+            ) : (
+              <>
+                Create Account
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
+          </button>
+
+          {/* Tap-to-Autofill Role-Based Sandbox */}
+          <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3.5 mt-4 space-y-2">
+            <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider">
+              💡 Quick Sandbox Accounts (Autofill & Sign In)
+            </span>
+            <div className="grid grid-cols-2 gap-2 text-[10px]">
+              <button
+                type="button"
+                onClick={() => handleSandboxAutofill("owner@medichain.com", "Zahid Hasan", "Pharmacy Owner")}
+                className="bg-white border border-slate-200/80 hover:border-brand-purple p-2 rounded-lg text-left font-semibold text-slate-700 transition-all flex flex-col cursor-pointer shadow-sm hover:shadow"
+              >
+                <span className="text-slate-400 text-[8px] font-bold">PHARMACY OWNER</span>
+                <span className="truncate">owner@medichain.com</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSandboxAutofill("admin@medichain.com", "MediChain Administrator", "Admin")}
+                className="bg-white border border-slate-200/80 hover:border-brand-purple p-2 rounded-lg text-left font-semibold text-slate-700 transition-all flex flex-col cursor-pointer shadow-sm hover:shadow"
+              >
+                <span className="text-slate-400 text-[8px] font-bold">ADMIN</span>
+                <span className="truncate">admin@medichain.com</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSandboxAutofill("depot@medichain.com", "Depot Logistics Officer", "Depot Staff")}
+                className="bg-white border border-slate-200/80 hover:border-brand-purple p-2 rounded-lg text-left font-semibold text-slate-700 transition-all flex flex-col cursor-pointer shadow-sm hover:shadow"
+              >
+                <span className="text-slate-400 text-[8px] font-bold">DEPOT STAFF</span>
+                <span className="truncate">depot@medichain.com</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSandboxAutofill("delivery@medichain.com", "Delivery Express Courier", "Delivery Staff")}
+                className="bg-white border border-slate-200/80 hover:border-brand-purple p-2 rounded-lg text-left font-semibold text-slate-700 transition-all flex flex-col cursor-pointer shadow-sm hover:shadow"
+              >
+                <span className="text-slate-400 text-[8px] font-bold">DELIVERY STAFF</span>
+                <span className="truncate">delivery@medichain.com</span>
+              </button>
+            </div>
+          </div>
+        </form>
       </motion.div>
 
       {/* Enterprise Security assurance Footer */}

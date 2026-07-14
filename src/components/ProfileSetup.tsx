@@ -12,6 +12,7 @@ interface ProfileSetupProps {
 export default function ProfileSetup({ phone, onSetupComplete }: ProfileSetupProps) {
   const [pharmacyName, setPharmacyName] = useState("");
   const [ownerName, setOwnerName] = useState("");
+  const [ownerPhone, setOwnerPhone] = useState(phone && !phone.includes("@") ? phone : "");
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("Dhaka");
   const [licenseNo, setLicenseNo] = useState("");
@@ -20,7 +21,7 @@ export default function ProfileSetup({ phone, onSetupComplete }: ProfileSetupPro
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pharmacyName || !ownerName || !address || !city || !licenseNo) {
+    if (!pharmacyName || !ownerName || !ownerPhone || !address || !city || !licenseNo) {
       setError("Please complete all registration fields.");
       return;
     }
@@ -32,7 +33,7 @@ export default function ProfileSetup({ phone, onSetupComplete }: ProfileSetupPro
       await profileService.updatePharmacyProfile({
         pharmacyName,
         ownerName,
-        phone,
+        phone: ownerPhone,
         address,
         city,
         licenseNo
@@ -104,14 +105,21 @@ export default function ProfileSetup({ phone, onSetupComplete }: ProfileSetupPro
           </div>
         </div>
 
-        {/* Phone (Read Only) */}
+        {/* Phone (Editable) */}
         <div>
           <label className="text-[9px] uppercase font-bold text-slate-400 tracking-wider block mb-1">
-            Owner Contact Phone
+            Owner Contact Phone *
           </label>
-          <div className="flex items-center bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5">
+          <div className="flex items-center bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus-within:border-brand-purple transition-all">
             <Phone className="text-slate-400 w-4 h-4 mr-2" />
-            <span className="text-slate-600 font-bold text-xs bg-transparent">{phone}</span>
+            <input
+              type="tel"
+              placeholder="e.g. 01712345678"
+              value={ownerPhone}
+              onChange={(e) => setOwnerPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
+              className="w-full outline-none text-slate-800 text-xs font-semibold bg-transparent"
+              required
+            />
           </div>
         </div>
 

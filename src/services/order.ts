@@ -146,6 +146,36 @@ export const orderService = {
   },
 
   /**
+   * Downloads the invoice for a given order.
+   */
+  async downloadInvoice(orderId: string): Promise<{ success: boolean; invoiceUrl: string; orderDetails: any }> {
+    const res = await fetch(`/api/orders/${orderId}/invoice`);
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Failed to download invoice.");
+    }
+
+    return res.json();
+  },
+
+  /**
+   * Cancels a pending or confirmed order before it is processed.
+   */
+  async cancelOrder(orderId: string): Promise<{ success: boolean }> {
+    const res = await fetch(`/api/orders/${orderId}/cancel`, {
+      method: "POST",
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Failed to cancel order.");
+    }
+
+    return res.json();
+  },
+
+  /**
    * [ADMIN/STAFF ACTION] Updates the delivery/processing status of an active order.
    */
   async updateOrderStatus(orderId: string, status: OrderStatus): Promise<{ success: boolean }> {

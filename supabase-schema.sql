@@ -12,7 +12,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Create custom enum types for User Roles and Statuses
 CREATE TYPE user_role AS ENUM ('pharmacy', 'admin', 'depot_staff', 'delivery');
-CREATE TYPE order_status AS ENUM ('Confirmed', 'Processing', 'Packed', 'Out for Delivery', 'Delivered');
+CREATE TYPE order_status AS ENUM ('Pending', 'Confirmed', 'Processing', 'Packed', 'Out for Delivery', 'Delivered', 'Completed', 'Cancelled');
 CREATE TYPE payment_method AS ENUM ('Cash on Delivery', 'bKash', 'Nagad');
 CREATE TYPE payment_status AS ENUM ('Pending', 'Paid', 'Failed', 'Refunded');
 CREATE TYPE return_status AS ENUM ('None', 'Pending', 'Approved', 'Rejected');
@@ -22,10 +22,12 @@ CREATE TYPE prescription_status AS ENUM ('Processing', 'Completed', 'Failed');
 -- 1. USERS & ROLES TABLE
 -- ==========================================
 CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY, -- Linked with Supabase Auth user id (auth.uid() = id)
+    email VARCHAR(255) UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
-    phone VARCHAR(20) UNIQUE NOT NULL,
-    role user_role NOT NULL DEFAULT 'pharmacy',
+    role VARCHAR(100) NOT NULL DEFAULT 'Pharmacy Owner',
+    phone VARCHAR(50),
+    pharmacy_id UUID, -- Will be set up as foreign key once pharmacies table is created
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -45,6 +47,9 @@ CREATE TABLE pharmacies (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Add relation linkage from users back to pharmacies table
+ALTER TABLE users ADD CONSTRAINT fk_users_pharmacy FOREIGN KEY (pharmacy_id) REFERENCES pharmacies(id) ON DELETE SET NULL;
 
 -- ==========================================
 -- 3. CATEGORIES TABLE
@@ -134,13 +139,14 @@ CREATE TABLE credit_accounts (
 CREATE TABLE orders (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     pharmacy_id UUID REFERENCES pharmacies(id) ON DELETE CASCADE,
-    status order_status NOT NULL DEFAULT 'Confirmed',
+    status order_status NOT NULL DEFAULT 'Pending',
     payment_method payment_method NOT NULL DEFAULT 'Cash on Delivery',
     payment_status payment_status NOT NULL DEFAULT 'Pending',
     total_amount DECIMAL(12, 2) NOT NULL CHECK (total_amount >= 0),
     total_savings DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
     total_mrp DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
     notes TEXT,
+    delivery_address TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     estimated_delivery TIMESTAMP WITH TIME ZONE,
@@ -286,14 +292,20 @@ ALTER TABLE favourites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE prescriptions ENABLE ROW LEVEL SECURITY;
 
 -- 1. Users Policies:
--- Users can read their own user profile; Admins can read all.
+-- Users can read, insert, and update their own user profile.
 CREATE POLICY "Users can view own data" ON users 
     FOR SELECT USING (auth.uid() = id);
+
+CREATE POLICY "Users can insert own profile" ON users
+    FOR INSERT WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "Users can update own data" ON users
+    FOR UPDATE USING (auth.uid() = id);
 
 CREATE POLICY "Admins can view and manage all users" ON users 
     FOR ALL USING (
         EXISTS (
-            SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin'
+            SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'Admin'
         )
     );
 
@@ -302,13 +314,16 @@ CREATE POLICY "Admins can view and manage all users" ON users
 CREATE POLICY "Pharmacies can view own profile" ON pharmacies 
     FOR SELECT USING (auth.uid() = user_id);
 
+CREATE POLICY "Pharmacies can insert own profile" ON pharmacies
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
 CREATE POLICY "Pharmacies can update own profile" ON pharmacies 
     FOR UPDATE USING (auth.uid() = user_id);
 
 CREATE POLICY "Admins have full access on pharmacies" ON pharmacies 
     FOR ALL USING (
         EXISTS (
-            SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin'
+            SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'Admin'
         )
     );
 
@@ -369,3 +384,61 @@ CREATE POLICY "Pharmacies can view own order items" ON order_items
 -- Users can see general broadcasts or targeted notifications.
 CREATE POLICY "Users can view relevant notifications" ON notifications 
     FOR SELECT USING (user_id IS NULL OR user_id = auth.uid());
+
+-- ==========================================
+-- 10. STORAGE BUCKETS & SECURITY POLICIES
+-- ==========================================
+
+-- Prescriptions Bucket (Private)
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+    'prescriptions',
+    'prescriptions',
+    false,
+    10485760, -- 10MB
+    ARRAY['image/jpeg', 'image/png', 'application/pdf']
+) ON CONFLICT (id) DO UPDATE SET public = false;
+
+-- Product Images Bucket (Public)
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+    'product-images',
+    'product-images',
+    true,
+    5242880, -- 5MB
+    ARRAY['image/jpeg', 'image/png']
+) ON CONFLICT (id) DO UPDATE SET public = true;
+
+-- Prescriptions Storage RLS Policies
+-- Pharmacy owners can upload to their own folder
+CREATE POLICY "Users can upload their own prescriptions" ON storage.objects
+    FOR INSERT WITH CHECK (
+        bucket_id = 'prescriptions' AND 
+        (storage.foldername(name))[1] = auth.uid()::text
+    );
+
+-- Pharmacy owners can read their own prescriptions
+CREATE POLICY "Users can view their own prescriptions" ON storage.objects
+    FOR SELECT USING (
+        bucket_id = 'prescriptions' AND 
+        (storage.foldername(name))[1] = auth.uid()::text
+    );
+
+-- Admins can view all prescriptions
+CREATE POLICY "Admins can view all prescriptions" ON storage.objects
+    FOR SELECT USING (
+        bucket_id = 'prescriptions' AND 
+        EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'Admin')
+    );
+
+-- Product Images Storage RLS Policies
+-- Public can read product images
+CREATE POLICY "Public product images access" ON storage.objects
+    FOR SELECT USING (bucket_id = 'product-images');
+
+-- Admins can manage product images
+CREATE POLICY "Admins manage product images" ON storage.objects
+    FOR ALL USING (
+        bucket_id = 'product-images' AND 
+        EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'Admin')
+    );

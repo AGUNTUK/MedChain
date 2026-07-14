@@ -338,8 +338,13 @@ export default function SearchSystem({
                       </div>
 
                       {/* Product details */}
-                      <div onClick={() => onOpenProductDetails(p)} className="cursor-pointer">
-                        <div className="flex items-start justify-between">
+                      <div onClick={() => onOpenProductDetails(p)} className="cursor-pointer flex gap-3 mt-1">
+                        {p.imageUrl && (
+                          <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-50 border border-slate-100 flex-shrink-0">
+                            <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                        <div className="flex-1 flex items-start justify-between">
                           <div>
                             <h3 className="text-xs font-black text-brand-charcoal hover:text-brand-purple transition-colors leading-tight">
                               {p.name} <span className="text-[10px] font-bold text-slate-400">{p.strength}</span>
@@ -349,7 +354,7 @@ export default function SearchSystem({
                             </p>
                             <p className="text-[9px] text-slate-500 mt-1 font-semibold">{p.company}</p>
                           </div>
-                          <div className="text-right flex-shrink-0">
+                          <div className="text-right flex-shrink-0 ml-2">
                             {isLowStock ? (
                               <span className="text-[8px] bg-rose-50 text-rose-600 border border-rose-100 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider block mb-1">
                                 Low Stock
@@ -522,6 +527,11 @@ export default function SearchSystem({
                         className="bg-white rounded-2xl p-3 border border-slate-100 shadow-3xs flex flex-col justify-between hover:border-slate-200 transition-all"
                       >
                         <div onClick={() => onOpenProductDetails(p)} className="cursor-pointer">
+                          {p.imageUrl && (
+                            <div className="w-full h-16 rounded-xl overflow-hidden bg-slate-50 border border-slate-100 mb-2">
+                              <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                            </div>
+                          )}
                           <span className="text-[7.5px] bg-brand-purple/10 text-brand-purple px-1.5 py-0.5 rounded uppercase font-black tracking-wider inline-block mb-1">
                             {p.category}
                           </span>

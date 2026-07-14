@@ -199,6 +199,13 @@ export default function Home({
                 key={p.id}
                 className="bg-white rounded-2xl p-3.5 border border-slate-100 flex gap-3 shadow-sm hover:border-slate-200 transition-all cursor-pointer relative"
               >
+                {/* Image */}
+                {p.imageUrl && (
+                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-50 border border-slate-100 flex-shrink-0" onClick={() => onOpenProductDetails(p)}>
+                    <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                  </div>
+                )}
+
                 {/* Save label */}
                 <div className="absolute top-3 right-3 bg-brand-purple text-white text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider">
                   {p.discountPercentage}% OFF

@@ -49,12 +49,29 @@ export default function OrderTracking({ orderId, onBack, onRefreshStats }: Order
   }
 
   const steps: Array<{ key: OrderStatus; label: string; desc: string }> = [
+    { key: "Pending", label: "Pending", desc: "Order initiated and pending approval." },
     { key: "Confirmed", label: "Confirmed", desc: "Wholesale order received and stock reserved at depot." },
     { key: "Processing", label: "Processing", desc: "Drug batch verification and FEFO compliance audit." },
     { key: "Packed", label: "Packed", desc: "Bulk thermal packaging completed, ready in dispatch bay." },
     { key: "Out for Delivery", label: "Out for Delivery", desc: "MediChain logistics container dispatched to your city." },
-    { key: "Delivered", label: "Delivered", desc: "Consignment handed over. Digital invoice generated." }
+    { key: "Delivered", label: "Delivered", desc: "Consignment handed over. Digital invoice generated." },
+    { key: "Completed", label: "Completed", desc: "Order completely fulfilled and closed." }
   ];
+
+  // If order is cancelled, we should show that
+  if (order.status === "Cancelled") {
+    return (
+      <div className="w-full h-full bg-brand-bg flex flex-col p-4">
+        <div className="flex items-center gap-2 mb-4">
+          <button onClick={onBack} className="p-1.5 rounded-full bg-white border border-slate-100"><ArrowLeft className="w-4 h-4" /></button>
+          <h2 className="text-sm font-black">Order Cancelled</h2>
+        </div>
+        <div className="bg-rose-50 text-rose-600 p-4 rounded-xl text-xs font-bold text-center">
+          This order has been cancelled and reversed.
+        </div>
+      </div>
+    );
+  }
 
   // Find index of current status
   const currentStepIdx = steps.findIndex(s => s.key === order.status);

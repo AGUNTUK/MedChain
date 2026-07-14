@@ -40,6 +40,13 @@ export default function ProductDetails({ product, onClose, onAddToCart }: Produc
           </button>
         </div>
 
+        {/* Product Image */}
+        {product.imageUrl && (
+          <div className="w-full h-40 bg-white rounded-2xl border border-slate-100 mb-4 overflow-hidden shadow-sm flex items-center justify-center p-2">
+            <img src={product.imageUrl} alt={product.name} className="max-w-full max-h-full object-contain" />
+          </div>
+        )}
+
         {/* Corporate details */}
         <div className="bg-white rounded-2xl p-4 border border-slate-100 mb-4 space-y-2 text-xs">
           <div className="flex justify-between">

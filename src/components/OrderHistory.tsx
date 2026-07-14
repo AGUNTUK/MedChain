@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ListFilter, Receipt, ArrowRight, CornerDownLeft, RefreshCw, Eye, Check, AlertCircle } from "lucide-react";
+import { ListFilter, Receipt, ArrowRight, CornerDownLeft, RefreshCw, Eye, Check, AlertCircle, XCircle } from "lucide-react";
 import { Order } from "../types";
 import { orderService } from "../services";
 
@@ -175,6 +175,24 @@ export default function OrderHistory({ onTrackOrder, onRefreshCart, onTriggerTab
                 Reorder
               </button>
             </div>
+
+            {/* Cancel Request button (Pending or Confirmed order) */}
+            {(order.status === "Pending" || order.status === "Confirmed") && (
+              <button
+                onClick={async () => {
+                  try {
+                    await orderService.cancelOrder(order.id);
+                    fetchOrders();
+                  } catch (err) {
+                    alert("Failed to cancel order.");
+                  }
+                }}
+                className="w-full text-center text-[10px] font-extrabold text-rose-500 bg-rose-50 hover:bg-rose-100 py-1.5 rounded-lg flex items-center justify-center gap-1 cursor-pointer transition-all mt-2"
+              >
+                <XCircle className="w-3 h-3" />
+                Cancel Order
+              </button>
+            )}
 
             {/* Return Request button (Delivered order and not already returned) */}
             {order.status === "Delivered" && !order.hasReturnRequested && (

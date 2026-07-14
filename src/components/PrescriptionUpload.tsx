@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Upload, Camera, FileText, Check, Plus, RefreshCw, AlertCircle, Sparkles, HelpCircle } from "lucide-react";
-import { inventoryService } from "../services";
+import { inventoryService, storageService } from "../services";
 
 interface PrescriptionUploadProps {
   onAddToCart: (productId: string, qty: number) => Promise<boolean>;
@@ -29,16 +29,38 @@ export default function PrescriptionUpload({ onAddToCart, onTriggerTab }: Prescr
     }
   ];
 
-  const handleFileUpload = async (base64Str: string) => {
+  const handleFileUpload = async (fileOrBase64: File | string) => {
     setLoading(true);
     setError("");
     setResults([]);
 
     try {
-      const data = await inventoryService.uploadPrescription(base64Str);
+      let base64Str = "";
+      let storageUrl = "";
+
+      if (fileOrBase64 instanceof File) {
+        // 1. Upload to Supabase Storage (with full validation & error handling inside)
+        const uploadResult = await storageService.uploadPrescription(fileOrBase64);
+        storageUrl = uploadResult.url;
+
+        // 2. Read as base64 for Gemini OCR ingestion
+        base64Str = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(fileOrBase64);
+        });
+      } else {
+        // Fallback for simulation presets
+        base64Str = fileOrBase64;
+        storageUrl = fileOrBase64;
+      }
+
+      // 3. Post to Gemini parsing backend
+      const data = await inventoryService.uploadPrescription(base64Str, storageUrl);
       setResults(data.results || []);
     } catch (err: any) {
-      setError(err.message || "AI model response timed out. Please try again.");
+      setError(err.message || "AI prescription upload and analysis failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -61,22 +83,14 @@ export default function PrescriptionUpload({ onAddToCart, onTriggerTab }: Prescr
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        handleFileUpload(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      handleFileUpload(file);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        handleFileUpload(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      handleFileUpload(file);
     }
   };
 

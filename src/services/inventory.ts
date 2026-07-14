@@ -10,11 +10,11 @@ export const inventoryService = {
    * Uploads an image of a handwritten or printed prescription in base64 format to the MediChain server.
    * Uses the Gemini AI backend to extract medicine matches and suggest quantities.
    */
-  async uploadPrescription(imageBase64: string): Promise<any> {
+  async uploadPrescription(imageBase64: string, storageUrl?: string): Promise<any> {
     const res = await fetch("/api/prescription/upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ imageBase64 }),
+      body: JSON.stringify({ imageBase64, storageUrl }),
     });
 
     if (!res.ok) {

@@ -19,6 +19,7 @@ export interface Product {
   soldStock: number;
   batchNumber: string;
   expiryDate: string; // YYYY-MM-DD
+  imageUrl?: string;
   suppliers: Array<{
     name: string;
     purchasePrice: number;
@@ -39,7 +40,7 @@ export interface Pharmacy {
   availableCredit: number;
 }
 
-export type OrderStatus = "Confirmed" | "Processing" | "Packed" | "Out for Delivery" | "Delivered";
+export type OrderStatus = "Pending" | "Confirmed" | "Processing" | "Packed" | "Out for Delivery" | "Delivered" | "Completed" | "Cancelled";
 
 export interface OrderItem {
   productId: string;
@@ -63,6 +64,7 @@ export interface Order {
   totalMrp: number;
   items: OrderItem[];
   notes?: string;
+  deliveryAddress?: string;
   createdAt: string;
   estimatedDelivery: string;
   hasReturnRequested?: boolean;
