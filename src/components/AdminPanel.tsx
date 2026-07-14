@@ -29,7 +29,9 @@ import {
   Clock,
   Check,
   Building,
-  History
+  History,
+  CircleDollarSign,
+  ClipboardList
 } from "lucide-react";
 import {
   AreaChart,
@@ -132,6 +134,33 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
   const [inventoryLowStockOnly, setInventoryLowStockOnly] = useState(false);
   const [inventoryExpiryDaysRange, setInventoryExpiryDaysRange] = useState<"all" | "30" | "90" | "180">("all");
 
+  // Complete Operations Management Suite States
+  const [financeSummary, setFinanceSummary] = useState<any>(null);
+  const [paymentLedger, setPaymentLedger] = useState<any[]>([]);
+  const [financeSearch, setFinanceSearch] = useState("");
+  
+  const [notifTitle, setNotifTitle] = useState("");
+  const [notifMessage, setNotifMessage] = useState("");
+  const [notifTargetType, setNotifTargetType] = useState<"global" | "pharmacy" | "offer" | "price_drop">("global");
+  const [notifSelectedPharmacy, setNotifSelectedPharmacy] = useState("");
+  const [notifHistory, setNotifHistory] = useState<any[]>([]);
+
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [auditSearch, setAuditSearch] = useState("");
+  const [auditFilterModule, setAuditFilterModule] = useState("");
+
+  const [importHistory, setImportHistory] = useState<any[]>([]);
+
+  // Column Mapping states
+  const [rawUploadedData, setRawUploadedData] = useState<any[]>([]);
+  const [uploadedHeaders, setUploadedHeaders] = useState<string[]>([]);
+  const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
+  const [showMappingStep, setShowMappingStep] = useState(false);
+
+  // Pharmacy Management Search Filters
+  const [pharmacySearchStatus, setPharmacySearchStatus] = useState<"All" | "Pending" | "Verified" | "Suspended">("All");
+  const [creditAdjustmentLimit, setCreditAdjustmentLimit] = useState<string>("");
+
   const fetchPriceHistory = async (productId: string) => {
     try {
       const res = await fetch(`/api/admin/products/${productId}/price-history`);
@@ -221,6 +250,32 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
       if (analRes.ok) {
         const analData = await analRes.json();
         setAnalyticsData(analData);
+      }
+
+      // Fetch Complete Operational Admin Suite Data
+      const auditRes = await fetch("/api/admin/audit-logs");
+      if (auditRes.ok) {
+        const auditData = await auditRes.json();
+        setAuditLogs(auditData.auditLogs || []);
+      }
+
+      const importHistRes = await fetch("/api/admin/import-history");
+      if (importHistRes.ok) {
+        const importHistData = await importHistRes.json();
+        setImportHistory(importHistData.history || []);
+      }
+
+      const financeRes = await fetch("/api/admin/finance/summary");
+      if (financeRes.ok) {
+        const financeData = await financeRes.json();
+        setFinanceSummary(financeData);
+        setPaymentLedger(financeData.paymentHistory || []);
+      }
+
+      const notifHistRes = await fetch("/api/admin/notifications");
+      if (notifHistRes.ok) {
+        const notifHistData = await notifHistRes.json();
+        setNotifHistory(notifHistData.history || []);
       }
     } catch (err: any) {
       console.error(err);
@@ -449,39 +504,108 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
     setImportErrors([]);
     setIsImporting(true);
 
-    const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls");
     const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const ab = e.target?.result as ArrayBuffer;
+        const workbook = XLSX.read(ab, { type: "array" });
+        const firstSheet = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheet];
+        
+        // Get rows as 2D array
+        const sheetRows = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
+        if (sheetRows.length === 0) {
+          throw new Error("Spreadsheet is empty.");
+        }
+        
+        const headers = (sheetRows[0] || []).map((h: any) => String(h).trim());
+        const rawData = sheetRows.slice(1);
+        
+        setUploadedHeaders(headers);
+        setRawUploadedData(rawData);
+        
+        // Auto-detect mapping
+        const standardFields = [
+          { key: "name", synonyms: ["product name", "medicine name", "name", "medicine"] },
+          { key: "genericName", synonyms: ["generic name", "generic", "formula"] },
+          { key: "company", synonyms: ["company", "manufacturer", "mfg", "brand"] },
+          { key: "category", synonyms: ["category", "type", "form"] },
+          { key: "strength", synonyms: ["strength", "power", "mg"] },
+          { key: "packSize", synonyms: ["pack size", "pack", "size"] },
+          { key: "mrp", synonyms: ["mrp", "retail price", "price mrp", "m.r.p"] },
+          { key: "sellingPrice", synonyms: ["selling price", "wholesale price", "price", "rate", "selling_price"] },
+          { key: "availableStock", synonyms: ["available stock", "stock", "quantity", "qty", "stock quantity"] },
+          { key: "batchNumber", synonyms: ["batch number", "batch", "batch no", "batch_number"] },
+          { key: "expiryDate", synonyms: ["expiry date", "expiry", "exp date", "exp", "expiry_date"] },
+          { key: "imageUrl", synonyms: ["image url", "image", "img url", "img", "image_url"] }
+        ];
+        
+        const initialMap: Record<string, string> = {};
+        standardFields.forEach(field => {
+          const matchedHeader = headers.find(h => {
+            const normalizedHeader = h.toLowerCase().replace(/[^a-z0-9]/g, "");
+            return field.synonyms.some(syn => {
+              const normalizedSyn = syn.toLowerCase().replace(/[^a-z0-9]/g, "");
+              return normalizedHeader === normalizedSyn || normalizedHeader.includes(normalizedSyn);
+            });
+          });
+          if (matchedHeader) {
+            initialMap[field.key] = matchedHeader;
+          } else {
+            initialMap[field.key] = ""; // unmapped
+          }
+        });
+        
+        setColumnMapping(initialMap);
+        setShowMappingStep(true);
+        setIsImporting(false);
+      } catch (err: any) {
+        setErrorMsg("Failed to parse the uploaded spreadsheet. " + err.message);
+        setIsImporting(false);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
 
-    if (isExcel) {
-      reader.onload = async (e) => {
-        try {
-          const ab = e.target?.result as ArrayBuffer;
-          const workbook = XLSX.read(ab, { type: "array" });
-          const firstSheet = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[firstSheet];
-          const csv = XLSX.utils.sheet_to_csv(worksheet);
-          setRawCsvString(csv);
-          // Run preview/dry-run against backend
-          await runDryRun(csv);
-        } catch (err) {
-          setErrorMsg("Could not parse Excel spreadsheet file format.");
-          setIsImporting(false);
-        }
-      };
-      reader.readAsArrayBuffer(file);
-    } else {
-      // CSV File
-      reader.onload = async (e) => {
-        try {
-          const csv = e.target?.result as string;
-          setRawCsvString(csv);
-          await runDryRun(csv);
-        } catch (err) {
-          setErrorMsg("Could not read uploaded CSV file.");
-          setIsImporting(false);
-        }
-      };
-      reader.readAsText(file);
+  const handleApplyColumnMappingAndValidate = async () => {
+    setIsImporting(true);
+    setShowMappingStep(false);
+    
+    try {
+      // Map JSON to standard CSV structure
+      const csvHeader = "Product Name,Generic Name,Company,Category,Strength,Pack Size,MRP,Selling Price,Stock,Batch Number,Expiry Date,Image URL";
+      const csvRows = rawUploadedData.map(row => {
+        const getValueForField = (fieldKey: string) => {
+          const mappedHeader = columnMapping[fieldKey];
+          if (!mappedHeader) return "";
+          const headerIdx = uploadedHeaders.indexOf(mappedHeader);
+          if (headerIdx === -1) return "";
+          const val = row[headerIdx];
+          return val !== undefined && val !== null ? String(val).replace(/"/g, '""') : "";
+        };
+        
+        const name = getValueForField("name");
+        const genericName = getValueForField("genericName");
+        const company = getValueForField("company");
+        const category = getValueForField("category") || "Tablet";
+        const strength = getValueForField("strength") || "N/A";
+        const packSize = getValueForField("packSize") || "N/A";
+        const mrp = getValueForField("mrp") || "0";
+        const sellingPrice = getValueForField("sellingPrice") || "0";
+        const stock = getValueForField("availableStock") || "0";
+        const batchNumber = getValueForField("batchNumber") || `B-IMP${Math.floor(100+Math.random()*900)}`;
+        const expiryDate = getValueForField("expiryDate") || new Date(Date.now() + 365*24*60*60*1000).toISOString().split("T")[0];
+        const imageUrl = getValueForField("imageUrl") || "";
+        
+        return `"${name}","${genericName}","${company}","${category}","${strength}","${packSize}",${mrp},${sellingPrice},${stock},"${batchNumber}","${expiryDate}","${imageUrl}"`;
+      });
+      
+      const csvContent = [csvHeader, ...csvRows].join("\n");
+      setRawCsvString(csvContent);
+      await runDryRun(csvContent);
+    } catch (err: any) {
+      setErrorMsg("Error compiling mapped spreadsheet. " + err.message);
+      setIsImporting(false);
     }
   };
 
@@ -508,7 +632,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
   };
 
   const handleConfirmImport = async () => {
-    if (!rawCsvString) return;
+    if (!rawCsvString || !previewData) return;
     setLoading(true);
     try {
       const res = await fetch("/api/admin/products/import", {
@@ -522,6 +646,19 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
       }
 
       const data = await res.json();
+      
+      // Save import history event on server
+      await fetch("/api/admin/import-history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: importedFile?.name || "catalog_upload.xlsx",
+          totalRows: previewData.totalProcessed,
+          successCount: data.successCount,
+          failureCount: previewData.failureCount
+        })
+      });
+
       setSuccessMsg(`Bulk Import Success: Created ${data.successCount} wholesale medicines.`);
       setImportedFile(null);
       setPreviewData(null);
@@ -806,6 +943,59 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
     }
   };
 
+  const handleAdjustPharmacyCredit = async (pharmacyId: string, creditLimit: string) => {
+    try {
+      const res = await fetch(`/api/admin/pharmacies/${pharmacyId}/credit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creditLimit })
+      });
+      if (res.ok) {
+        setSuccessMsg("Credit limit adjusted successfully.");
+        setCreditAdjustmentLimit("");
+        refreshAllData();
+      } else {
+        const err = await res.json();
+        setErrorMsg(err.error || "Failed to adjust credit limit.");
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMsg("Failed to adjust credit limit.");
+    }
+  };
+
+  const handleSendBroadcasterNotification = async () => {
+    if (!notifTitle || !notifMessage) {
+      setErrorMsg("Please fill in both title and message.");
+      return;
+    }
+    try {
+      const res = await fetch("/api/admin/notifications/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: notifTitle,
+          message: notifMessage,
+          targetType: notifTargetType,
+          pharmacyId: notifTargetType === "pharmacy" ? notifSelectedPharmacy : undefined
+        })
+      });
+      if (res.ok) {
+        setSuccessMsg("Notification dispatched successfully!");
+        setNotifTitle("");
+        setNotifMessage("");
+        setNotifSelectedPharmacy("");
+        refreshAllData();
+      } else {
+        const err = await res.json();
+        setErrorMsg(err.error || "Failed to dispatch notification.");
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMsg("Failed to dispatch notification.");
+    }
+  };
+
   // --- RENDERING VIEWS ---
 
   return (
@@ -904,6 +1094,26 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
             </button>
 
             <button
+              onClick={() => navigateTo("/admin/finance")}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all ${
+                activeRoute === "/admin/finance" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+              }`}
+            >
+              <CircleDollarSign className="w-4 h-4" />
+              <span>Finance Panel</span>
+            </button>
+
+            <button
+              onClick={() => navigateTo("/admin/audit-logs")}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all ${
+                activeRoute === "/admin/audit-logs" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+              }`}
+            >
+              <ClipboardList className="w-4 h-4" />
+              <span>Audit Logs</span>
+            </button>
+
+            <button
               onClick={() => navigateTo("/admin/settings")}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all ${
                 activeRoute === "/admin/settings" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
@@ -943,6 +1153,8 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
               {activeRoute === "/admin/orders" && "B2B WHOLESALE PROCUREMENTS"}
               {activeRoute === "/admin/pharmacies" && "B2B PHARMACY REGISTRY"}
               {activeRoute === "/admin/notifications" && "ALERTS BROADCAST RADAR"}
+              {activeRoute === "/admin/finance" && "FINANCE & CREDIT ACCOUNTING"}
+              {activeRoute === "/admin/audit-logs" && "SYSTEM TRANSACTION AUDIT LOGS"}
               {activeRoute === "/admin/settings" && "SYSTEM PLATFORM SCHEMAS"}
             </h2>
           </div>
@@ -1405,6 +1617,67 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                       </label>
                     </div>
 
+                    {/* Column Mapping Wizard Step */}
+                    {showMappingStep && (
+                      <div className="mt-6 bg-slate-950 p-6 rounded-xl border border-indigo-500/30 space-y-4 animate-fade-in text-slate-200">
+                        <div className="border-b border-slate-850 pb-3">
+                          <span className="text-[9px] uppercase font-black text-indigo-400 tracking-wider">Excel Spreadsheet Column Mapping Wizard</span>
+                          <h4 className="text-xs font-extrabold text-white mt-0.5">We auto-detected columns in your spreadsheet. Review and align headers with MediChain models:</h4>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                          {[
+                            { key: "name", label: "Product Name (Required)", required: true },
+                            { key: "genericName", label: "Generic Formula Name (Required)", required: true },
+                            { key: "company", label: "Manufacturer Company (Required)", required: true },
+                            { key: "category", label: "Category (Tablet/Capsule/Syrup...)", required: false },
+                            { key: "strength", label: "Strength (mg/ml)", required: false },
+                            { key: "packSize", label: "Pack Size", required: false },
+                            { key: "mrp", label: "Maximum Retail Price (MRP)", required: true },
+                            { key: "sellingPrice", label: "Selling Wholesale Price", required: true },
+                            { key: "availableStock", label: "Available Stock Qty", required: false },
+                            { key: "batchNumber", label: "Batch Number", required: false },
+                            { key: "expiryDate", label: "Expiry Date (YYYY-MM-DD)", required: false },
+                            { key: "imageUrl", label: "Product Image URL", required: false }
+                          ].map(field => (
+                            <div key={field.key} className="flex items-center justify-between bg-slate-900/60 p-3 rounded-lg border border-slate-900 text-xs">
+                              <span className="font-semibold text-slate-300">
+                                {field.label} {field.required && <span className="text-rose-500">*</span>}
+                              </span>
+                              <select
+                                value={columnMapping[field.key] || ""}
+                                onChange={(e) => setColumnMapping(prev => ({ ...prev, [field.key]: e.target.value }))}
+                                className="bg-slate-950 border border-slate-800 rounded-md px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer min-w-[140px]"
+                              >
+                                <option value="">-- Ignore / Unmapped --</option>
+                                {uploadedHeaders.map((header, idx) => (
+                                  <option key={idx} value={header}>{header}</option>
+                                ))}
+                              </select>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex justify-end gap-3 pt-3 border-t border-slate-850">
+                          <button
+                            onClick={() => {
+                              setShowMappingStep(false);
+                              setImportedFile(null);
+                            }}
+                            className="bg-slate-900 hover:bg-slate-850 text-slate-400 border border-slate-800 text-xs font-semibold py-2 px-4 rounded-xl cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleApplyColumnMappingAndValidate}
+                            className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold py-2 px-5 rounded-xl transition-all cursor-pointer shadow-lg"
+                          >
+                            Analyze & Validate Catalog
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Import Preview HUD */}
                     {isImporting && (
                       <div className="mt-4 flex items-center justify-center gap-2 py-4">
@@ -1501,6 +1774,39 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                         </div>
                       </div>
                     )}
+
+                    {/* Import History Trail */}
+                    <div className="mt-6 pt-6 border-t border-slate-850 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] uppercase font-black text-slate-500 tracking-wider">Spreadsheet Import Audit Trail</span>
+                        <span className="text-[9px] text-indigo-400 font-extrabold uppercase">({importHistory.length} successful bulk operations)</span>
+                      </div>
+                      
+                      <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+                        {importHistory.length === 0 ? (
+                          <p className="text-[10px] text-slate-600 italic">No historical catalog uploads logged yet.</p>
+                        ) : (
+                          importHistory.map(hist => (
+                            <div key={hist.id} className="bg-slate-900/40 border border-slate-900 p-2.5 rounded-lg flex items-center justify-between text-[11px]">
+                              <div className="space-y-0.5 text-left">
+                                <p className="font-extrabold text-slate-300 truncate max-w-[200px]">{hist.fileName}</p>
+                                <p className="text-[9px] text-slate-500 font-bold">{new Date(hist.date).toLocaleString()} • by {hist.importedBy}</p>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <div className="text-right text-[10px] font-bold">
+                                  <span className="text-slate-400">Total: {hist.totalRows}</span> • <span className="text-emerald-400">Success: {hist.successCount}</span> • <span className="text-rose-400">Failed: {hist.failureCount}</span>
+                                </div>
+                                <span className={`text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
+                                  hist.status === "Completed" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                                }`}>
+                                  {hist.status}
+                                </span>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Medicine Catalog Grid */}
@@ -1933,7 +2239,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                     {/* Pharmacies list */}
                     <div className="col-span-2 space-y-4">
                       {/* Search */}
-                      <div className="bg-slate-950/60 border border-slate-800 p-4 rounded-2xl">
+                      <div className="bg-slate-950/60 border border-slate-800 p-4 rounded-2xl space-y-3">
                         <div className="relative">
                           <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                           <input
@@ -1944,12 +2250,33 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                             className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 pl-9 pr-4 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500 transition-all"
                           />
                         </div>
+                        <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                          <span className="text-[10px] text-slate-500 font-extrabold uppercase mr-1 tracking-wider">Verification Filter:</span>
+                          {(["All", "Pending", "Verified", "Suspended"] as const).map((status) => (
+                            <button
+                              key={status}
+                              onClick={() => setPharmacySearchStatus(status)}
+                              className={`text-[9px] font-extrabold uppercase px-2 py-1 rounded-md border transition-all cursor-pointer ${
+                                pharmacySearchStatus === status
+                                  ? "bg-indigo-600 text-white border-indigo-500 shadow-md"
+                                  : "bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-200"
+                              }`}
+                            >
+                              {status}
+                            </button>
+                          ))}
+                        </div>
                       </div>
 
                       {/* Registry cards */}
                       <div className="grid grid-cols-2 gap-4">
                         {pharmacies
-                          .filter(ph => ph.pharmacyName.toLowerCase().includes(pharmacySearch.toLowerCase()) || ph.licenseNo.toLowerCase().includes(pharmacySearch.toLowerCase()))
+                          .filter(ph => 
+                            ph.pharmacyName.toLowerCase().includes(pharmacySearch.toLowerCase()) || 
+                            ph.licenseNo.toLowerCase().includes(pharmacySearch.toLowerCase()) ||
+                            ph.city.toLowerCase().includes(pharmacySearch.toLowerCase())
+                          )
+                          .filter(ph => pharmacySearchStatus === "All" || (ph.status || "Pending") === pharmacySearchStatus)
                           .map(ph => {
                             const isSelected = selectedPharmacyProfile?.id === ph.id;
                             return (
@@ -2081,6 +2408,25 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                                 <span className="text-slate-500">Unused Credit availability:</span>
                                 <span className="text-emerald-400">৳{selectedPharmacyProfile.availableCredit.toLocaleString()}</span>
                               </div>
+                              
+                              <div className="border-t border-slate-800 pt-3 mt-1.5 space-y-2">
+                                <span className="text-[10px] text-slate-400 font-extrabold uppercase block tracking-wider">Adjust Credit Limit</span>
+                                <div className="flex gap-2">
+                                  <input
+                                    type="number"
+                                    placeholder="Enter new limit in ৳"
+                                    value={creditAdjustmentLimit}
+                                    onChange={(e) => setCreditAdjustmentLimit(e.target.value)}
+                                    className="flex-1 bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-semibold"
+                                  />
+                                  <button
+                                    onClick={() => handleAdjustPharmacyCredit(selectedPharmacyProfile.id, creditAdjustmentLimit)}
+                                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shadow-md uppercase tracking-wide"
+                                  >
+                                    Apply
+                                  </button>
+                                </div>
+                              </div>
                             </div>
                           </div>
 
@@ -2195,6 +2541,228 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                           </div>
                         ))}
                       </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SCREEN: FINANCE & CREDIT ACCOUNTING */}
+              {activeRoute === "/admin/finance" && (
+                <div className="space-y-6 animate-fade-in text-slate-200">
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-4 gap-6">
+                    <div className="bg-slate-950/60 border border-slate-800 p-5 rounded-2xl space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Total Credit Limits Authorized</p>
+                      <h3 className="text-xl font-black text-white">৳{financeSummary?.totalCreditLimit?.toLocaleString() || "0"}</h3>
+                      <p className="text-[9px] text-slate-400">Aggregated credit caps across registry</p>
+                    </div>
+                    <div className="bg-slate-950/60 border border-slate-800 p-5 rounded-2xl space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Outstanding Balances (Receivables)</p>
+                      <h3 className="text-xl font-black text-rose-400">৳{financeSummary?.totalOutstanding?.toLocaleString() || "0"}</h3>
+                      <p className="text-[9px] text-slate-400">Aggregated credit balances currently utilized</p>
+                    </div>
+                    <div className="bg-slate-950/60 border border-slate-800 p-5 rounded-2xl space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Aggregated Available Credit</p>
+                      <h3 className="text-xl font-black text-emerald-400">৳{financeSummary?.totalAvailableCredit?.toLocaleString() || "0"}</h3>
+                      <p className="text-[9px] text-slate-400 font-medium text-emerald-500/80">Liquidity safety headroom buffer</p>
+                    </div>
+                    <div className="bg-slate-950/60 border border-slate-800 p-5 rounded-2xl space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Total Revenue Paid</p>
+                      <h3 className="text-xl font-black text-indigo-400">৳{financeSummary?.totalPaidAmount?.toLocaleString() || "0"}</h3>
+                      <p className="text-[9px] text-slate-400">Aggregated invoice payouts recorded</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-8">
+                    {/* Left 2 cols: Pharmacy Credit Accounts */}
+                    <div className="col-span-2 space-y-4">
+                      <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-6 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-xs font-black text-white uppercase tracking-wider">B2B Pharmacy Credit Registers</h3>
+                          <div className="relative w-64">
+                            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <input
+                              type="text"
+                              placeholder="Search pharmacy accounts..."
+                              value={financeSearch}
+                              onChange={(e) => setFinanceSearch(e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-800 rounded-lg py-1.5 pl-8 pr-3 text-[11px] font-semibold text-white focus:outline-none focus:border-indigo-500 transition-all"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="overflow-x-auto border border-slate-900 rounded-xl">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead>
+                              <tr className="bg-slate-900 text-slate-400 uppercase text-[9px] font-extrabold tracking-wider border-b border-slate-850">
+                                <th className="px-4 py-3">Pharmacy</th>
+                                <th className="px-4 py-3 text-right">Credit Bound</th>
+                                <th className="px-4 py-3 text-right">Used Credit</th>
+                                <th className="px-4 py-3 text-right">Available Limit</th>
+                                <th className="px-4 py-3 text-center">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-850 bg-slate-950/40">
+                              {pharmacies
+                                .filter(ph => ph.pharmacyName.toLowerCase().includes(financeSearch.toLowerCase()))
+                                .map(ph => (
+                                  <tr key={ph.id} className="hover:bg-slate-900/40 transition-colors">
+                                    <td className="px-4 py-3">
+                                      <p className="font-extrabold text-white">{ph.pharmacyName}</p>
+                                      <p className="text-[10px] text-slate-500 font-bold">{ph.city}</p>
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-black text-white">
+                                      ৳{ph.creditLimit?.toLocaleString()}
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-black text-rose-400">
+                                      ৳{ph.usedCredit?.toLocaleString()}
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-black text-emerald-400">
+                                      ৳{ph.availableCredit?.toLocaleString()}
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                      <span className={`text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-full ${
+                                        ph.status === "Verified" ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" :
+                                        ph.status === "Suspended" ? "bg-rose-500/15 text-rose-400 border border-rose-500/20" :
+                                        "bg-amber-500/15 text-amber-400 border border-amber-500/20"
+                                      }`}>
+                                        {ph.status || "Pending"}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right col: Payment Ledger Log */}
+                    <div className="col-span-1 bg-slate-950/60 border border-slate-800 rounded-2xl p-6 space-y-4">
+                      <h3 className="text-xs font-black text-white uppercase tracking-wider">Payment Transaction History</h3>
+                      <div className="space-y-3 max-h-[450px] overflow-y-auto pr-1">
+                        {paymentLedger.length === 0 ? (
+                          <div className="text-center p-8 text-slate-500 text-xs border border-slate-900 border-dashed rounded-xl">
+                            No ledger receipts or transactions logged yet.
+                          </div>
+                        ) : (
+                          paymentLedger.map((pay, idx) => (
+                            <div key={idx} className="bg-slate-900/50 border border-slate-900 p-4 rounded-xl text-xs space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="font-extrabold text-white text-[11px]">{pay.pharmacyName}</span>
+                                <span className="text-emerald-400 font-bold">৳{pay.amountPaid?.toLocaleString()}</span>
+                              </div>
+                              <div className="flex items-center justify-between text-[10px] text-slate-500">
+                                <span>Ref: {pay.orderId}</span>
+                                <span>Method: <span className="text-slate-300 font-semibold">{pay.paymentMethod}</span></span>
+                              </div>
+                              <div className="flex items-center justify-between text-[9px] border-t border-slate-850 pt-2 text-slate-500 font-bold">
+                                <span>{new Date(pay.paidAt).toLocaleString()}</span>
+                                <span className="text-emerald-500">SUCCESS</span>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SCREEN: AUDIT TRANSACTION LOGS */}
+              {activeRoute === "/admin/audit-logs" && (
+                <div className="space-y-6 animate-fade-in text-slate-200">
+                  <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-6 space-y-6">
+                    {/* Filters bar */}
+                    <div className="flex items-center justify-between flex-wrap gap-4">
+                      <div className="space-y-1">
+                        <h3 className="text-xs font-black text-white uppercase tracking-wider">Security & Transaction Audit Ledger</h3>
+                        <p className="text-[10px] text-slate-500 font-bold">Real-time trails tracking administrative & catalog changes</p>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <select
+                          value={auditFilterModule}
+                          onChange={(e) => setAuditFilterModule(e.target.value)}
+                          className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+                        >
+                          <option value="">All Modules</option>
+                          <option value="Products">Products Catalog</option>
+                          <option value="Pharmacies">Pharmacies Registry</option>
+                          <option value="Orders">Orders Log</option>
+                          <option value="Finance">Finance & Credit</option>
+                        </select>
+
+                        <div className="relative w-64">
+                          <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            placeholder="Search by action, user..."
+                            value={auditSearch}
+                            onChange={(e) => setAuditSearch(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl py-1.5 pl-8 pr-3 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500 transition-all"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Table */}
+                    <div className="overflow-x-auto border border-slate-900 rounded-xl">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-slate-900 text-slate-400 uppercase text-[9px] font-extrabold tracking-wider border-b border-slate-850">
+                            <th className="px-4 py-3">Timestamp</th>
+                            <th className="px-4 py-3">User</th>
+                            <th className="px-4 py-3">Role</th>
+                            <th className="px-4 py-3">Affected Module</th>
+                            <th className="px-4 py-3">Action Completed</th>
+                            <th className="px-4 py-3 text-right">Record ID</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-850 bg-slate-950/40">
+                          {auditLogs.length === 0 ? (
+                            <tr>
+                              <td colSpan={6} className="text-center p-8 text-slate-500 text-xs">
+                                No security audit logs or events captured on platform yet.
+                              </td>
+                            </tr>
+                          ) : (
+                            auditLogs
+                              .filter(log => {
+                                const matchSearch = (log.user || "").toLowerCase().includes(auditSearch.toLowerCase()) || 
+                                                    (log.action || "").toLowerCase().includes(auditSearch.toLowerCase());
+                                const matchModule = !auditFilterModule || log.affectedModule === auditFilterModule;
+                                return matchSearch && matchModule;
+                              })
+                              .map(log => (
+                                <tr key={log.id} className="hover:bg-slate-900/40 transition-colors">
+                                  <td className="px-4 py-3 font-mono text-[10px] text-indigo-400 whitespace-nowrap">
+                                    {new Date(log.timestamp).toLocaleString()}
+                                  </td>
+                                  <td className="px-4 py-3 font-extrabold text-white">
+                                    {log.user}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
+                                      {log.role}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-indigo-950/40 text-indigo-400 border border-indigo-900/30">
+                                      {log.affectedModule}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-slate-300 font-semibold leading-relaxed">
+                                    {log.action}
+                                  </td>
+                                  <td className="px-4 py-3 text-right font-mono text-[10px] text-slate-500">
+                                    {log.recordId}
+                                  </td>
+                                </tr>
+                              ))
+                          )}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 </div>

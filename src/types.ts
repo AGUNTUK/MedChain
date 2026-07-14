@@ -107,3 +107,24 @@ export interface User {
   role: UserRole;
 }
 
+export interface AuditLog {
+  id: string;
+  action: string;
+  user: string;
+  role: string;
+  timestamp: string;
+  affectedModule: string;
+  recordId: string;
+}
+
+export interface ImportHistoryEvent {
+  id: string;
+  fileName: string;
+  totalRows: number;
+  successCount: number;
+  failureCount: number;
+  importedBy: string;
+  date: string;
+  status: "Completed" | "With Errors";
+}
+

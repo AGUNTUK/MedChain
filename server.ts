@@ -393,12 +393,14 @@ let db = {
     }
   ] as any[],
   favourites: ["prod_1", "prod_4", "prod_12"] as string[],
-  notifications: [...INITIAL_NOTIFICATIONS],
+  notifications: [...INITIAL_NOTIFICATIONS] as any[],
   prescriptions: [] as any[],
   priceHistory: [] as any[],
   invoices: [] as any[],
   exportHistory: [] as any[],
   pharmacies: [] as any[],
+  auditLogs: [] as any[],
+  importHistory: [] as any[],
   users: [
     {
       id: "usr_owner_1",
@@ -482,6 +484,8 @@ function loadDb() {
       }
       if (!db.priceHistory) db.priceHistory = [];
       if (!db.exportHistory) db.exportHistory = [];
+      if (!db.auditLogs) db.auditLogs = [];
+      if (!db.importHistory) db.importHistory = [];
       if (db.pharmacy && !db.pharmacy.status) db.pharmacy.status = "Verified";
       if (!db.pharmacies || db.pharmacies.length === 0) {
         db.pharmacies = [
@@ -557,6 +561,23 @@ function saveDb() {
   }
 }
 
+// Structured Audit Logging Helper
+function logAudit(action: string, affectedModule: string, recordId: string) {
+  if (!db.auditLogs) {
+    db.auditLogs = [];
+  }
+  db.auditLogs.unshift({
+    id: "aud_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6),
+    action,
+    user: db.currentUser?.email || db.currentUser?.name || "System",
+    role: db.currentUser?.role || "System",
+    timestamp: new Date().toISOString(),
+    affectedModule,
+    recordId
+  });
+  saveDb();
+}
+
 loadDb();
 
 // Body parsers
@@ -619,10 +640,22 @@ app.get("/api/admin/dashboard", requireRole(["Admin"]), (req, res) => {
 });
 
 app.get("/api/admin/pharmacies", requireRole(["Admin"]), (req, res) => {
-  res.json({
-    success: true,
-    pharmacies: db.pharmacies || []
+  const list = (db.pharmacies || []).map((ph: any) => {
+    const phOrders = (db.orders || []).filter((o: any) => o.pharmacyId === ph.id);
+    const totalOrders = phOrders.length;
+    const totalPurchaseAmount = phOrders
+      .filter((o: any) => o.status !== "Cancelled")
+      .reduce((sum: number, o: any) => sum + o.totalAmount, 0);
+    const outstandingCredit = ph.usedCredit || 0;
+    return {
+      ...ph,
+      registrationDate: ph.registrationDate || "2026-07-10T14:00:00Z",
+      totalOrders,
+      totalPurchaseAmount,
+      outstandingCredit
+    };
   });
+  res.json({ success: true, pharmacies: list });
 });
 
 app.post("/api/admin/pharmacies/:id/status", requireRole(["Admin"]), (req, res) => {
@@ -635,10 +668,42 @@ app.post("/api/admin/pharmacies/:id/status", requireRole(["Admin"]), (req, res) 
   if (idx === -1) {
     return res.status(404).json({ error: "Pharmacy not found." });
   }
+  const oldStatus = db.pharmacies[idx].status || "Pending";
   db.pharmacies[idx].status = status;
   if (db.pharmacy && db.pharmacy.id === id) {
     db.pharmacy.status = status;
   }
+  
+  // Log Audit
+  logAudit(`Pharmacy status updated for "${db.pharmacies[idx].pharmacyName}" from ${oldStatus} to ${status}`, "Pharmacies", id);
+  
+  saveDb();
+  res.json({ success: true, pharmacy: db.pharmacies[idx] });
+});
+
+app.post("/api/admin/pharmacies/:id/credit", requireRole(["Admin"]), (req, res) => {
+  const { id } = req.params;
+  const { creditLimit } = req.body;
+  const numericLimit = parseFloat(creditLimit);
+  if (isNaN(numericLimit) || numericLimit < 0) {
+    return res.status(400).json({ error: "Invalid credit limit value." });
+  }
+  const idx = db.pharmacies.findIndex((p: any) => p.id === id);
+  if (idx === -1) {
+    return res.status(404).json({ error: "Pharmacy not found." });
+  }
+  const oldLimit = db.pharmacies[idx].creditLimit || 0;
+  db.pharmacies[idx].creditLimit = numericLimit;
+  db.pharmacies[idx].availableCredit = numericLimit - (db.pharmacies[idx].usedCredit || 0);
+  
+  if (db.pharmacy && db.pharmacy.id === id) {
+    db.pharmacy.creditLimit = numericLimit;
+    db.pharmacy.availableCredit = numericLimit - (db.pharmacy.usedCredit || 0);
+  }
+  
+  // Log Audit
+  logAudit(`Adjusted credit limit for "${db.pharmacies[idx].pharmacyName}" from ৳${oldLimit.toLocaleString()} to ৳${numericLimit.toLocaleString()}`, "Finance", id);
+  
   saveDb();
   res.json({ success: true, pharmacy: db.pharmacies[idx] });
 });
@@ -888,6 +953,7 @@ app.post("/api/admin/products", requireRole(["Admin"]), (req, res) => {
       imageUrl: productData.imageUrl || db.products[idx].imageUrl || "",
       image_url: productData.imageUrl || db.products[idx].image_url || ""
     };
+    logAudit(`Manual medicine updated: "${productData.name}"`, "Products", productData.id);
     saveDb();
     return res.json({ success: true, message: "Product updated successfully.", product: db.products[idx] });
   } else {
@@ -916,6 +982,7 @@ app.post("/api/admin/products", requireRole(["Admin"]), (req, res) => {
       image_url: productData.imageUrl || ""
     };
     db.products.unshift(newProduct);
+    logAudit(`Manual medicine created: "${productData.name}"`, "Products", newProduct.id);
     saveDb();
     return res.json({ success: true, message: "Product created successfully.", product: newProduct });
   }
@@ -927,7 +994,9 @@ app.delete("/api/admin/products/:id", requireRole(["Admin"]), (req, res) => {
   if (idx === -1) {
     return res.status(404).json({ error: "Product not found." });
   }
+  const deletedName = db.products[idx].name;
   db.products.splice(idx, 1);
+  logAudit(`Medicine deleted: "${deletedName}" (ID: ${id})`, "Products", id);
   saveDb();
   res.json({ success: true, message: "Product deleted successfully." });
 });
@@ -938,9 +1007,11 @@ app.post("/api/admin/inventory/update", requireRole(["Admin"]), (req, res) => {
   if (idx === -1) {
     return res.status(404).json({ error: "Product not found in inventory." });
   }
+  const oldStock = db.products[idx].availableStock;
   if (availableStock !== undefined) db.products[idx].availableStock = parseInt(availableStock, 10);
   if (batchNumber !== undefined) db.products[idx].batchNumber = batchNumber;
   if (expiryDate !== undefined) db.products[idx].expiryDate = expiryDate;
+  logAudit(`Inventory modified for "${db.products[idx].name}" (ID: ${id}). Stock adjusted from ${oldStock} to ${db.products[idx].availableStock}`, "Products", id);
   saveDb();
   res.json({ success: true, message: "Inventory stock details updated successfully.", product: db.products[idx] });
 });
@@ -1114,7 +1185,7 @@ app.get("/api/delivery/dashboard", requireRole(["Admin", "Delivery Staff"]), (re
   res.json({
     success: true,
     message: "Welcome to the MediChain Delivery Companion API.",
-    role: db.currentUser?.role,
+    role: (req as any).user?.role,
     capabilities: [
       "View Assigned Deliveries",
       "Update Delivery Status",
@@ -1124,19 +1195,20 @@ app.get("/api/delivery/dashboard", requireRole(["Admin", "Delivery Staff"]), (re
   });
 });
 
-app.get("/api/delivery/assigned-deliveries", requireRole(["Admin", "Delivery Staff"]), (req, res) => {
-  // Returns packed and out for delivery orders
-  const assignedDeliveries = db.orders.filter(o => o.status === "Packed" || o.status === "Out for Delivery" || o.status === "Delivered");
+app.get("/api/delivery/orders", requireRole(["Admin", "Delivery Staff"]), (req, res) => {
+  // Returns orders that are Packed or Out for Delivery
+  const assignedDeliveries = db.orders.filter(o => o.status === "Packed" || o.status === "Out for Delivery");
   res.json({
     success: true,
-    deliveries: assignedDeliveries
+    orders: assignedDeliveries
   });
 });
 
-app.post("/api/delivery/update-status", requireRole(["Admin", "Delivery Staff"]), (req, res) => {
-  const { orderId, status } = req.body;
-  if (!orderId || !status) {
-    return res.status(400).json({ error: "Missing orderId or status parameter." });
+app.post("/api/delivery/status/:id", requireRole(["Admin", "Delivery Staff"]), (req, res) => {
+  const { status } = req.body;
+  const orderId = req.params.id;
+  if (!status) {
+    return res.status(400).json({ error: "Missing status parameter." });
   }
   const order = db.orders.find(o => o.id === orderId);
   if (!order) {
@@ -1145,6 +1217,14 @@ app.post("/api/delivery/update-status", requireRole(["Admin", "Delivery Staff"])
   order.status = status;
   saveDb();
   res.json({ success: true, message: `Delivery Status updated to ${status}` });
+});
+
+app.get("/api/delivery/history", requireRole(["Admin", "Delivery Staff"]), (req, res) => {
+  const completedDeliveries = db.orders.filter(o => o.status === "Delivered");
+  res.json({
+    success: true,
+    orders: completedDeliveries
+  });
 });
 
 
@@ -2079,6 +2159,311 @@ Reply with only the JSON array structure. No backticks, no markdown, no conversa
     saveDb();
     res.status(500).json({ error: "Failed to parse prescription. " + error.message });
   }
+});
+
+// --- COMPLETE OPERATIONAL MANAGEMENT SUITE - ADMIN ENDPOINTS ---
+
+// Order Management Endpoints
+app.get("/api/admin/orders", requireRole(["Admin"]), (req, res) => {
+  res.json({ success: true, orders: db.orders || [] });
+});
+
+app.post("/api/admin/orders/:id/status", requireRole(["Admin"]), (req, res) => {
+  const { id } = req.params;
+  const { status, paymentStatus } = req.body;
+  const order = db.orders.find((o: any) => o.id === id);
+  if (!order) {
+    return res.status(404).json({ error: "Order not found." });
+  }
+
+  const oldStatus = order.status;
+  const oldPaymentStatus = order.paymentStatus;
+
+  if (status) {
+    const validStatuses = ["Pending", "Confirmed", "Processing", "Packed", "Out for Delivery", "Delivered", "Completed", "Cancelled"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: "Invalid status value." });
+    }
+    order.status = status;
+
+    // Handle Transitions
+    if (status === "Cancelled" && oldStatus !== "Cancelled") {
+      // Reverse inventory reservations
+      for (const item of order.items) {
+        const product = db.products.find((p: any) => p.id === item.productId);
+        if (product) {
+          product.availableStock += item.quantity;
+          product.reservedStock = Math.max(0, product.reservedStock - item.quantity);
+        }
+      }
+      // Restore credit if Cash on Delivery
+      if (order.paymentMethod === "Cash on Delivery") {
+        const pharm = db.pharmacies.find((p: any) => p.id === order.pharmacyId);
+        if (pharm) {
+          pharm.usedCredit = Math.max(0, pharm.usedCredit - order.totalAmount);
+          pharm.availableCredit = pharm.creditLimit - pharm.usedCredit;
+        }
+        if (db.pharmacy && db.pharmacy.id === order.pharmacyId) {
+          db.pharmacy.usedCredit = Math.max(0, db.pharmacy.usedCredit - order.totalAmount);
+          db.pharmacy.availableCredit = db.pharmacy.creditLimit - db.pharmacy.usedCredit;
+        }
+      }
+    } else if (status === "Delivered" && oldStatus !== "Delivered") {
+      order.paymentStatus = "Paid";
+      order.estimatedDelivery = `Delivered on ${new Date().toISOString().split('T')[0]}`;
+
+      // Permanent stock deduction from reserved
+      for (const item of order.items) {
+        const product = db.products.find((p: any) => p.id === item.productId);
+        if (product) {
+          product.reservedStock = Math.max(0, product.reservedStock - item.quantity);
+          product.soldStock += item.quantity;
+        }
+      }
+    }
+  }
+
+  if (paymentStatus) {
+    order.paymentStatus = paymentStatus;
+  }
+
+  // Log Audit
+  let auditMsg = `Order ${id} modified.`;
+  if (status && status !== oldStatus) {
+    auditMsg += ` Status updated from ${oldStatus} to ${status}.`;
+  }
+  if (paymentStatus && paymentStatus !== oldPaymentStatus) {
+    auditMsg += ` Payment updated from ${oldPaymentStatus} to ${paymentStatus}.`;
+  }
+
+  logAudit(auditMsg, "Orders", id);
+  saveDb();
+  res.json({ success: true, order });
+});
+
+app.post("/api/admin/orders/:id/cancel", requireRole(["Admin"]), (req, res) => {
+  const { id } = req.params;
+  const order = db.orders.find((o: any) => o.id === id);
+  if (!order) {
+    return res.status(404).json({ error: "Order not found." });
+  }
+  if (order.status === "Cancelled") {
+    return res.status(400).json({ error: "Order is already cancelled." });
+  }
+
+  order.status = "Cancelled";
+  // Reverse inventory reservations
+  for (const item of order.items) {
+    const product = db.products.find((p: any) => p.id === item.productId);
+    if (product) {
+      product.availableStock += item.quantity;
+      product.reservedStock = Math.max(0, product.reservedStock - item.quantity);
+    }
+  }
+  // Restore credit if Cash on Delivery
+  if (order.paymentMethod === "Cash on Delivery") {
+    const pharm = db.pharmacies.find((p: any) => p.id === order.pharmacyId);
+    if (pharm) {
+      pharm.usedCredit = Math.max(0, pharm.usedCredit - order.totalAmount);
+      pharm.availableCredit = pharm.creditLimit - pharm.usedCredit;
+    }
+    if (db.pharmacy && db.pharmacy.id === order.pharmacyId) {
+      db.pharmacy.usedCredit = Math.max(0, db.pharmacy.usedCredit - order.totalAmount);
+      db.pharmacy.availableCredit = db.pharmacy.creditLimit - db.pharmacy.usedCredit;
+    }
+  }
+
+  logAudit(`Order ${id} cancelled.`, "Orders", id);
+  saveDb();
+  res.json({ success: true, order });
+});
+
+// Finance & Credit Dashboard Endpoints
+app.get("/api/admin/finance/summary", requireRole(["Admin"]), (req, res) => {
+  const orders = db.orders || [];
+  const activeOrders = orders.filter((o: any) => o.status !== "Cancelled");
+
+  const totalSales = activeOrders.reduce((sum: number, o: any) => sum + o.totalAmount, 0);
+
+  // Today's Sales
+  const todayStr = new Date().toISOString().split("T")[0];
+  const todaySales = activeOrders
+    .filter((o: any) => o.createdAt.startsWith(todayStr))
+    .reduce((sum: number, o: any) => sum + o.totalAmount, 0);
+
+  // Monthly Revenue
+  const currentMonthPrefix = new Date().toISOString().substring(0, 7); // YYYY-MM
+  const monthlyRevenue = activeOrders
+    .filter((o: any) => o.createdAt.startsWith(currentMonthPrefix))
+    .reduce((sum: number, o: any) => sum + o.totalAmount, 0);
+
+  // Pending Payments
+  const pendingPayments = activeOrders
+    .filter((o: any) => o.paymentStatus === "Pending")
+    .reduce((sum: number, o: any) => sum + o.totalAmount, 0);
+
+  // Total Outstanding Credit
+  const totalOutstandingCredit = (db.pharmacies || []).reduce((sum: number, ph: any) => sum + (ph.usedCredit || 0), 0);
+
+  // Ledger / Transaction History
+  const paymentHistory = orders
+    .filter((o: any) => o.paymentStatus === "Paid" || o.paymentStatus === "Refunded")
+    .map((o: any) => {
+      const ph = db.pharmacies.find((p: any) => p.id === o.pharmacyId) || db.pharmacy;
+      return {
+        id: "TXN-" + o.id.replace("MCH-", ""),
+        orderId: o.id,
+        pharmacyName: ph?.pharmacyName || "Registered Pharmacy",
+        amount: o.totalAmount,
+        method: o.paymentMethod,
+        status: o.paymentStatus,
+        date: o.createdAt
+      };
+    });
+
+  res.json({
+    success: true,
+    totalSales,
+    todaySales,
+    monthlyRevenue,
+    pendingPayments,
+    totalOutstandingCredit,
+    pharmacies: db.pharmacies || [],
+    paymentHistory
+  });
+});
+
+// Targeted Notifications Centre Endpoints
+app.get("/api/admin/notifications", requireRole(["Admin"]), (req, res) => {
+  // Run automated inventory check & generate alerts
+  const thirtyDaysLater = new Date();
+  thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
+  const today = new Date();
+
+  if (!db.notifications) db.notifications = [];
+
+  for (const prod of (db.products || [])) {
+    // Low stock
+    if (prod.availableStock <= 15) {
+      const title = `⚠️ Low Stock Warning: ${prod.name}`;
+      const exists = db.notifications.some((n: any) => n.title === title);
+      if (!exists) {
+        db.notifications.unshift({
+          id: "alert_stock_" + prod.id,
+          title,
+          message: `The medicine ${prod.name} has only ${prod.availableStock} units left in stock. Please replenish immediately.`,
+          type: "system",
+          date: new Date().toISOString(),
+          read: false,
+          audience: "Global Announcement",
+          sentBy: "Automated System"
+        });
+      }
+    }
+    // Expiring soon
+    if (prod.expiryDate) {
+      const expDate = new Date(prod.expiryDate);
+      if (expDate <= thirtyDaysLater && expDate >= today) {
+        const title = `🚨 Expiry Alert: ${prod.name}`;
+        const exists = db.notifications.some((n: any) => n.title === title);
+        if (!exists) {
+          db.notifications.unshift({
+            id: "alert_expiry_" + prod.id,
+            title,
+            message: `Medicine ${prod.name} (Batch: ${prod.batchNumber}) is expiring on ${prod.expiryDate}. Available quantity: ${prod.availableStock}.`,
+            type: "system",
+            date: new Date().toISOString(),
+            read: false,
+            audience: "Global Announcement",
+            sentBy: "Automated System"
+          });
+        }
+      }
+    }
+  }
+
+  res.json({ success: true, history: db.notifications || [] });
+});
+
+app.post("/api/admin/notifications/send", requireRole(["Admin"]), (req, res) => {
+  const { title, message, targetType, pharmacyId } = req.body;
+  if (!title || !message || !targetType) {
+    return res.status(400).json({ error: "Title, message, and targetType are required." });
+  }
+
+  let category: "system" | "offer" | "price_drop" | "order" = "system";
+  if (targetType === "offer") category = "offer";
+  if (targetType === "price_drop") category = "price_drop";
+
+  let audience = "Global Announcement";
+  if (targetType === "pharmacy" && pharmacyId) {
+    const ph = db.pharmacies.find((p: any) => p.id === pharmacyId);
+    audience = ph ? ph.pharmacyName : `Pharmacy ID: ${pharmacyId}`;
+  } else if (targetType === "offer") {
+    audience = "All Pharmacies (Medicine Offer)";
+  } else if (targetType === "price_drop") {
+    audience = "All Pharmacies (Price Drop Alert)";
+  }
+
+  const newNotif = {
+    id: "notif_" + Date.now(),
+    title,
+    message,
+    type: category,
+    date: new Date().toISOString(),
+    read: false,
+    targetType,
+    pharmacyId,
+    audience,
+    sentBy: db.currentUser?.name || "Admin"
+  };
+
+  db.notifications.unshift(newNotif);
+
+  // Log Audit
+  logAudit(`Sent notification: "${title}" to ${audience}`, "Notifications", newNotif.id);
+
+  saveDb();
+  res.json({ success: true, notification: newNotif });
+});
+
+// Audit Log endpoints
+app.get("/api/admin/audit-logs", requireRole(["Admin"]), (req, res) => {
+  res.json({ success: true, auditLogs: db.auditLogs || [] });
+});
+
+// Import History tracking endpoints
+app.get("/api/admin/import-history", requireRole(["Admin"]), (req, res) => {
+  res.json({ success: true, history: db.importHistory || [] });
+});
+
+app.post("/api/admin/import-history", requireRole(["Admin"]), (req, res) => {
+  const { fileName, totalRows, successCount, failureCount } = req.body;
+  if (!fileName) {
+    return res.status(400).json({ error: "File name is required." });
+  }
+
+  const event = {
+    id: "IMPH-" + Date.now(),
+    fileName,
+    totalRows: totalRows || 0,
+    successCount: successCount || 0,
+    failureCount: failureCount || 0,
+    importedBy: db.currentUser?.name || "Admin",
+    date: new Date().toISOString(),
+    status: (failureCount || 0) > 0 ? "With Errors" : "Completed"
+  };
+
+  if (!db.importHistory) {
+    db.importHistory = [];
+  }
+  db.importHistory.unshift(event);
+
+  // Log Audit
+  logAudit(`Bulk catalog import: ${fileName} (${successCount} succeeded, ${failureCount} failed)`, "Products", event.id);
+
+  saveDb();
+  res.json({ success: true, event });
 });
 
 // Get prescriptions

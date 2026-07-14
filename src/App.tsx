@@ -14,6 +14,8 @@ import PrescriptionUpload from "./components/PrescriptionUpload";
 import Account from "./components/Account";
 import NotificationsPanel from "./components/NotificationsPanel";
 import AdminPanel from "./components/AdminPanel";
+import DepotDashboard from "./components/DepotDashboard";
+import DeliveryDashboard from "./components/DeliveryDashboard";
 import { Product, Pharmacy, Order, Notification, User } from "./types";
 import { Home as HomeIcon, Search as SearchIcon, FileText as FileIcon, ClipboardList as ListIcon, User as UserIcon, Shield, Smartphone } from "lucide-react";
 import { authService, productService, orderService, profileService, notificationService } from "./services";
@@ -330,6 +332,14 @@ export default function App() {
 
   if (currentUser?.role === "Admin") {
     return <AdminPanel currentUser={currentUser} onLogout={handleLogout} />;
+  }
+
+  if (currentUser?.role === "Depot Staff") {
+    return <DepotDashboard currentUser={currentUser} onLogout={handleLogout} />;
+  }
+
+  if (currentUser?.role === "Delivery Staff") {
+    return <DeliveryDashboard currentUser={currentUser} onLogout={handleLogout} />;
   }
 
   return (
