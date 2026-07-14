@@ -1,4 +1,5 @@
 import { Product } from "../types";
+import { checkDuplicate } from "./productValidator.js";
 
 export interface RawImportRow {
   productName: string;
@@ -227,16 +228,16 @@ export function validateImportRow(
   }
 
   // Duplicate Check
-  if (row.productName && row.strength && row.packSize) {
-    const isDuplicate = existingProducts.some(
-      p =>
-        p.name.toLowerCase().replace(/\s/g, "") === row.productName.toLowerCase().replace(/\s/g, "") &&
-        p.strength.toLowerCase().replace(/\s/g, "") === row.strength.toLowerCase().replace(/\s/g, "") &&
-        p.packSize.toLowerCase().replace(/\s/g, "") === row.packSize.toLowerCase().replace(/\s/g, "")
-    );
-    if (isDuplicate) {
-      errors.push(`Duplicate: Product with same name, strength, and pack size already exists in MediChain.`);
-    }
+  const isDuplicate = checkDuplicate(existingProducts, {
+    company: row.companyName,
+    name: row.productName,
+    genericName: row.genericName,
+    strength: row.strength,
+    packSize: row.packSize
+  });
+
+  if (isDuplicate) {
+    errors.push(`Duplicate: Product with same company, name, generic name, strength, and pack size already exists.`);
   }
 
   return errors;

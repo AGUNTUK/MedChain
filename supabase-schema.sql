@@ -111,7 +111,8 @@ CREATE TABLE IF NOT EXISTS products (
     image_url TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT check_selling_price_mrp CHECK (selling_price <= mrp)
+    CONSTRAINT check_selling_price_mrp CHECK (selling_price <= mrp),
+    CONSTRAINT unique_product_combination UNIQUE (company, name, generic_name, strength, pack_size)
 );
 
 -- ==========================================

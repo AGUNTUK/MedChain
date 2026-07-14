@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import cron from "node-cron";
 import { importBulkCatalog } from "./src/lib/importService.js";
 import { performSearch } from "./src/lib/searchService.js";
+import { validateProduct, checkDuplicate } from "./src/lib/productValidator.js";
 
 dotenv.config();
 
@@ -1008,8 +1009,13 @@ app.post("/api/admin/export-history", requireRole(["Admin"]), (req, res) => {
 
 app.post("/api/admin/products", requireRole(["Admin"]), (req, res) => {
   const productData = req.body;
-  if (!productData.name || !productData.genericName || !productData.company || !productData.category) {
-    return res.status(400).json({ error: "Missing required product fields (name, genericName, company, category)." });
+  const validation = validateProduct(productData);
+  if (!validation.isValid) {
+    return res.status(400).json({ error: validation.error });
+  }
+
+  if (checkDuplicate(db.products, productData, productData.id)) {
+    return res.status(409).json({ error: "This product already exists in the catalog." });
   }
 
   const mrpValue = parseFloat(productData.mrp) || 0;
