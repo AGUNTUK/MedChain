@@ -13,10 +13,6 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Create custom enum types for User Roles and Statuses (Safely handling if they exist)
 DO $$ 
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
-    CREATE TYPE user_role AS ENUM ('pharmacy', 'admin', 'depot_staff', 'delivery');
-  END IF;
-  
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'order_status') THEN
     CREATE TYPE order_status AS ENUM ('Pending', 'Confirmed', 'Processing', 'Packed', 'Out for Delivery', 'Delivered', 'Completed', 'Cancelled');
   END IF;
@@ -123,7 +119,7 @@ CREATE TABLE IF NOT EXISTS products (
 -- ==========================================
 CREATE TABLE IF NOT EXISTS inventory (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    product_id UUID UNIQUE REFERENCES products(id) ON DELETE CASCADE,
+    product_id UUID REFERENCES products(id) ON DELETE CASCADE,
     available_stock INTEGER NOT NULL DEFAULT 0 CHECK (available_stock >= 0),
     reserved_stock INTEGER NOT NULL DEFAULT 0 CHECK (reserved_stock >= 0),
     sold_stock INTEGER NOT NULL DEFAULT 0 CHECK (sold_stock >= 0),
@@ -357,7 +353,7 @@ CREATE POLICY "Pharmacies can view own credit account" ON credit_accounts
 CREATE POLICY "Admins can update credit lines" ON credit_accounts 
     FOR ALL USING (
         EXISTS (
-            SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin'
+            SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'Admin'
         )
     );
 
@@ -383,7 +379,7 @@ CREATE POLICY "Staff/Admins can view all orders" ON orders
     FOR ALL USING (
         EXISTS (
             SELECT 1 FROM users 
-            WHERE users.id = auth.uid() AND users.role IN ('admin', 'depot_staff', 'delivery')
+            WHERE users.id = auth.uid() AND users.role IN ('Admin', 'Depot Staff', 'Delivery Staff')
         )
     );
 
@@ -428,6 +424,7 @@ VALUES (
 
 -- Prescriptions Storage RLS Policies
 -- Pharmacy owners can upload to their own folder
+DROP POLICY IF EXISTS "Users can upload their own prescriptions" ON storage.objects;
 CREATE POLICY "Users can upload their own prescriptions" ON storage.objects
     FOR INSERT WITH CHECK (
         bucket_id = 'prescriptions' AND 
@@ -435,6 +432,7 @@ CREATE POLICY "Users can upload their own prescriptions" ON storage.objects
     );
 
 -- Pharmacy owners can read their own prescriptions
+DROP POLICY IF EXISTS "Users can view their own prescriptions" ON storage.objects;
 CREATE POLICY "Users can view their own prescriptions" ON storage.objects
     FOR SELECT USING (
         bucket_id = 'prescriptions' AND 
@@ -442,6 +440,7 @@ CREATE POLICY "Users can view their own prescriptions" ON storage.objects
     );
 
 -- Admins can view all prescriptions
+DROP POLICY IF EXISTS "Admins can view all prescriptions" ON storage.objects;
 CREATE POLICY "Admins can view all prescriptions" ON storage.objects
     FOR SELECT USING (
         bucket_id = 'prescriptions' AND 
@@ -450,10 +449,12 @@ CREATE POLICY "Admins can view all prescriptions" ON storage.objects
 
 -- Product Images Storage RLS Policies
 -- Public can read product images
+DROP POLICY IF EXISTS "Public product images access" ON storage.objects;
 CREATE POLICY "Public product images access" ON storage.objects
     FOR SELECT USING (bucket_id = 'product-images');
 
 -- Admins can manage product images
+DROP POLICY IF EXISTS "Admins manage product images" ON storage.objects;
 CREATE POLICY "Admins manage product images" ON storage.objects
     FOR ALL USING (
         bucket_id = 'product-images' AND 
