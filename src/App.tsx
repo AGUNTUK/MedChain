@@ -13,6 +13,7 @@ import OrderHistory from "./components/OrderHistory";
 import PrescriptionUpload from "./components/PrescriptionUpload";
 import Account from "./components/Account";
 import NotificationsPanel from "./components/NotificationsPanel";
+import AdminPanel from "./components/AdminPanel";
 import { Product, Pharmacy, Order, Notification, User } from "./types";
 import { Home as HomeIcon, Search as SearchIcon, FileText as FileIcon, ClipboardList as ListIcon, User as UserIcon, Shield, Smartphone } from "lucide-react";
 import { authService, productService, orderService, profileService, notificationService } from "./services";
@@ -326,6 +327,10 @@ export default function App() {
         }
     }
   };
+
+  if (currentUser?.role === "Admin") {
+    return <AdminPanel currentUser={currentUser} onLogout={handleLogout} />;
+  }
 
   return (
     <div className="flex h-screen w-screen bg-slate-50 font-sans select-none overflow-hidden justify-center items-center">

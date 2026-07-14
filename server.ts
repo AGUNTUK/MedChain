@@ -296,9 +296,10 @@ let db = {
     licenseNo: "DC-PH-2025-1194",
     creditLimit: 150000,
     usedCredit: 35400,
-    availableCredit: 114600
+    availableCredit: 114600,
+    status: "Verified" as string
   },
-  products: [...INITIAL_PRODUCTS],
+  products: [...INITIAL_PRODUCTS] as any[],
   cart: [] as Array<{ productId: string; quantity: number }>,
   orders: [
     {
@@ -394,6 +395,10 @@ let db = {
   favourites: ["prod_1", "prod_4", "prod_12"] as string[],
   notifications: [...INITIAL_NOTIFICATIONS],
   prescriptions: [] as any[],
+  priceHistory: [] as any[],
+  invoices: [] as any[],
+  exportHistory: [] as any[],
+  pharmacies: [] as any[],
   users: [
     {
       id: "usr_owner_1",
@@ -475,6 +480,65 @@ function loadDb() {
         ];
         saveDb();
       }
+      if (!db.priceHistory) db.priceHistory = [];
+      if (!db.exportHistory) db.exportHistory = [];
+      if (db.pharmacy && !db.pharmacy.status) db.pharmacy.status = "Verified";
+      if (!db.pharmacies || db.pharmacies.length === 0) {
+        db.pharmacies = [
+          {
+            ...(db.pharmacy || {
+              id: "pharm_default",
+              pharmacyName: "Lazz Pharma (Dhanmondi)",
+              ownerName: "Zahid Hasan",
+              phone: "01712345678",
+              address: "House 42, Road 9A, Dhanmondi",
+              city: "Dhaka",
+              licenseNo: "DC-PH-2025-1194",
+              creditLimit: 150000,
+              usedCredit: 35400,
+              availableCredit: 114600
+            }),
+            status: "Verified"
+          },
+          {
+            id: "pharm_2",
+            pharmacyName: "Medina Pharma",
+            ownerName: "Rashedul Bari",
+            phone: "01755555555",
+            address: "Moghbazar Chowrasta",
+            city: "Dhaka",
+            licenseNo: "DC-PH-2026-8843",
+            creditLimit: 100000,
+            usedCredit: 0,
+            availableCredit: 100000,
+            status: "Pending"
+          },
+          {
+            id: "pharm_3",
+            pharmacyName: "Arogya Medical Hall",
+            ownerName: "Sumon Sen",
+            phone: "01766666666",
+            address: "Chittagong Port Road",
+            city: "Chittagong",
+            licenseNo: "DC-PH-2025-0012",
+            creditLimit: 200000,
+            usedCredit: 50000,
+            availableCredit: 150000,
+            status: "Suspended"
+          }
+        ];
+      }
+      if (!db.invoices || db.invoices.length === 0) {
+        db.invoices = db.orders.map((order: any) => ({
+          id: "INV-" + order.id.replace("MCH-", ""),
+          orderId: order.id,
+          pharmacyId: order.pharmacyId,
+          totalAmount: order.totalAmount,
+          paymentStatus: order.paymentStatus,
+          createdAt: order.createdAt,
+          downloadCount: 0
+        }));
+      }
       console.log("Database loaded successfully from " + DB_FILE);
     } else {
       saveDb();
@@ -555,16 +619,348 @@ app.get("/api/admin/dashboard", requireRole(["Admin"]), (req, res) => {
 });
 
 app.get("/api/admin/pharmacies", requireRole(["Admin"]), (req, res) => {
-  // Return all pharmacies in system (currently just db.pharmacy as a single tenant demo)
   res.json({
     success: true,
-    pharmacies: [db.pharmacy]
+    pharmacies: db.pharmacies || []
   });
 });
 
+app.post("/api/admin/pharmacies/:id/status", requireRole(["Admin"]), (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  if (!["Pending", "Verified", "Suspended"].includes(status)) {
+    return res.status(400).json({ error: "Invalid status value." });
+  }
+  const idx = db.pharmacies.findIndex((p: any) => p.id === id);
+  if (idx === -1) {
+    return res.status(404).json({ error: "Pharmacy not found." });
+  }
+  db.pharmacies[idx].status = status;
+  if (db.pharmacy && db.pharmacy.id === id) {
+    db.pharmacy.status = status;
+  }
+  saveDb();
+  res.json({ success: true, pharmacy: db.pharmacies[idx] });
+});
+
+app.get("/api/admin/products/:id/price-history", requireRole(["Admin"]), (req, res) => {
+  const { id } = req.params;
+  const history = (db.priceHistory || []).filter((h: any) => h.productId === id);
+  res.json({ success: true, history });
+});
+
+app.post("/api/admin/inventory/alerts/sync", requireRole(["Admin"]), (req, res) => {
+  const alertsCreated: string[] = [];
+  
+  function getDaysToExpiryLocal(dateStr: string) {
+    const expDate = new Date(dateStr);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffTime = expDate.getTime() - today.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  }
+
+  db.products.forEach((p: any) => {
+    if (p.availableStock < 100) {
+      const exists = db.notifications.some((n: any) => n.title.includes(p.name) && n.title.includes("Low Stock"));
+      if (!exists) {
+        db.notifications.unshift({
+          id: "notif_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4),
+          title: `Low Stock Alert: ${p.name}`,
+          message: `The available stock for ${p.name} (${p.strength}) has fallen to ${p.availableStock} units. Please reorder from manufacturer.`,
+          type: "inventory_alert",
+          date: new Date().toISOString(),
+          read: false
+        });
+        alertsCreated.push(`${p.name} (Low Stock)`);
+      }
+    }
+    
+    const days = getDaysToExpiryLocal(p.expiryDate);
+    if (days <= 180 && days > 0) {
+      const exists = db.notifications.some((n: any) => n.title.includes(p.name) && n.title.includes("Expiring"));
+      if (!exists) {
+        db.notifications.unshift({
+          id: "notif_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4),
+          title: `Expiring Soon: ${p.name}`,
+          message: `Batch ${p.batchNumber} of ${p.name} is expiring on ${p.expiryDate} (${days} days remaining). Consider markdown or return.`,
+          type: "inventory_alert",
+          date: new Date().toISOString(),
+          read: false
+        });
+        alertsCreated.push(`${p.name} (Expiring)`);
+      }
+    }
+  });
+  if (alertsCreated.length > 0) {
+    saveDb();
+  }
+  res.json({ success: true, alertsCreated });
+});
+
+app.get("/api/admin/analytics", requireRole(["Admin"]), (req, res) => {
+  const orders = db.orders || [];
+  const products = db.products || [];
+  const pharmacies = db.pharmacies || [];
+  
+  const totalOrders = orders.length;
+  const now = new Date();
+  const oneDay = 24 * 60 * 60 * 1000;
+  
+  const dailyOrders = orders.filter((o: any) => {
+    const diff = now.getTime() - new Date(o.createdAt).getTime();
+    return diff <= oneDay;
+  }).length;
+  
+  const weeklyOrders = orders.filter((o: any) => {
+    const diff = now.getTime() - new Date(o.createdAt).getTime();
+    return diff <= 7 * oneDay;
+  }).length;
+  
+  const monthlyOrders = orders.filter((o: any) => {
+    const diff = now.getTime() - new Date(o.createdAt).getTime();
+    return diff <= 30 * oneDay;
+  }).length;
+  
+  const totalRevenue = orders.reduce((sum: number, o: any) => sum + (o.totalAmount || 0), 0);
+  const paidRevenue = orders.filter((o: any) => o.paymentStatus === "Paid").reduce((sum: number, o: any) => sum + (o.totalAmount || 0), 0);
+  const pendingRevenue = orders.filter((o: any) => o.paymentStatus !== "Paid").reduce((sum: number, o: any) => sum + (o.totalAmount || 0), 0);
+  
+  const statusDistribution: Record<string, number> = {};
+  orders.forEach((o: any) => {
+    statusDistribution[o.status] = (statusDistribution[o.status] || 0) + 1;
+  });
+  
+  const medicineCounts: Record<string, { name: string; quantity: number; revenue: number }> = {};
+  orders.forEach((o: any) => {
+    (o.items || []).forEach((item: any) => {
+      if (!medicineCounts[item.productId]) {
+        medicineCounts[item.productId] = { name: item.name, quantity: 0, revenue: 0 };
+      }
+      medicineCounts[item.productId].quantity += (item.quantity || 0);
+      medicineCounts[item.productId].revenue += (item.subtotal || 0);
+    });
+  });
+  const topMedicines = Object.values(medicineCounts)
+    .sort((a, b) => b.quantity - a.quantity)
+    .slice(0, 5);
+    
+  const pharmacyCounts: Record<string, { name: string; orderCount: number; totalSpent: number }> = {};
+  orders.forEach((o: any) => {
+    const pharmId = o.pharmacyId || "Unknown";
+    let pharmName = "Unknown Pharmacy";
+    const foundPharm = pharmacies.find((p: any) => p.id === pharmId);
+    if (foundPharm) {
+      pharmName = foundPharm.pharmacyName;
+    } else if (db.pharmacy && db.pharmacy.id === pharmId) {
+      pharmName = db.pharmacy.pharmacyName;
+    }
+    
+    if (!pharmacyCounts[pharmId]) {
+      pharmacyCounts[pharmId] = { name: pharmName, orderCount: 0, totalSpent: 0 };
+    }
+    pharmacyCounts[pharmId].orderCount += 1;
+    pharmacyCounts[pharmId].totalSpent += (o.totalAmount || 0);
+  });
+  const topPharmacies = Object.values(pharmacyCounts)
+    .sort((a, b) => b.totalSpent - a.totalSpent)
+    .slice(0, 5);
+    
+  const last7DaysTrend = Array.from({ length: 7 }).map((_, i) => {
+    const d = new Date();
+    d.setDate(now.getDate() - i);
+    const dateStr = d.toISOString().split('T')[0];
+    const dayOrders = orders.filter((o: any) => o.createdAt.startsWith(dateStr));
+    const dayRevenue = dayOrders.reduce((sum: number, o: any) => sum + (o.totalAmount || 0), 0);
+    const daySavings = dayOrders.reduce((sum: number, o: any) => sum + (o.totalSavings || 0), 0);
+    return {
+      date: d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+      dateRaw: dateStr,
+      revenue: dayRevenue,
+      savings: daySavings,
+      orderCount: dayOrders.length
+    };
+  }).reverse();
+
+  res.json({
+    success: true,
+    totalOrders,
+    dailyOrders,
+    weeklyOrders,
+    monthlyOrders,
+    totalRevenue,
+    paidRevenue,
+    pendingRevenue,
+    statusDistribution,
+    topMedicines,
+    topPharmacies,
+    last7DaysTrend
+  });
+});
+
+app.get("/api/admin/invoices", requireRole(["Admin"]), (req, res) => {
+  res.json({ success: true, invoices: db.invoices || [] });
+});
+
+app.post("/api/admin/invoices/:id/download", requireRole(["Admin"]), (req, res) => {
+  const inv = (db.invoices || []).find((i: any) => i.id === req.params.id);
+  if (inv) {
+    inv.downloadCount = (inv.downloadCount || 0) + 1;
+    saveDb();
+  }
+  res.json({ success: true, invoice: inv });
+});
+
+app.get("/api/admin/export-history", requireRole(["Admin"]), (req, res) => {
+  res.json({ success: true, history: db.exportHistory || [] });
+});
+
+app.post("/api/admin/export-history", requireRole(["Admin"]), (req, res) => {
+  const { type, format, filters } = req.body;
+  const record = {
+    id: "EXP-" + Date.now(),
+    type,
+    format,
+    filters: filters || {},
+    exportedBy: db.currentUser?.name || "Admin",
+    date: new Date().toISOString()
+  };
+  if (!db.exportHistory) {
+    db.exportHistory = [];
+  }
+  db.exportHistory.unshift(record);
+  saveDb();
+  res.json({ success: true, record });
+});
+
 app.post("/api/admin/products", requireRole(["Admin"]), (req, res) => {
-  // Add/Modify a product
-  res.json({ success: true, message: "Admin: Product updated/created." });
+  const productData = req.body;
+  if (!productData.name || !productData.genericName || !productData.company || !productData.category) {
+    return res.status(400).json({ error: "Missing required product fields (name, genericName, company, category)." });
+  }
+
+  const mrpValue = parseFloat(productData.mrp) || 0;
+  const sellingPriceValue = parseFloat(productData.sellingPrice) || 0;
+  const discountPercent = mrpValue > 0 ? Math.max(0, Math.round(((mrpValue - sellingPriceValue) / mrpValue) * 100)) : 0;
+  const stockValue = parseInt(productData.availableStock, 10) || 0;
+
+  if (productData.id) {
+    // Edit existing product
+    const idx = db.products.findIndex(p => p.id === productData.id);
+    if (idx === -1) {
+      return res.status(404).json({ error: "Product not found." });
+    }
+    const oldProduct = db.products[idx];
+    const oldMrp = oldProduct.mrp;
+    const oldSellingPrice = oldProduct.sellingPrice;
+
+    if (oldMrp !== mrpValue || oldSellingPrice !== sellingPriceValue) {
+      if (!db.priceHistory) {
+        db.priceHistory = [];
+      }
+      db.priceHistory.unshift({
+        id: "prh_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4),
+        productId: productData.id,
+        productName: productData.name,
+        oldMrp,
+        newMrp: mrpValue,
+        oldSellingPrice,
+        newSellingPrice: sellingPriceValue,
+        changedByAdmin: db.currentUser?.name || "Admin",
+        changedDate: new Date().toISOString()
+      });
+    }
+
+    db.products[idx] = {
+      ...db.products[idx],
+      name: productData.name,
+      genericName: productData.genericName,
+      company: productData.company,
+      category: productData.category,
+      strength: productData.strength || db.products[idx].strength,
+      packSize: productData.packSize || db.products[idx].packSize,
+      mrp: mrpValue,
+      sellingPrice: sellingPriceValue,
+      discountPercentage: discountPercent,
+      availableStock: stockValue,
+      batchNumber: productData.batchNumber || db.products[idx].batchNumber,
+      expiryDate: productData.expiryDate || db.products[idx].expiryDate,
+      imageUrl: productData.imageUrl || db.products[idx].imageUrl || "",
+      image_url: productData.imageUrl || db.products[idx].image_url || ""
+    };
+    saveDb();
+    return res.json({ success: true, message: "Product updated successfully.", product: db.products[idx] });
+  } else {
+    // Create new product
+    let nextIdCounter = db.products.reduce((max, p) => {
+      const idNum = parseInt(p.id.replace("prod_", ""), 10);
+      return isNaN(idNum) ? max : Math.max(max, idNum);
+    }, 0) + 1;
+    const newProduct = {
+      id: `prod_${nextIdCounter}`,
+      name: productData.name,
+      genericName: productData.genericName,
+      company: productData.company,
+      category: productData.category,
+      strength: productData.strength || "N/A",
+      packSize: productData.packSize || "N/A",
+      mrp: mrpValue,
+      sellingPrice: sellingPriceValue,
+      discountPercentage: discountPercent,
+      availableStock: stockValue,
+      reservedStock: 0,
+      soldStock: 0,
+      batchNumber: productData.batchNumber || `B-MAN${Math.floor(100 + Math.random() * 900)}`,
+      expiryDate: productData.expiryDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      imageUrl: productData.imageUrl || "",
+      image_url: productData.imageUrl || ""
+    };
+    db.products.unshift(newProduct);
+    saveDb();
+    return res.json({ success: true, message: "Product created successfully.", product: newProduct });
+  }
+});
+
+app.delete("/api/admin/products/:id", requireRole(["Admin"]), (req, res) => {
+  const { id } = req.params;
+  const idx = db.products.findIndex(p => p.id === id);
+  if (idx === -1) {
+    return res.status(404).json({ error: "Product not found." });
+  }
+  db.products.splice(idx, 1);
+  saveDb();
+  res.json({ success: true, message: "Product deleted successfully." });
+});
+
+app.post("/api/admin/inventory/update", requireRole(["Admin"]), (req, res) => {
+  const { id, availableStock, batchNumber, expiryDate } = req.body;
+  const idx = db.products.findIndex(p => p.id === id);
+  if (idx === -1) {
+    return res.status(404).json({ error: "Product not found in inventory." });
+  }
+  if (availableStock !== undefined) db.products[idx].availableStock = parseInt(availableStock, 10);
+  if (batchNumber !== undefined) db.products[idx].batchNumber = batchNumber;
+  if (expiryDate !== undefined) db.products[idx].expiryDate = expiryDate;
+  saveDb();
+  res.json({ success: true, message: "Inventory stock details updated successfully.", product: db.products[idx] });
+});
+
+app.post("/api/admin/notifications/broadcast", requireRole(["Admin"]), (req, res) => {
+  const { title, message, type } = req.body;
+  if (!title || !message) {
+    return res.status(400).json({ error: "Title and message are required." });
+  }
+  const newNotification = {
+    id: "notif_" + Date.now(),
+    title,
+    message,
+    type: type || "system",
+    date: new Date().toISOString(),
+    read: false
+  };
+  db.notifications.unshift(newNotification);
+  saveDb();
+  res.json({ success: true, message: "Notification broadcasted successfully.", notification: newNotification });
 });
 
 app.get("/api/admin/products/import/template", requireRole(["Admin", "Pharmacy Owner"]), (req, res) => {
@@ -590,7 +986,7 @@ app.get("/api/admin/products/template", requireRole(["Admin", "Pharmacy Owner"])
 });
 
 app.post("/api/admin/products/import", requireRole(["Admin"]), (req, res) => {
-  const { csvContent } = req.body;
+  const { csvContent, commit } = req.body;
   if (!csvContent || typeof csvContent !== "string") {
     return res.status(400).json({ error: "No CSV content provided." });
   }
@@ -598,12 +994,16 @@ app.post("/api/admin/products/import", requireRole(["Admin"]), (req, res) => {
   try {
     const result = importBulkCatalog(csvContent, db.products);
 
-    if (result.successCount > 0) {
+    const shouldCommit = commit !== false;
+    if (shouldCommit && result.successCount > 0) {
       db.products.unshift(...result.importedProducts);
       saveDb();
     }
 
-    res.json(result);
+    res.json({
+      ...result,
+      committed: shouldCommit
+    });
   } catch (err: any) {
     res.status(500).json({ error: "Bulk import failed: " + err.message });
   }
@@ -1082,6 +1482,10 @@ app.post("/api/cart/clear", (req, res) => {
 
 // Order Processing & Invoicing
 app.post("/api/orders", (req, res) => {
+  if (db.pharmacy && db.pharmacy.status && db.pharmacy.status !== "Verified") {
+    return res.status(403).json({ error: "Access Denied: Your pharmacy account is currently " + db.pharmacy.status + ". Only verified pharmacies can place orders." });
+  }
+
   if (db.cart.length === 0) {
     return res.status(400).json({ error: "Your cart is empty." });
   }
@@ -1170,6 +1574,21 @@ app.post("/api/orders", (req, res) => {
     date: new Date().toISOString(),
     read: false
   });
+
+  // Create invoice
+  if (!db.invoices) {
+    db.invoices = [];
+  }
+  const newInvoice = {
+    id: "INV-" + orderId.replace("MCH-", ""),
+    orderId: orderId,
+    pharmacyId: db.pharmacy?.id || "pharm_default",
+    totalAmount: totalAmount,
+    paymentStatus: paymentMethod === "Cash on Delivery" ? "Pending" : "Paid",
+    createdAt: new Date().toISOString(),
+    downloadCount: 0
+  };
+  db.invoices.push(newInvoice);
 
   // Clear cart
   db.cart = [];
