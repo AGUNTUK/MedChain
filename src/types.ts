@@ -20,6 +20,7 @@ export interface Product {
   batchNumber: string;
   expiryDate: string; // YYYY-MM-DD
   imageUrl?: string;
+  image_url?: string;
 }
 
 export interface Pharmacy {

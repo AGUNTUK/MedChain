@@ -12,6 +12,7 @@ export interface RawImportRow {
   batchNumber?: string;
   expiryDate?: string;
   stockQuantity?: string;
+  imageUrl?: string;
 }
 
 export interface ValidationError {
@@ -127,7 +128,7 @@ export function mapRowToFields(row: Record<string, string>): RawImportRow {
   return {
     productName: findVal(["Product Name", "product_name", "product", "name"]),
     genericName: findVal(["Generic Name", "generic_name", "generic", "formula"]),
-    companyName: findVal(["Company Name", "company_name", "company", "manufacturer", "brand"]),
+    companyName: findVal(["Company", "Company Name", "company_name", "company", "manufacturer", "brand"]),
     category: findVal(["Category", "product_category", "type"]),
     strength: findVal(["Strength", "power", "dose"]),
     packSize: findVal(["Pack Size", "pack_size", "pack", "size"]),
@@ -135,7 +136,8 @@ export function mapRowToFields(row: Record<string, string>): RawImportRow {
     sellingPrice: findVal(["Selling Price", "selling_price", "price"]),
     batchNumber: findVal(["Batch Number", "batch_number", "batch", "batch_no"]),
     expiryDate: findVal(["Expiry Date", "expiry_date", "expiry", "exp"]),
-    stockQuantity: findVal(["Stock Quantity", "stock_quantity", "stock", "qty", "quantity"])
+    stockQuantity: findVal(["Stock", "Stock Quantity", "stock_quantity", "stock", "qty", "quantity"]),
+    imageUrl: findVal(["Image URL", "image_url", "image", "img_url", "url", "imageUrl"])
   };
 }
 
@@ -153,7 +155,7 @@ export function validateImportRow(
   // Required Field Checks
   if (!row.productName) errors.push("Product Name is required.");
   if (!row.genericName) errors.push("Generic Name is required.");
-  if (!row.companyName) errors.push("Company Name is required.");
+  if (!row.companyName) errors.push("Company is required.");
   if (!row.category) {
     errors.push("Category is required.");
   } else {
@@ -165,10 +167,11 @@ export function validateImportRow(
       row.category = match;
     }
   }
-  if (!row.strength) errors.push("Strength (e.g. 500mg, 20mg) is required.");
-  if (!row.packSize) errors.push("Pack Size (e.g. 100's Box) is required.");
+  if (!row.strength) errors.push("Strength is required.");
+  if (!row.packSize) errors.push("Pack Size is required.");
   if (!row.mrp) errors.push("MRP is required.");
   if (!row.sellingPrice) errors.push("Selling Price is required.");
+  if (!row.batchNumber) errors.push("Batch Number is required.");
 
   // Numeric and Logical Pricing Validation
   const mrpValue = parseFloat(row.mrp);
@@ -187,31 +190,40 @@ export function validateImportRow(
   }
 
   if (!isNaN(mrpValue) && !isNaN(sellingPriceValue) && mrpValue < sellingPriceValue) {
-    errors.push("Selling Price cannot be higher than the Maximum Retail Price (MRP).");
+    errors.push("MRP must be greater than or equal to Selling Price.");
   }
 
-  // Stock Quantity Validation
+  // Stock Validation
   if (row.stockQuantity) {
     const stock = parseInt(row.stockQuantity, 10);
     if (isNaN(stock)) {
-      errors.push("Stock Quantity must be a valid integer.");
+      errors.push("Stock must be a valid integer.");
     } else if (stock < 0) {
-      errors.push("Stock Quantity cannot be negative.");
+      errors.push("Stock cannot be negative.");
     }
+  } else {
+    errors.push("Stock is required.");
   }
 
   // Expiry Date Validation
   if (row.expiryDate) {
-    const expDate = new Date(row.expiryDate);
-    if (isNaN(expDate.getTime())) {
-      errors.push("Expiry Date must be a valid date (e.g. YYYY-MM-DD).");
+    const isFormatValid = /^\d{4}-\d{2}-\d{2}$/.test(row.expiryDate);
+    if (!isFormatValid) {
+      errors.push("Expiry Date must be in YYYY-MM-DD format.");
     } else {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (expDate <= today) {
-        errors.push(`Product expiry date (${row.expiryDate}) has already passed or is today.`);
+      const expDate = new Date(row.expiryDate);
+      if (isNaN(expDate.getTime())) {
+        errors.push("Expiry Date must be a valid date.");
+      } else {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (expDate <= today) {
+          errors.push(`Product expiry date (${row.expiryDate}) has already passed or is today.`);
+        }
       }
     }
+  } else {
+    errors.push("Expiry Date is required.");
   }
 
   // Duplicate Check
@@ -255,9 +267,11 @@ export function mapToProduct(row: RawImportRow, nextId: string): Product {
     reservedStock: 0,
     soldStock: 0,
     batchNumber: row.batchNumber || `B-IMP${Math.floor(100 + Math.random() * 900)}`,
-    expiryDate: row.expiryDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] // default 1 yr future
+    expiryDate: row.expiryDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0], // default 1 yr future
+    imageUrl: row.imageUrl || "",
+    image_url: row.imageUrl || ""
   };
-};
+}
 
 /**
  * 4. Orchestrator Service

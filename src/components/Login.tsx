@@ -60,15 +60,6 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     }
   };
 
-  const handleSandboxAutofill = (roleEmail: string, roleName: string, roleType: string) => {
-    setEmail(roleEmail);
-    setPassword("password123");
-    setName(roleName);
-    setRole(roleType);
-    setMode("login");
-    setError("");
-  };
-
   return (
     <div className="w-full h-full bg-brand-bg flex flex-col justify-between p-6 select-none relative overflow-y-auto">
       {/* Upper Logo Section */}
@@ -219,47 +210,6 @@ export default function Login({ onLoginSuccess }: LoginProps) {
               </>
             )}
           </button>
-
-          {/* Tap-to-Autofill Role-Based Sandbox */}
-          <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3.5 mt-4 space-y-2">
-            <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider">
-              💡 Quick Sandbox Accounts (Autofill & Sign In)
-            </span>
-            <div className="grid grid-cols-2 gap-2 text-[10px]">
-              <button
-                type="button"
-                onClick={() => handleSandboxAutofill("owner@medichain.com", "Zahid Hasan", "Pharmacy Owner")}
-                className="bg-white border border-slate-200/80 hover:border-brand-purple p-2 rounded-lg text-left font-semibold text-slate-700 transition-all flex flex-col cursor-pointer shadow-sm hover:shadow"
-              >
-                <span className="text-slate-400 text-[8px] font-bold">PHARMACY OWNER</span>
-                <span className="truncate">owner@medichain.com</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSandboxAutofill("admin@medichain.com", "MediChain Administrator", "Admin")}
-                className="bg-white border border-slate-200/80 hover:border-brand-purple p-2 rounded-lg text-left font-semibold text-slate-700 transition-all flex flex-col cursor-pointer shadow-sm hover:shadow"
-              >
-                <span className="text-slate-400 text-[8px] font-bold">ADMIN</span>
-                <span className="truncate">admin@medichain.com</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSandboxAutofill("depot@medichain.com", "Depot Logistics Officer", "Depot Staff")}
-                className="bg-white border border-slate-200/80 hover:border-brand-purple p-2 rounded-lg text-left font-semibold text-slate-700 transition-all flex flex-col cursor-pointer shadow-sm hover:shadow"
-              >
-                <span className="text-slate-400 text-[8px] font-bold">DEPOT STAFF</span>
-                <span className="truncate">depot@medichain.com</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSandboxAutofill("delivery@medichain.com", "Delivery Express Courier", "Delivery Staff")}
-                className="bg-white border border-slate-200/80 hover:border-brand-purple p-2 rounded-lg text-left font-semibold text-slate-700 transition-all flex flex-col cursor-pointer shadow-sm hover:shadow"
-              >
-                <span className="text-slate-400 text-[8px] font-bold">DELIVERY STAFF</span>
-                <span className="truncate">delivery@medichain.com</span>
-              </button>
-            </div>
-          </div>
         </form>
       </motion.div>
 

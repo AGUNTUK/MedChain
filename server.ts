@@ -567,6 +567,28 @@ app.post("/api/admin/products", requireRole(["Admin"]), (req, res) => {
   res.json({ success: true, message: "Admin: Product updated/created." });
 });
 
+app.get("/api/admin/products/import/template", requireRole(["Admin", "Pharmacy Owner"]), (req, res) => {
+  const csvTemplate = 
+    "Product Name,Generic Name,Company,Category,Strength,Pack Size,MRP,Selling Price,Stock,Batch Number,Expiry Date,Image URL\n" +
+    "Napa Extra,Paracetamol + Caffeine,Beximco Pharmaceuticals,Tablet,500mg + 65mg,240's Box,480.00,360.00,450,B-NPE92,2027-10-15,https://example.com/napa.png\n" +
+    "Seclo 20,Omeprazole,Square Pharmaceuticals,Capsule,20mg,120's Box,720.00,576.00,550,SQ-SEC20,2027-12-05,https://example.com/seclo.png\n";
+
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", "attachment; filename=medi_chain_bulk_import_template.csv");
+  res.status(200).send(csvTemplate);
+});
+
+app.get("/api/admin/products/template", requireRole(["Admin", "Pharmacy Owner"]), (req, res) => {
+  const csvTemplate = 
+    "Product Name,Generic Name,Company,Category,Strength,Pack Size,MRP,Selling Price,Stock,Batch Number,Expiry Date,Image URL\n" +
+    "Napa Extra,Paracetamol + Caffeine,Beximco Pharmaceuticals,Tablet,500mg + 65mg,240's Box,480.00,360.00,450,B-NPE92,2027-10-15,https://example.com/napa.png\n" +
+    "Seclo 20,Omeprazole,Square Pharmaceuticals,Capsule,20mg,120's Box,720.00,576.00,550,SQ-SEC20,2027-12-05,https://example.com/seclo.png\n";
+
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", "attachment; filename=medi_chain_bulk_import_template.csv");
+  res.status(200).send(csvTemplate);
+});
+
 app.post("/api/admin/products/import", requireRole(["Admin"]), (req, res) => {
   const { csvContent } = req.body;
   if (!csvContent || typeof csvContent !== "string") {
