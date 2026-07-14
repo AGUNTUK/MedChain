@@ -10,18 +10,43 @@
 -- Enable UUID generation extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Create custom enum types for User Roles and Statuses
-CREATE TYPE user_role AS ENUM ('pharmacy', 'admin', 'depot_staff', 'delivery');
-CREATE TYPE order_status AS ENUM ('Pending', 'Confirmed', 'Processing', 'Packed', 'Out for Delivery', 'Delivered', 'Completed', 'Cancelled');
-CREATE TYPE payment_method AS ENUM ('Cash on Delivery', 'bKash', 'Nagad');
-CREATE TYPE payment_status AS ENUM ('Pending', 'Paid', 'Failed', 'Refunded');
-CREATE TYPE return_status AS ENUM ('None', 'Pending', 'Approved', 'Rejected');
-CREATE TYPE prescription_status AS ENUM ('Processing', 'Completed', 'Failed');
+-- Create custom enum types for User Roles and Statuses (Safely handling if they exist)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
+    CREATE TYPE user_role AS ENUM ('pharmacy', 'admin', 'depot_staff', 'delivery');
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'order_status') THEN
+    CREATE TYPE order_status AS ENUM ('Pending', 'Confirmed', 'Processing', 'Packed', 'Out for Delivery', 'Delivered', 'Completed', 'Cancelled');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payment_method') THEN
+    CREATE TYPE payment_method AS ENUM ('Cash on Delivery', 'bKash', 'Nagad');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payment_status') THEN
+    CREATE TYPE payment_status AS ENUM ('Pending', 'Paid', 'Failed', 'Refunded');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'return_status') THEN
+    CREATE TYPE return_status AS ENUM ('None', 'Pending', 'Approved', 'Rejected');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'prescription_status') THEN
+    CREATE TYPE prescription_status AS ENUM ('Processing', 'Completed', 'Failed');
+  END IF;
+END $$;
+
+-- Safely add new statuses in case the enum already existed before we added these
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'Pending';
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'Completed';
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'Cancelled';
 
 -- ==========================================
 -- 1. USERS & ROLES TABLE
 -- ==========================================
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY, -- Linked with Supabase Auth user id (auth.uid() = id)
     email VARCHAR(255) UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -35,7 +60,7 @@ CREATE TABLE users (
 -- ==========================================
 -- 2. PHARMACIES TABLE
 -- ==========================================
-CREATE TABLE pharmacies (
+CREATE TABLE IF NOT EXISTS pharmacies (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID UNIQUE REFERENCES users(id) ON DELETE CASCADE,
     pharmacy_name VARCHAR(255) NOT NULL,
@@ -54,7 +79,7 @@ ALTER TABLE users ADD CONSTRAINT fk_users_pharmacy FOREIGN KEY (pharmacy_id) REF
 -- ==========================================
 -- 3. CATEGORIES TABLE
 -- ==========================================
-CREATE TABLE categories (
+CREATE TABLE IF NOT EXISTS categories (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(100) UNIQUE NOT NULL,
     description TEXT,
@@ -64,7 +89,7 @@ CREATE TABLE categories (
 -- ==========================================
 -- 4. PRODUCTS TABLE
 -- ==========================================
-CREATE TABLE products (
+CREATE TABLE IF NOT EXISTS products (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     generic_name VARCHAR(255) NOT NULL,
@@ -85,7 +110,7 @@ CREATE TABLE products (
 -- ==========================================
 -- 5. INVENTORY TABLE (FEFO Optimized)
 -- ==========================================
-CREATE TABLE inventory (
+CREATE TABLE IF NOT EXISTS inventory (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     product_id UUID UNIQUE REFERENCES products(id) ON DELETE CASCADE,
     available_stock INTEGER NOT NULL DEFAULT 0 CHECK (available_stock >= 0),
@@ -100,7 +125,7 @@ CREATE TABLE inventory (
 -- ==========================================
 -- 6. SUPPLIERS TABLE
 -- ==========================================
-CREATE TABLE suppliers (
+CREATE TABLE IF NOT EXISTS suppliers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     contact_person VARCHAR(255),
@@ -113,7 +138,7 @@ CREATE TABLE suppliers (
 -- ==========================================
 -- 7. PRODUCT SUPPLIERS TABLE (M:N relationship)
 -- ==========================================
-CREATE TABLE product_suppliers (
+CREATE TABLE IF NOT EXISTS product_suppliers (
     product_id UUID REFERENCES products(id) ON DELETE CASCADE,
     supplier_id UUID REFERENCES suppliers(id) ON DELETE CASCADE,
     purchase_price DECIMAL(12, 2) NOT NULL CHECK (purchase_price >= 0),
@@ -124,7 +149,7 @@ CREATE TABLE product_suppliers (
 -- ==========================================
 -- 8. CREDIT ACCOUNTS TABLE (B2B Credit Lines)
 -- ==========================================
-CREATE TABLE credit_accounts (
+CREATE TABLE IF NOT EXISTS credit_accounts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     pharmacy_id UUID UNIQUE REFERENCES pharmacies(id) ON DELETE CASCADE,
     credit_limit DECIMAL(12, 2) NOT NULL DEFAULT 100000.00 CHECK (credit_limit >= 0),
@@ -136,7 +161,7 @@ CREATE TABLE credit_accounts (
 -- ==========================================
 -- 9. ORDERS TABLE
 -- ==========================================
-CREATE TABLE orders (
+CREATE TABLE IF NOT EXISTS orders (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     pharmacy_id UUID REFERENCES pharmacies(id) ON DELETE CASCADE,
     status order_status NOT NULL DEFAULT 'Pending',
@@ -158,7 +183,7 @@ CREATE TABLE orders (
 -- ==========================================
 -- 10. ORDER ITEMS TABLE
 -- ==========================================
-CREATE TABLE order_items (
+CREATE TABLE IF NOT EXISTS order_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
     product_id UUID REFERENCES products(id) ON DELETE SET NULL,
@@ -170,7 +195,7 @@ CREATE TABLE order_items (
 -- ==========================================
 -- 11. INVOICES TABLE
 -- ==========================================
-CREATE TABLE invoices (
+CREATE TABLE IF NOT EXISTS invoices (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     order_id UUID UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
     invoice_number VARCHAR(100) UNIQUE NOT NULL,
@@ -183,7 +208,7 @@ CREATE TABLE invoices (
 -- ==========================================
 -- 12. PAYMENTS TABLE
 -- ==========================================
-CREATE TABLE payments (
+CREATE TABLE IF NOT EXISTS payments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     invoice_id UUID REFERENCES invoices(id) ON DELETE CASCADE,
     payment_method payment_method NOT NULL,
@@ -196,7 +221,7 @@ CREATE TABLE payments (
 -- ==========================================
 -- 13. FAVOURITES TABLE
 -- ==========================================
-CREATE TABLE favourites (
+CREATE TABLE IF NOT EXISTS favourites (
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     product_id UUID REFERENCES products(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -206,7 +231,7 @@ CREATE TABLE favourites (
 -- ==========================================
 -- 14. NOTIFICATIONS TABLE
 -- ==========================================
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE, -- NULL means broadcast
     title VARCHAR(255) NOT NULL,
@@ -219,7 +244,7 @@ CREATE TABLE notifications (
 -- ==========================================
 -- 15. PRESCRIPTIONS TABLE (Optical OCR uploads)
 -- ==========================================
-CREATE TABLE prescriptions (
+CREATE TABLE IF NOT EXISTS prescriptions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     pharmacy_id UUID REFERENCES pharmacies(id) ON DELETE CASCADE,
     image_url TEXT NOT NULL,
@@ -232,7 +257,7 @@ CREATE TABLE prescriptions (
 -- ==========================================
 -- 16. RETURNS TABLE
 -- ==========================================
-CREATE TABLE returns (
+CREATE TABLE IF NOT EXISTS returns (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
     product_id UUID REFERENCES products(id) ON DELETE CASCADE,
@@ -248,15 +273,15 @@ CREATE TABLE returns (
 -- ============================================================================
 -- DB INDEXES (Optimization & Rapid Query Performance)
 -- ============================================================================
-CREATE INDEX idx_users_phone ON users(phone);
-CREATE INDEX idx_products_category ON products(category_id);
-CREATE INDEX idx_products_name_generic ON products(name, generic_name);
-CREATE INDEX idx_inventory_product ON inventory(product_id);
-CREATE INDEX idx_inventory_expiry ON inventory(expiry_date); -- Critical for FEFO queries
-CREATE INDEX idx_orders_pharmacy ON orders(pharmacy_id);
-CREATE INDEX idx_orders_status ON orders(status);
-CREATE INDEX idx_order_items_order ON order_items(order_id);
-CREATE INDEX idx_notifications_user_unread ON notifications(user_id) WHERE read = FALSE;
+CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
+CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
+CREATE INDEX IF NOT EXISTS idx_products_name_generic ON products(name, generic_name);
+CREATE INDEX IF NOT EXISTS idx_inventory_product ON inventory(product_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_expiry ON inventory(expiry_date); -- Critical for FEFO queries
+CREATE INDEX IF NOT EXISTS idx_orders_pharmacy ON orders(pharmacy_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id) WHERE read = FALSE;
 
 
 -- ============================================================================
@@ -270,11 +295,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER update_users_modtime BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_modified_column();
-CREATE TRIGGER update_pharmacies_modtime BEFORE UPDATE ON pharmacies FOR EACH ROW EXECUTE FUNCTION update_modified_column();
-CREATE TRIGGER update_products_modtime BEFORE UPDATE ON products FOR EACH ROW EXECUTE FUNCTION update_modified_column();
-CREATE TRIGGER update_inventory_modtime BEFORE UPDATE ON inventory FOR EACH ROW EXECUTE FUNCTION update_modified_column();
-CREATE TRIGGER update_orders_modtime BEFORE UPDATE ON orders FOR EACH ROW EXECUTE FUNCTION update_modified_column();
+DROP TRIGGER IF EXISTS update_users_modtime ON users; CREATE TRIGGER update_users_modtime BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_modified_column();
+DROP TRIGGER IF EXISTS update_pharmacies_modtime ON pharmacies; CREATE TRIGGER update_pharmacies_modtime BEFORE UPDATE ON pharmacies FOR EACH ROW EXECUTE FUNCTION update_modified_column();
+DROP TRIGGER IF EXISTS update_products_modtime ON products; CREATE TRIGGER update_products_modtime BEFORE UPDATE ON products FOR EACH ROW EXECUTE FUNCTION update_modified_column();
+DROP TRIGGER IF EXISTS update_inventory_modtime ON inventory; CREATE TRIGGER update_inventory_modtime BEFORE UPDATE ON inventory FOR EACH ROW EXECUTE FUNCTION update_modified_column();
+DROP TRIGGER IF EXISTS update_orders_modtime ON orders; CREATE TRIGGER update_orders_modtime BEFORE UPDATE ON orders FOR EACH ROW EXECUTE FUNCTION update_modified_column();
 
 
 -- ============================================================================
