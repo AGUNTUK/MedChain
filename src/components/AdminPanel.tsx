@@ -51,6 +51,7 @@ import {
 import * as XLSX from "xlsx";
 import { Product, Order, Pharmacy, Notification, User, OrderStatus } from "../types";
 import { productService, orderService, notificationService } from "../services";
+import NotificationBell from "./NotificationBell";
 
 interface AdminPanelProps {
   currentUser: User;
@@ -1158,8 +1159,8 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
               {activeRoute === "/admin/settings" && "SYSTEM PLATFORM SCHEMAS"}
             </h2>
           </div>
-
           <div className="flex items-center gap-4">
+            <NotificationBell />
             <button 
               onClick={refreshAllData}
               className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-semibold"

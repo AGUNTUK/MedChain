@@ -16,6 +16,8 @@ import {
 import MediChainLogo from "./MediChainLogo";
 import { Product } from "../types";
 import { productService } from "../services";
+import NotificationBell from "./NotificationBell";
+import PharmacyDashboard from "./PharmacyDashboard";
 
 interface HomeProps {
   onTriggerSearch: (query?: string, category?: string) => void;
@@ -24,8 +26,6 @@ interface HomeProps {
   favouriteIds: string[];
   pharmacyName?: string;
   onOpenProductDetails: (product: Product) => void;
-  onOpenNotifications: () => void;
-  unreadNotificationsCount: number;
 }
 
 export default function Home({
@@ -35,8 +35,6 @@ export default function Home({
   favouriteIds,
   pharmacyName = "City Pharma",
   onOpenProductDetails,
-  onOpenNotifications,
-  unreadNotificationsCount
 }: HomeProps) {
   const [bestDeals, setBestDeals] = useState<Product[]>([]);
   const [frequentProducts, setFrequentProducts] = useState<Product[]>([]);
@@ -99,18 +97,10 @@ export default function Home({
         </div>
 
         {/* Notifications and status */}
-        <button
-          onClick={onOpenNotifications}
-          className="p-2 bg-slate-50 border border-slate-100 rounded-full hover:bg-slate-100 transition-colors relative cursor-pointer"
-        >
-          <Bell className="w-4.5 h-4.5 text-slate-600" />
-          {unreadNotificationsCount > 0 && (
-            <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-rose-500 text-white font-extrabold text-[8px] rounded-full flex items-center justify-center animate-pulse">
-              {unreadNotificationsCount}
-            </span>
-          )}
-        </button>
+        <NotificationBell />
       </div>
+
+      <PharmacyDashboard />
 
       {/* Main Body */}
       <div className="p-4 space-y-4">

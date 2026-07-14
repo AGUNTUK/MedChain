@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
+import cron from "node-cron";
 import { importBulkCatalog } from "./src/lib/importService.js";
 import { performSearch } from "./src/lib/searchService.js";
 
@@ -293,12 +294,22 @@ let db = {
     phone: "01712345678",
     address: "House 42, Road 9A, Dhanmondi",
     city: "Dhaka",
+    area: "Dhanmondi",
     licenseNo: "DC-PH-2025-1194",
+    verificationStatus: "Approved",
     creditLimit: 150000,
     usedCredit: 35400,
     availableCredit: 114600,
-    status: "Verified" as string
   },
+  credit_accounts: [
+    {
+        id: "ca_default",
+        pharmacyId: "pharm_default",
+        creditLimit: 150000,
+        usedCredit: 35400,
+        status: "Active"
+    }
+  ] as any[],
   products: [...INITIAL_PRODUCTS] as any[],
   cart: [] as Array<{ productId: string; quantity: number }>,
   orders: [
@@ -394,6 +405,12 @@ let db = {
   ] as any[],
   favourites: ["prod_1", "prod_4", "prod_12"] as string[],
   notifications: [...INITIAL_NOTIFICATIONS] as any[],
+  alert_logs: [] as any[],
+  audit_logs: [] as any[],
+  system_settings: {
+    low_stock_threshold: 50,
+    expiry_alert_days: [30, 60, 90]
+  },
   prescriptions: [] as any[],
   priceHistory: [] as any[],
   invoices: [] as any[],
@@ -706,6 +723,97 @@ app.post("/api/admin/pharmacies/:id/credit", requireRole(["Admin"]), (req, res) 
   
   saveDb();
   res.json({ success: true, pharmacy: db.pharmacies[idx] });
+});
+
+app.get("/api/admin/pharmacies/pending", requireRole(["Admin"]), (req, res) => {
+  res.json(db.pharmacies.filter((p: any) => p.verificationStatus === "Pending"));
+});
+
+app.get("/api/admin/pharmacies/:id", requireRole(["Admin"]), (req, res) => {
+  const pharmacy = db.pharmacies.find((p: any) => p.id === req.params.id);
+  if (!pharmacy) return res.status(404).json({ error: "Pharmacy not found" });
+  res.json(pharmacy);
+});
+
+app.post("/api/admin/pharmacies/:id/approve", requireRole(["Admin"]), (req, res) => {
+  const pharmacy = db.pharmacies.find((p: any) => p.id === req.params.id);
+  if (!pharmacy) return res.status(404).json({ error: "Pharmacy not found" });
+  
+  pharmacy.verificationStatus = "Approved";
+  pharmacy.verifiedAt = new Date().toISOString();
+  pharmacy.verifiedBy = (req as any).user?.name || "Admin";
+
+  if (!db.credit_accounts) db.credit_accounts = [];
+  db.credit_accounts.push({
+    id: `ca_${pharmacy.id}`,
+    pharmacyId: pharmacy.id,
+    creditLimit: 100000,
+    usedCredit: 0,
+    status: "Active"
+  });
+
+  db.notifications.push({
+    id: `notif_${Date.now()}`,
+    title: "Account Approved",
+    message: "Your pharmacy account has been approved.",
+    type: "system_alert",
+    related_id: pharmacy.id,
+    is_read: false,
+    created_at: new Date().toISOString(),
+    role_target: "Pharmacy Owner"
+  });
+  
+  saveDb();
+  res.json({ success: true });
+});
+
+app.post("/api/admin/pharmacies/:id/reject", requireRole(["Admin"]), (req, res) => {
+  const pharmacy = db.pharmacies.find((p: any) => p.id === req.params.id);
+  if (!pharmacy) return res.status(404).json({ error: "Pharmacy not found" });
+  
+  pharmacy.verificationStatus = "Rejected";
+  db.notifications.push({
+    id: `notif_${Date.now()}`,
+    title: "Verification Rejected",
+    message: "Please update verification documents.",
+    type: "system_alert",
+    related_id: pharmacy.id,
+    is_read: false,
+    created_at: new Date().toISOString(),
+    role_target: "Pharmacy Owner"
+  });
+  
+  saveDb();
+  res.json({ success: true });
+});
+
+app.post("/api/admin/pharmacies/:id/request-update", requireRole(["Admin"]), (req, res) => {
+  const pharmacy = db.pharmacies.find((p: any) => p.id === req.params.id);
+  if (!pharmacy) return res.status(404).json({ error: "Pharmacy not found" });
+  
+  pharmacy.verificationStatus = "Pending";
+  db.notifications.push({
+    id: `notif_${Date.now()}`,
+    title: "Verification Update Required",
+    message: "Please update verification documents as requested.",
+    type: "system_alert",
+    related_id: pharmacy.id,
+    is_read: false,
+    created_at: new Date().toISOString(),
+    role_target: "Pharmacy Owner"
+  });
+  
+  saveDb();
+  res.json({ success: true });
+});
+
+app.post("/api/admin/pharmacies/:id/suspend", requireRole(["Admin"]), (req, res) => {
+  const pharmacy = db.pharmacies.find((p: any) => p.id === req.params.id);
+  if (!pharmacy) return res.status(404).json({ error: "Pharmacy not found" });
+  
+  pharmacy.verificationStatus = "Suspended";
+  saveDb();
+  res.json({ success: true });
 });
 
 app.get("/api/admin/products/:id/price-history", requireRole(["Admin"]), (req, res) => {
@@ -1228,6 +1336,133 @@ app.get("/api/delivery/history", requireRole(["Admin", "Delivery Staff"]), (req,
 });
 
 
+// Notification Endpoints
+app.get("/api/notifications", (req, res) => {
+  const user = (req as any).user;
+  const notifications = db.notifications?.filter((n: any) => 
+    !n.user_id || n.user_id === user.id || n.role_target === user.role
+  ) || [];
+  res.json(notifications);
+});
+
+app.post("/api/notifications/read/:id", (req, res) => {
+  const notification = db.notifications?.find((n: any) => n.id === req.params.id);
+  if (notification) {
+    notification.is_read = true;
+  }
+  res.json({ success: true });
+});
+
+app.post("/api/notifications/read-all", (req, res) => {
+  const user = (req as any).user;
+  db.notifications?.forEach((n: any) => {
+    if (!n.user_id || n.user_id === user.id || n.role_target === user.role) {
+      n.is_read = true;
+    }
+  });
+  res.json({ success: true });
+});
+
+app.post("/api/admin/notifications/send", requireRole(["Admin"]), (req, res) => {
+  const newNotification = {
+    ...req.body,
+    id: `notif_${Date.now()}`,
+    is_read: false,
+    created_at: new Date().toISOString()
+  };
+  if (!db.notifications) db.notifications = [];
+  db.notifications.push(newNotification);
+  res.json({ success: true, notification: newNotification });
+});
+
+async function runAlertCheck() {
+  const products = db.products as any[];
+  const settings = db.system_settings;
+  const alertLogs = db.alert_logs;
+
+  for (const product of products) {
+    // Low stock
+    if (product.availableStock <= settings.low_stock_threshold) {
+      const alertId = `low_${product.id}_${new Date().toDateString()}`;
+      if (!alertLogs.find((l: any) => l.alert_type === 'low_stock' && l.reference_id === alertId)) {
+        db.notifications.push({
+          id: `notif_${Date.now()}_${Math.random()}`,
+          title: "Low Stock Alert",
+          message: `${product.name} stock is low. Remaining: ${product.availableStock}`,
+          type: "low_stock_alert",
+          related_id: product.id,
+          is_read: false,
+          created_at: new Date().toISOString(),
+          role_target: "Admin"
+        });
+        alertLogs.push({ alert_type: 'low_stock', reference_id: alertId, created_at: new Date().toISOString() });
+      }
+    }
+
+    // Expiry
+    const expiryDate = new Date(product.expiryDate);
+    const today = new Date();
+    const diffDays = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (settings.expiry_alert_days.includes(diffDays)) {
+      const alertId = `exp_${product.id}_${diffDays}_${new Date().toDateString()}`;
+      if (!alertLogs.find((l: any) => l.alert_type === 'expiry' && l.reference_id === alertId)) {
+        db.notifications.push({
+          id: `notif_${Date.now()}_${Math.random()}`,
+          title: "Expiry Alert",
+          message: `${product.name} expires in ${diffDays} days`,
+          type: "expiry_alert",
+          related_id: product.id,
+          is_read: false,
+          created_at: new Date().toISOString(),
+          role_target: "Admin"
+        });
+        alertLogs.push({ alert_type: 'expiry', reference_id: alertId, created_at: new Date().toISOString() });
+      }
+    }
+  }
+  saveDb();
+}
+
+app.post("/api/admin/run-alert-check", requireRole(["Admin"]), async (req, res) => {
+  await runAlertCheck();
+  res.json({ success: true });
+});
+
+// Run inventory alert checks daily at 9am
+cron.schedule('0 9 * * *', () => {
+  console.log('Running daily alert check...');
+  runAlertCheck();
+});
+
+// Audit Log Endpoints
+function createAuditLog(user: any, action: string, module: string, description: string, entity_type: string, entity_id: string, metadata: any = {}) {
+  if (!db.audit_logs) db.audit_logs = [];
+  db.audit_logs.push({
+    id: `audit_${Date.now()}_${Math.random()}`,
+    user_id: user?.id,
+    user_role: user?.role,
+    action,
+    module,
+    description,
+    entity_type,
+    entity_id,
+    metadata,
+    created_at: new Date().toISOString()
+  });
+  saveDb();
+}
+
+app.get("/api/admin/audit-logs", requireRole(["Admin"]), (req, res) => {
+  res.json(db.audit_logs || []);
+});
+
+app.post("/api/audit-log", (req, res) => {
+  const { action, module, description, entity_type, entity_id, metadata } = req.body;
+  createAuditLog((req as any).user, action, module, description, entity_type, entity_id, metadata);
+  res.json({ success: true });
+});
+
 // Auth Endpoints
 app.post("/api/auth/sync-session", (req, res) => {
   const { id, email, name, phone } = req.body;
@@ -1562,10 +1797,11 @@ app.post("/api/cart/clear", (req, res) => {
 
 // Order Processing & Invoicing
 app.post("/api/orders", (req, res) => {
-  if (db.pharmacy && db.pharmacy.status && db.pharmacy.status !== "Verified") {
-    return res.status(403).json({ error: "Access Denied: Your pharmacy account is currently " + db.pharmacy.status + ". Only verified pharmacies can place orders." });
+  const pharmacy = db.pharmacies.find((p: any) => p.id === (req as any).user?.id);
+  if (pharmacy && pharmacy.verificationStatus !== "Approved") {
+    return res.status(403).json({ error: "Pharmacy verification required before ordering" });
   }
-
+  
   if (db.cart.length === 0) {
     return res.status(400).json({ error: "Your cart is empty." });
   }
@@ -1678,6 +1914,26 @@ app.post("/api/orders", (req, res) => {
     success: true,
     orderId,
     order: newOrder
+  });
+});
+
+app.get("/api/pharmacy/dashboard-summary", (req, res) => {
+  const pharmacyId = (req as any).user?.id || "pharm_default"; // Fallback for dev
+  const orders = db.orders.filter((o: any) => o.pharmacyId === pharmacyId);
+  const creditAccount = db.credit_accounts.find((ca: any) => ca.pharmacyId === pharmacyId);
+  
+  const totalOrders = orders.length;
+  const monthlyPurchase = orders
+    .filter((o: any) => new Date(o.created_at).getMonth() === new Date().getMonth())
+    .reduce((sum: number, o: any) => sum + o.totalAmount, 0);
+  const savedAmount = orders.reduce((sum: number, o: any) => sum + (o.totalSavings || 0), 0);
+
+  res.json({
+    totalOrders,
+    monthlyPurchase,
+    creditLimit: creditAccount ? creditAccount.creditLimit : 0,
+    outstandingDue: creditAccount ? creditAccount.usedCredit : 0,
+    savedAmount
   });
 });
 

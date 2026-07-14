@@ -5,6 +5,7 @@ import { productService, orderService } from "../services";
 import OrderCenter from "./depot/OrderCenter";
 import Inventory from "./depot/Inventory";
 import Delivery from "./depot/Delivery";
+import NotificationBell from "./NotificationBell";
 
 interface DepotDashboardProps {
   currentUser: User;
@@ -130,12 +131,15 @@ export default function DepotDashboard({ currentUser, onLogout }: DepotDashboard
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 bg-slate-50 overflow-y-auto p-8">
-        <h1 className="text-2xl font-black text-slate-900 mb-6 uppercase tracking-tight">
-          {activeRoute === "/depot/dashboard" && "Depot Operations Dashboard"}
-          {activeRoute === "/depot/orders" && "Order Processing Center"}
-          {activeRoute === "/depot/inventory" && "Medicine Inventory View"}
-          {activeRoute === "/depot/delivery" && "Delivery Handover"}
-        </h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">
+            {activeRoute === "/depot/dashboard" && "Depot Operations Dashboard"}
+            {activeRoute === "/depot/orders" && "Order Processing Center"}
+            {activeRoute === "/depot/inventory" && "Medicine Inventory View"}
+            {activeRoute === "/depot/delivery" && "Delivery Handover"}
+          </h1>
+          <NotificationBell />
+        </div>
 
         {activeRoute === "/depot/dashboard" && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

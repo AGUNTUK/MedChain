@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { User, Order } from "../types";
 import { LayoutDashboard, Truck, CheckCircle2, AlertTriangle, LogOut, Package, ClipboardList, Clock } from "lucide-react";
 import { orderService } from "../services";
+import NotificationBell from "./NotificationBell";
 
 interface DeliveryDashboardProps {
   currentUser: User;
@@ -114,11 +115,14 @@ export default function DeliveryDashboard({ currentUser, onLogout }: DeliveryDas
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 bg-slate-50 overflow-y-auto p-8">
-        <h1 className="text-2xl font-black text-slate-900 mb-6 uppercase tracking-tight">
-          {activeRoute === "/delivery/dashboard" && "Delivery Operations Dashboard"}
-          {activeRoute === "/delivery/orders" && "My Delivery Orders"}
-          {activeRoute === "/delivery/history" && "Delivery History"}
-        </h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">
+            {activeRoute === "/delivery/dashboard" && "Delivery Operations Dashboard"}
+            {activeRoute === "/delivery/orders" && "My Delivery Orders"}
+            {activeRoute === "/delivery/history" && "Delivery History"}
+          </h1>
+          <NotificationBell />
+        </div>
 
         {activeRoute === "/delivery/dashboard" && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

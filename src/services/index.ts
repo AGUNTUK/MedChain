@@ -11,5 +11,5 @@ export * from "./inventory";
 export * from "./order";
 export * from "./profile";
 export * from "./payment";
-export * from "./notification";
+export * from "./notificationService";
 export * from "./storage";

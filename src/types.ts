@@ -23,6 +23,8 @@ export interface Product {
   image_url?: string;
 }
 
+export type VerificationStatus = "Pending" | "Under Review" | "Approved" | "Rejected" | "Suspended";
+
 export interface Pharmacy {
   id: string;
   pharmacyName: string;
@@ -30,10 +32,25 @@ export interface Pharmacy {
   phone: string;
   address: string;
   city: string;
+  area: string;
   licenseNo: string;
+  licenseDocumentUrl?: string;
+  tradeLicenseNo?: string;
+  verificationStatus: VerificationStatus;
+  verificationNotes?: string;
+  verifiedBy?: string;
+  verifiedAt?: string;
   creditLimit: number;
   usedCredit: number;
   availableCredit: number;
+}
+
+export interface CreditAccount {
+  id: string;
+  pharmacyId: string;
+  creditLimit: number;
+  usedCredit: number;
+  status: "Active" | "Suspended";
 }
 
 export type OrderStatus = "Pending" | "Confirmed" | "Processing" | "Packed" | "Out for Delivery" | "Delivered" | "Completed" | "Cancelled";
@@ -68,13 +85,36 @@ export interface Order {
   returnStatus?: "None" | "Pending" | "Approved" | "Rejected";
 }
 
+export interface AuditLog {
+  id: string;
+  user_id: string;
+  user_role: string;
+  action: string;
+  module: string;
+  description: string;
+  entity_type: string;
+  entity_id: string;
+  created_at: string;
+}
+
 export interface Notification {
   id: string;
+  user_id?: string;
+  role_target?: string;
   title: string;
   message: string;
-  type: "offer" | "order" | "price_drop" | "system";
-  date: string;
-  read: boolean;
+  type: string;
+  related_id?: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface NotificationPreference {
+  user_id: string;
+  email_enabled: boolean;
+  sms_enabled: boolean;
+  whatsapp_enabled: boolean;
+  push_enabled: boolean;
 }
 
 export interface Favourite {
