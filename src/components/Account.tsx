@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { User as UserIcon, Phone, MapPin, FileText, Frown, Sparkles, Coins, ShoppingCart, Heart, LogOut, Check, LifeBuoy, Shield } from "lucide-react";
+import { User as UserIcon, Heart, Shield, RefreshCcw, LogOut, FileText, Check, ShoppingCart, LifeBuoy } from "lucide-react";
 import { Product, Pharmacy, User } from "../types";
-import { paymentService, productService } from "../services";
+import { paymentService } from "../services/payment";
+import { productService } from "../services/product";
 
 interface AccountProps {
   pharmacy: Pharmacy | null;
@@ -9,10 +10,9 @@ interface AccountProps {
   onLogout: () => void;
   onAddToCart: (productId: string, qty: number) => Promise<boolean>;
   favouriteIds: string[];
-  onRoleSwitch?: (role: string) => void;
 }
 
-export default function Account({ pharmacy, currentUser, onLogout, onAddToCart, favouriteIds, onRoleSwitch }: AccountProps) {
+export default function Account({ pharmacy, currentUser, onLogout, onAddToCart, favouriteIds }: AccountProps) {
   const [analytics, setAnalytics] = useState<any>(null);
   const [favProducts, setFavProducts] = useState<Product[]>([]);
   const [successId, setSuccessId] = useState<string | null>(null);
@@ -20,13 +20,8 @@ export default function Account({ pharmacy, currentUser, onLogout, onAddToCart, 
   const fetchData = async () => {
     try {
       // Fetch analytics (Admin and Pharmacy Owner only)
-      const isStaffOnly = currentUser?.role === "Depot Staff" || currentUser?.role === "Delivery Staff";
-      if (!isStaffOnly) {
-        const dataAnal = await paymentService.getAnalytics();
-        setAnalytics(dataAnal);
-      } else {
-        setAnalytics(null);
-      }
+      const dataAnal = await paymentService.getAnalytics();
+      setAnalytics(dataAnal);
 
       // Fetch favourites
       const dataFav = await productService.getFavourites();
@@ -49,7 +44,7 @@ export default function Account({ pharmacy, currentUser, onLogout, onAddToCart, 
   };
 
   return (
-    <div className="w-full h-full bg-brand-bg flex flex-col select-none overflow-y-auto p-4 space-y-4 pb-20">
+    <div className="w-full h-full bg-slate-50 flex flex-col select-none overflow-y-auto p-4 space-y-4 pb-20">
       {/* Account Info Header */}
       <div className="bg-white rounded-3xl p-5 border border-slate-100 flex items-center gap-4 relative overflow-hidden shadow-sm">
         <div className="w-12 h-12 bg-brand-purple/10 border border-brand-purple/25 rounded-full flex items-center justify-center font-black text-brand-purple text-lg shadow-inner">
@@ -57,7 +52,7 @@ export default function Account({ pharmacy, currentUser, onLogout, onAddToCart, 
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="text-xs font-black text-brand-charcoal leading-tight truncate">
-            {pharmacy?.pharmacyName}
+            {pharmacy?.pharmacyName || "Pharmacy Profile"}
           </h2>
           <p className="text-[10px] text-slate-500 mt-0.5 font-semibold flex items-center gap-1">
             <UserIcon className="w-3.5 h-3.5 text-brand-purple flex-shrink-0" />
@@ -68,7 +63,7 @@ export default function Account({ pharmacy, currentUser, onLogout, onAddToCart, 
               Role: {currentUser?.role || "Pharmacy Owner"}
             </span>
             <span className="text-[9px] text-slate-400 font-bold font-mono">
-              Lic: {pharmacy?.licenseNo}
+              Lic: {pharmacy?.licenseNo || "Pending"}
             </span>
           </div>
         </div>
@@ -83,7 +78,7 @@ export default function Account({ pharmacy, currentUser, onLogout, onAddToCart, 
       </div>
 
       {/* Credit & Savings Dashboard */}
-      {analytics ? (
+      {analytics && (
         <div className="grid grid-cols-2 gap-3.5">
           <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-4 text-slate-300 shadow-lg">
             <span className="text-[9px] text-slate-400 block font-bold uppercase tracking-wider mb-1">
@@ -109,63 +104,7 @@ export default function Account({ pharmacy, currentUser, onLogout, onAddToCart, 
             </p>
           </div>
         </div>
-      ) : (
-        currentUser?.role && (currentUser.role === "Depot Staff" || currentUser.role === "Delivery Staff") && (
-          <div className="bg-amber-50 border border-amber-150 rounded-2xl p-3.5 text-amber-800">
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5">
-              <Shield className="w-4.5 h-4.5 text-amber-600" />
-              Restricted Financial Access
-            </p>
-            <p className="text-[9px] text-amber-700 leading-relaxed font-semibold">
-              Logistics staff roles ({currentUser.role}) are secure-blocked from accessing financial summaries, billing records, or pharmacy ledger books.
-            </p>
-          </div>
-        )
       )}
-
-      {/* Role-Based Access Control Sandbox Toggler */}
-      <div className="bg-white rounded-3xl p-4 border border-slate-100 space-y-3 shadow-sm">
-        <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-          <Shield className="w-4 h-4 text-brand-purple" />
-          Role Authorization Sandbox
-        </h3>
-        <p className="text-[10px] text-slate-500 leading-relaxed font-medium">
-          Select a secure role to test different access privileges, dashboards, and operational limits across MediChain.
-        </p>
-
-        <div className="grid grid-cols-2 gap-2 text-[10px]">
-          {[
-            { r: "Pharmacy Owner", desc: "Wholesale ordering & tracking" },
-            { r: "Admin", desc: "Pricing, returns, full analytics" },
-            { r: "Depot Staff", desc: "Order packing & inventory" },
-            { r: "Delivery Staff", desc: "Courier status & delivery" }
-          ].map(item => {
-            const isCurrent = currentUser?.role === item.r || (!currentUser?.role && item.r === "Pharmacy Owner");
-            return (
-              <button
-                key={item.r}
-                type="button"
-                onClick={() => onRoleSwitch?.(item.r)}
-                className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all relative cursor-pointer ${
-                  isCurrent
-                    ? "bg-brand-purple/5 border-brand-purple/35 text-brand-purple ring-1 ring-brand-purple/10 font-bold"
-                    : "bg-slate-50/50 border-slate-100 text-slate-700 hover:border-slate-200"
-                }`}
-              >
-                <div className="flex justify-between items-center w-full">
-                  <span className="font-extrabold text-[9px] uppercase tracking-wide">
-                    {item.r}
-                  </span>
-                  {isCurrent && <span className="w-1.5 h-1.5 bg-brand-purple rounded-full" />}
-                </div>
-                <span className={`text-[8px] mt-0.5 ${isCurrent ? "text-brand-purple/80" : "text-slate-400 font-semibold"}`}>
-                  {item.desc}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
 
       {/* Saved Favourites List / Quick order catalog */}
       <div className="bg-white rounded-3xl p-4 border border-slate-100 space-y-3 shadow-sm">
@@ -190,7 +129,6 @@ export default function Account({ pharmacy, currentUser, onLogout, onAddToCart, 
                   <div className="font-bold text-slate-700">{p.name} ({p.strength})</div>
                   <div className="text-[10px] text-slate-400 font-mono">৳{p.sellingPrice} / Box</div>
                 </div>
-
                 <button
                   onClick={() => handleQuickReorder(p.id)}
                   disabled={successId === p.id}
@@ -224,7 +162,7 @@ export default function Account({ pharmacy, currentUser, onLogout, onAddToCart, 
           <LifeBuoy className="w-4 h-4 text-brand-purple" />
           B2B Support & Depot Helpline
         </h3>
-
+        
         <div className="text-xs space-y-2 leading-relaxed font-semibold text-slate-600">
           <div className="flex justify-between">
             <span className="text-slate-400">Depot Manager:</span>
