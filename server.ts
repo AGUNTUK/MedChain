@@ -32,9 +32,6 @@ const INITIAL_PRODUCTS = [
     "soldStock": 120,
     "batchNumber": "B-NPE92",
     "expiryDate": "2027-10-15",
-    "suppliers": [
-      { "name": "Beximco Depot Dhaka", "purchasePrice": 320, "availableQty": 1000 }
-    ]
   },
   {
     "id": "prod_2",
@@ -52,9 +49,6 @@ const INITIAL_PRODUCTS = [
     "soldStock": 80,
     "batchNumber": "B-NX88",
     "expiryDate": "2027-08-22",
-    "suppliers": [
-      { "name": "Beximco Depot Dhaka", "purchasePrice": 195, "availableQty": 500 }
-    ]
   },
   {
     "id": "prod_3",
@@ -72,9 +66,6 @@ const INITIAL_PRODUCTS = [
     "soldStock": 340,
     "batchNumber": "B-N500",
     "expiryDate": "2028-01-10",
-    "suppliers": [
-      { "name": "Beximco Depot Dhaka", "purchasePrice": 400, "availableQty": 2000 }
-    ]
   },
   {
     "id": "prod_4",
@@ -92,9 +83,6 @@ const INITIAL_PRODUCTS = [
     "soldStock": 210,
     "batchNumber": "SQ-SEC20",
     "expiryDate": "2027-12-05",
-    "suppliers": [
-      { "name": "Square Central Depot", "purchasePrice": 520, "availableQty": 1500 }
-    ]
   },
   {
     "id": "prod_5",
@@ -112,9 +100,6 @@ const INITIAL_PRODUCTS = [
     "soldStock": 95,
     "batchNumber": "SQ-AL10",
     "expiryDate": "2027-11-18",
-    "suppliers": [
-      { "name": "Square Central Depot", "purchasePrice": 210, "availableQty": 800 }
-    ]
   },
   {
     "id": "prod_6",
@@ -132,9 +117,6 @@ const INITIAL_PRODUCTS = [
     "soldStock": 45,
     "batchNumber": "IN-TUX9",
     "expiryDate": "2027-06-30",
-    "suppliers": [
-      { "name": "Incepta Tejgaon Depot", "purchasePrice": 75, "availableQty": 400 }
-    ]
   },
   {
     "id": "prod_7",
@@ -152,9 +134,6 @@ const INITIAL_PRODUCTS = [
     "soldStock": 150,
     "batchNumber": "IN-CEF3",
     "expiryDate": "2027-03-12",
-    "suppliers": [
-      { "name": "Incepta Tejgaon Depot", "purchasePrice": 450, "availableQty": 300 }
-    ]
   },
   {
     "id": "prod_8",
@@ -172,9 +151,6 @@ const INITIAL_PRODUCTS = [
     "soldStock": 180,
     "batchNumber": "RE-MP20",
     "expiryDate": "2027-09-01",
-    "suppliers": [
-      { "name": "Renata Mirpur Depot", "purchasePrice": 500, "availableQty": 1200 }
-    ]
   },
   {
     "id": "prod_9",
@@ -192,9 +168,6 @@ const INITIAL_PRODUCTS = [
     "soldStock": 35,
     "batchNumber": "RE-FF200",
     "expiryDate": "2027-05-15",
-    "suppliers": [
-      { "name": "Renata Mirpur Depot", "purchasePrice": 250, "availableQty": 600 }
-    ]
   },
   {
     "id": "prod_10",
@@ -212,9 +185,6 @@ const INITIAL_PRODUCTS = [
     "soldStock": 140,
     "batchNumber": "SQ-PV30",
     "expiryDate": "2028-02-28",
-    "suppliers": [
-      { "name": "Square Central Depot", "purchasePrice": 150, "availableQty": 1000 }
-    ]
   },
   {
     "id": "prod_11",
@@ -232,9 +202,6 @@ const INITIAL_PRODUCTS = [
     "soldStock": 300,
     "batchNumber": "SQ-NB10",
     "expiryDate": "2027-11-30",
-    "suppliers": [
-      { "name": "Square Central Depot", "purchasePrice": 40, "availableQty": 2000 }
-    ]
   },
   {
     "id": "prod_12",
@@ -252,9 +219,6 @@ const INITIAL_PRODUCTS = [
     "soldStock": 25,
     "batchNumber": "NN-MX30",
     "expiryDate": "2027-04-12",
-    "suppliers": [
-      { "name": "Novo Nordisk Bangladesh", "purchasePrice": 300, "availableQty": 500 }
-    ]
   },
   {
     "id": "prod_13",
@@ -272,9 +236,6 @@ const INITIAL_PRODUCTS = [
     "soldStock": 890,
     "batchNumber": "SMC-ORS25",
     "expiryDate": "2027-12-31",
-    "suppliers": [
-      { "name": "SMC Dhaka Depot", "purchasePrice": 110, "availableQty": 5000 }
-    ]
   },
   {
     "id": "prod_14",
@@ -292,9 +253,6 @@ const INITIAL_PRODUCTS = [
     "soldStock": 210,
     "batchNumber": "RD-CD60",
     "expiryDate": "2027-08-30",
-    "suppliers": [
-      { "name": "Radiant Depot Tejgaon", "purchasePrice": 230, "availableQty": 1500 }
-    ]
   }
 ];
 
@@ -587,7 +545,6 @@ app.get("/api/admin/dashboard", requireRole(["Admin"]), (req, res) => {
       "Manage Products",
       "Manage Prices",
       "Manage Discounts",
-      "Manage Suppliers",
       "View All Orders",
       "Manage Returns",
       "Manage Credit Accounts",
@@ -640,10 +597,6 @@ app.post("/api/admin/discounts", requireRole(["Admin"]), (req, res) => {
   res.json({ success: true, message: "Admin: Product discount rate applied." });
 });
 
-app.get("/api/admin/suppliers", requireRole(["Admin"]), (req, res) => {
-  // Retrieve supplier list
-  res.json({ success: true, message: "Admin: Supplier parameters retrieved." });
-});
 
 app.post("/api/admin/credit-accounts", requireRole(["Admin"]), (req, res) => {
   // Adjust credit limit

@@ -12,7 +12,6 @@ export interface RawImportRow {
   batchNumber?: string;
   expiryDate?: string;
   stockQuantity?: string;
-  supplierName?: string;
 }
 
 export interface ValidationError {
@@ -136,8 +135,7 @@ export function mapRowToFields(row: Record<string, string>): RawImportRow {
     sellingPrice: findVal(["Selling Price", "selling_price", "price"]),
     batchNumber: findVal(["Batch Number", "batch_number", "batch", "batch_no"]),
     expiryDate: findVal(["Expiry Date", "expiry_date", "expiry", "exp"]),
-    stockQuantity: findVal(["Stock Quantity", "stock_quantity", "stock", "qty", "quantity"]),
-    supplierName: findVal(["Supplier Name", "supplier_name", "supplier", "distributor"])
+    stockQuantity: findVal(["Stock Quantity", "stock_quantity", "stock", "qty", "quantity"])
   };
 }
 
@@ -241,7 +239,6 @@ export function mapToProduct(row: RawImportRow, nextId: string): Product {
   const sellingPriceValue = parseFloat(row.sellingPrice);
   const discountPercent = Math.max(0, Math.round(((mrpValue - sellingPriceValue) / mrpValue) * 100));
   const qty = row.stockQuantity ? parseInt(row.stockQuantity, 10) : 1000; // Default high wholesale initial stock
-  const supplier = row.supplierName || `${row.companyName} Central Depot`;
 
   return {
     id: nextId,
@@ -258,16 +255,9 @@ export function mapToProduct(row: RawImportRow, nextId: string): Product {
     reservedStock: 0,
     soldStock: 0,
     batchNumber: row.batchNumber || `B-IMP${Math.floor(100 + Math.random() * 900)}`,
-    expiryDate: row.expiryDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0], // default 1 yr future
-    suppliers: [
-      {
-        name: supplier,
-        purchasePrice: Math.round(sellingPriceValue * 0.82), // Wholesale baseline cost
-        availableQty: qty * 4 // Depot reserve
-      }
-    ]
+    expiryDate: row.expiryDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] // default 1 yr future
   };
-}
+};
 
 /**
  * 4. Orchestrator Service

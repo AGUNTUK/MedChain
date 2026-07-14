@@ -20,11 +20,6 @@ export interface Product {
   batchNumber: string;
   expiryDate: string; // YYYY-MM-DD
   imageUrl?: string;
-  suppliers: Array<{
-    name: string;
-    purchasePrice: number;
-    availableQty: number;
-  }>;
 }
 
 export interface Pharmacy {

@@ -92,17 +92,7 @@ export default function ProductDetails({ product, onClose, onAddToCart }: Produc
             </div>
           </div>
 
-          {/* Supplier details (B2B Admin visualization for transparency) */}
-          <div className="space-y-1.5 text-[10px] text-slate-500 font-medium">
-            <div className="flex items-center gap-1">
-              <Truck className="w-3.5 h-3.5 text-brand-lime" />
-              <span>Fulfilled via: <strong>{product.suppliers?.[0]?.name || "MediChain Central Depot"}</strong></span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Coins className="w-3.5 h-3.5 text-slate-400" />
-              <span>Depot Ingress Purchase Cost: ৳{product.suppliers?.[0]?.purchasePrice || "300"} (Wholesale exclusive)</span>
-            </div>
-          </div>
+
         </div>
 
         {/* Pricing details */}

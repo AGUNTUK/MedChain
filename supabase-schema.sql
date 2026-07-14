@@ -74,7 +74,18 @@ CREATE TABLE IF NOT EXISTS pharmacies (
 );
 
 -- Add relation linkage from users back to pharmacies table
-ALTER TABLE users ADD CONSTRAINT fk_users_pharmacy FOREIGN KEY (pharmacy_id) REFERENCES pharmacies(id) ON DELETE SET NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS pharmacy_id UUID;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.table_constraints
+        WHERE constraint_name = 'fk_users_pharmacy'
+    ) THEN
+        ALTER TABLE users ADD CONSTRAINT fk_users_pharmacy FOREIGN KEY (pharmacy_id) REFERENCES pharmacies(id) ON DELETE SET NULL;
+    END IF;
+END $$;
 
 -- ==========================================
 -- 3. CATEGORIES TABLE
@@ -101,7 +112,7 @@ CREATE TABLE IF NOT EXISTS products (
     mrp DECIMAL(12, 2) NOT NULL CHECK (mrp >= 0),
     selling_price DECIMAL(12, 2) NOT NULL CHECK (selling_price >= 0),
     discount_percentage DECIMAL(5, 2) GENERATED ALWAYS AS (ROUND((1.0 - (selling_price / mrp)) * 100.0, 2)) STORED,
-    stock_status VARCHAR(50) DEFAULT 'In Stock',
+    image_url TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT check_selling_price_mrp CHECK (selling_price <= mrp)
@@ -120,30 +131,6 @@ CREATE TABLE IF NOT EXISTS inventory (
     expiry_date DATE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- ==========================================
--- 6. SUPPLIERS TABLE
--- ==========================================
-CREATE TABLE IF NOT EXISTS suppliers (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    contact_person VARCHAR(255),
-    phone VARCHAR(20),
-    email VARCHAR(255),
-    address TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- ==========================================
--- 7. PRODUCT SUPPLIERS TABLE (M:N relationship)
--- ==========================================
-CREATE TABLE IF NOT EXISTS product_suppliers (
-    product_id UUID REFERENCES products(id) ON DELETE CASCADE,
-    supplier_id UUID REFERENCES suppliers(id) ON DELETE CASCADE,
-    purchase_price DECIMAL(12, 2) NOT NULL CHECK (purchase_price >= 0),
-    available_qty INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (product_id, supplier_id)
 );
 
 -- ==========================================
@@ -179,6 +166,11 @@ CREATE TABLE IF NOT EXISTS orders (
     return_reason TEXT,
     return_status return_status DEFAULT 'None'
 );
+
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_address TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS has_return_requested BOOLEAN DEFAULT FALSE;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS return_reason TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS return_status return_status DEFAULT 'None';
 
 -- ==========================================
 -- 10. ORDER ITEMS TABLE

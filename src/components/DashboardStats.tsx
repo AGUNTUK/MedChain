@@ -76,21 +76,21 @@ export default function DashboardStats({
 
   // Sample CSV generators
   const loadCleanSample = () => {
-    const sample = `Product Name,Generic Name,Company Name,Category,Strength,Pack Size,MRP,Selling Price,Batch Number,Expiry Date,Stock Quantity,Supplier Name
-Giona Easyhaler,Budesonide,Incepta Pharmaceuticals,Inhaler,200mcg,120 doses,850,710,GI-120E,2028-05-12,50,Incepta Tejgaon Depot
-Monas 10,Montelukast Sodium,Acme Laboratories,Tablet,10mg,30's Box,525,441,AC-M10,2027-10-15,120,Acme Wholesale Center
-Napa rapid,Paracetamol,Beximco Pharmaceuticals,Tablet,500mg,100's Box,150,120,B-RAP9,2027-12-30,500,Beximco Depot Dhaka`;
+    const sample = `Product Name,Generic Name,Company Name,Category,Strength,Pack Size,MRP,Selling Price,Batch Number,Expiry Date,Stock Quantity
+Giona Easyhaler,Budesonide,Incepta Pharmaceuticals,Inhaler,200mcg,120 doses,850,710,GI-120E,2028-05-12,50
+Monas 10,Montelukast Sodium,Acme Laboratories,Tablet,10mg,30's Box,525,441,AC-M10,2027-10-15,120
+Napa rapid,Paracetamol,Beximco Pharmaceuticals,Tablet,500mg,100's Box,150,120,B-RAP9,2027-12-30,500`;
     setCsvContent(sample);
     setImportResult(null);
     setImportError(null);
   };
 
   const loadFailingSample = () => {
-    const sample = `Product Name,Generic Name,Company Name,Category,Strength,Pack Size,MRP,Selling Price,Batch Number,Expiry Date,Stock Quantity,Supplier Name
-Napa 500,Paracetamol,Beximco Pharmaceuticals,Tablet,500mg,500's Box,600,450,B-N500,2028-01-10,180,Beximco Depot Dhaka
-Broken Price,Paracetamol,Beximco,Tablet,500mg,10's,10,25,B-E1,2028-11-20,10,Beximco Depot Dhaka
-Negative Stock,Omeprazole,Square,Capsule,20mg,10's,20,15,B-E2,2027-01-01,-20,Square Central Depot
-Expired Med,Sertraline,Square,Tablet,50mg,30's Box,300,240,B-E3,2023-01-01,100,Square Central Depot`;
+    const sample = `Product Name,Generic Name,Company Name,Category,Strength,Pack Size,MRP,Selling Price,Batch Number,Expiry Date,Stock Quantity
+Napa 500,Paracetamol,Beximco Pharmaceuticals,Tablet,500mg,500's Box,600,450,B-N500,2028-01-10,180
+Broken Price,Paracetamol,Beximco,Tablet,500mg,10's,10,25,B-E1,2028-11-20,10
+Negative Stock,Omeprazole,Square,Capsule,20mg,10's,20,15,B-E2,2027-01-01,-20
+Expired Med,Sertraline,Square,Tablet,50mg,30's Box,300,240,B-E3,2023-01-01,100`;
     setCsvContent(sample);
     setImportResult(null);
     setImportError(null);
