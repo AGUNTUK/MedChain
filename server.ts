@@ -22,6 +22,7 @@ import * as dbService from "./src/lib/dbService.js";
 dotenv.config();
 
 const app = express();
+app.set("trust proxy", 1); // Trust first proxy (necessary for secure cookie-sessions on reverse proxies like Vercel/Cloud Run)
 const PORT = parseInt(process.env.PORT || "3000", 10);
 
 // Body parsers
