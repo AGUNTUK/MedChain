@@ -5,7 +5,7 @@ import { Mail, Lock, User, RefreshCw, AlertCircle, ArrowRight, ShieldCheck, User
 import { authService } from "../services";
 
 interface LoginProps {
-  onLoginSuccess: (phoneOrEmail: string, needsSetup: boolean) => void;
+  onLoginSuccess: (phoneOrEmail: string, needsSetup: boolean, role: string) => void;
 }
 
 export default function Login({ onLoginSuccess }: LoginProps) {
@@ -44,14 +44,12 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         const data = await authService.login(email, password);
         setSuccessMsg("Logged in successfully!");
         setTimeout(() => {
-          onLoginSuccess(data.user.phone || data.user.email, data.needsSetup);
+          onLoginSuccess(data.user.phone || data.user.email, data.needsSetup, data.user.role);
         }, 500);
       } else {
-        const data = await authService.signUp(email, password, name, "Pharmacy Owner");
-        setSuccessMsg("Registration successful!");
-        setTimeout(() => {
-          onLoginSuccess(data.user.phone || data.user.email, data.needsSetup);
-        }, 500);
+        await authService.signUp(email, password, name, "Pharmacy Owner");
+        setSuccessMsg("Account created. Please log in.");
+        setMode("login");
       }
     } catch (err: any) {
       setError(err.message || "Authentication failed. Please check your credentials.");

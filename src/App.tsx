@@ -136,9 +136,11 @@ export default function App() {
   const activeOrderToDeliver = orders.find(o => o.status !== "Delivered");
 
   // Authentication callbacks
-  const handleLoginSuccess = (userPhone: string, needsSetup: boolean) => {
+  const handleLoginSuccess = (userPhone: string, needsSetup: boolean, role: string) => {
     setPhone(userPhone);
-    if (needsSetup) {
+    setCurrentUser({ id: "", name: "", phone: userPhone, role: role as any });
+    const isSpecialRole = ["Admin", "Depot Staff", "Rider"].includes(role);
+    if (needsSetup && !isSpecialRole) {
       setAppStep("setup");
     } else {
       refreshPharmacyProfile();
@@ -227,7 +229,8 @@ export default function App() {
           <Splash
             onComplete={() => {
               if (currentUser) {
-                setAppStep(pharmacy ? "main" : "setup");
+                const isSpecialRole = ["Admin", "Depot Staff", "Rider"].includes(currentUser.role);
+                setAppStep(pharmacy || isSpecialRole ? "main" : "setup");
               } else {
                 setAppStep("login");
               }
