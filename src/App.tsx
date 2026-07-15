@@ -117,10 +117,13 @@ export default function App() {
 
   useEffect(() => {
     if (currentUser) {
-      refreshOrders();
-      refreshNotifications();
-      refreshCartCounter();
-      refreshFavourites();
+      const isSpecialRole = ["Admin", "Depot Staff", "Delivery Staff"].includes(currentUser.role);
+      if (!isSpecialRole) {
+        refreshOrders();
+        refreshNotifications();
+        refreshCartCounter();
+        refreshFavourites();
+      }
     } else {
       setOrders([]);
       setNotifications([]);
@@ -139,12 +142,11 @@ export default function App() {
   const handleLoginSuccess = (userPhone: string, needsSetup: boolean, role: string) => {
     setPhone(userPhone);
     setCurrentUser({ id: "", name: "", phone: userPhone, role: role as any });
-    const isSpecialRole = ["Admin", "Depot Staff", "Rider"].includes(role);
+    const isSpecialRole = ["Admin", "Depot Staff", "Delivery Staff"].includes(role);
     if (needsSetup && !isSpecialRole) {
       setAppStep("setup");
     } else {
       refreshPharmacyProfile();
-      refreshOrders();
       setAppStep("main");
     }
   };
