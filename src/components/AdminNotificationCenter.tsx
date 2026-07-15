@@ -15,8 +15,7 @@ export default function AdminNotificationCenter() {
         title: form.title,
         message: form.message,
         type: form.type,
-        role_target: form.target_role === "All" ? undefined : form.target_role,
-        is_read: false
+        role_target: form.target_role === "All" ? undefined : form.target_role
     });
     setForm({ title: "", message: "", type: "system_alert", target_role: "All" });
     notificationService.getNotifications().then(setNotifications);

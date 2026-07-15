@@ -286,7 +286,7 @@ const INITIAL_NOTIFICATIONS = [
 ];
 
 // Initialize database in-memory structure
-let db = {
+let db: any = {
   currentUser: null as any,
   pharmacy: {
     id: "pharm_default",

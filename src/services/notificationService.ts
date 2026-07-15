@@ -5,7 +5,6 @@ import { Notification } from "../types";
  * 
  * Manages flash discount deals, price drops alerts, and active order shipment status logs.
  */
-import { Notification } from "../types";
 
 export const notificationService = {
   async getNotifications(): Promise<Notification[]> {

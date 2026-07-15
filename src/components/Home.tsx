@@ -26,6 +26,8 @@ interface HomeProps {
   favouriteIds: string[];
   pharmacyName?: string;
   onOpenProductDetails: (product: Product) => void;
+  onOpenNotifications?: () => void;
+  unreadNotificationsCount?: number;
 }
 
 export default function Home({

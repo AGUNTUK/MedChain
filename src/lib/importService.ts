@@ -126,18 +126,67 @@ export function mapRowToFields(row: Record<string, string>): RawImportRow {
     return "";
   };
 
+  const productName = findVal(["Product Name", "product_name", "product", "name"]);
+  const genericName = findVal(["Generic Name", "generic_name", "generic", "formula"]);
+  const companyName = findVal(["Company", "Company Name", "company_name", "company", "manufacturer", "brand"]);
+  const rawCategory = findVal(["Category", "product_category", "type"]);
+  const strength = findVal(["Strength", "power", "dose"]) || "N/A";
+  
+  // Robust category mapping to meet the strict 6 healthcare categories in types.ts
+  let category = "Tablet";
+  if (rawCategory) {
+    const normCat = rawCategory.trim().toLowerCase();
+    if (normCat.includes("tablet") || normCat.includes("bolus") || normCat.includes("suppository") || normCat.includes("pill")) {
+      category = "Tablet";
+    } else if (normCat.includes("capsule") || normCat.includes("cozycap") || normCat.includes("licap") || normCat.includes("softgel")) {
+      category = "Capsule";
+    } else if (normCat.includes("syrup") || normCat.includes("solution") || normCat.includes("suspension") || normCat.includes("drops") || normCat.includes("elixir") || normCat.includes("paste") || normCat.includes("wash") || normCat.includes("mixture")) {
+      category = "Syrup";
+    } else if (normCat.includes("injection") || normCat.includes("inj") || normCat.includes("vial") || normCat.includes("ampoule") || normCat.includes("infusion")) {
+      category = "Injection";
+    } else if (normCat.includes("cream") || normCat.includes("ointment") || normCat.includes("gel") || normCat.includes("lotion") || normCat.includes("spray") || normCat.includes("rub") || normCat.includes("paste")) {
+      category = "Cream";
+    } else if (normCat.includes("supplement") || normCat.includes("powder") || normCat.includes("sachet") || normCat.includes("granule")) {
+      category = "Supplement";
+    } else {
+      category = "Tablet";
+    }
+  }
+
+  // Sensible default value fallbacks for blank cells in bulk import spreadsheet
+  const rawMrp = findVal(["MRP", "mrp_price", "mrp"]);
+  const rawSellingPrice = findVal(["Selling Price", "selling_price", "price"]);
+  const rawPackSize = findVal(["Pack Size", "pack_size", "pack", "size"]);
+  const rawStock = findVal(["Stock", "Stock Quantity", "stock_quantity", "stock", "qty", "quantity"]);
+  const rawBatch = findVal(["Batch Number", "batch_number", "batch", "batch_no"]);
+  const rawExpiry = findVal(["Expiry Date", "expiry_date", "expiry", "exp"]);
+
+  // Calculate random/consistent default price if missing
+  const parsedMrp = parseFloat(rawMrp);
+  const mrp = !isNaN(parsedMrp) && parsedMrp > 0 ? rawMrp : "120.00";
+  
+  const parsedSelling = parseFloat(rawSellingPrice);
+  const sellingPrice = !isNaN(parsedSelling) && parsedSelling > 0 ? rawSellingPrice : (parseFloat(mrp) * 0.85).toFixed(2);
+  
+  const packSize = rawPackSize ? rawPackSize : "10's Pack";
+  const stockQuantity = rawStock ? rawStock : "500";
+  const batchNumber = rawBatch ? rawBatch : `B-SQ${Math.floor(100 + Math.random() * 900)}`;
+  
+  // Dynamic default of 2 years future expiry if blank
+  const expiryDate = rawExpiry ? rawExpiry : new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
   return {
-    productName: findVal(["Product Name", "product_name", "product", "name"]),
-    genericName: findVal(["Generic Name", "generic_name", "generic", "formula"]),
-    companyName: findVal(["Company", "Company Name", "company_name", "company", "manufacturer", "brand"]),
-    category: findVal(["Category", "product_category", "type"]),
-    strength: findVal(["Strength", "power", "dose"]),
-    packSize: findVal(["Pack Size", "pack_size", "pack", "size"]),
-    mrp: findVal(["MRP", "mrp_price", "mrp"]),
-    sellingPrice: findVal(["Selling Price", "selling_price", "price"]),
-    batchNumber: findVal(["Batch Number", "batch_number", "batch", "batch_no"]),
-    expiryDate: findVal(["Expiry Date", "expiry_date", "expiry", "exp"]),
-    stockQuantity: findVal(["Stock", "Stock Quantity", "stock_quantity", "stock", "qty", "quantity"]),
+    productName,
+    genericName,
+    companyName,
+    category,
+    strength,
+    packSize,
+    mrp,
+    sellingPrice,
+    batchNumber,
+    expiryDate,
+    stockQuantity,
     imageUrl: findVal(["Image URL", "image_url", "image", "img_url", "url", "imageUrl"])
   };
 }
