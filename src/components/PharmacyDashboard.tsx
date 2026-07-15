@@ -8,10 +8,16 @@ export default function PharmacyDashboard() {
 
   useEffect(() => {
     fetch("/api/pharmacy/dashboard-summary")
-      .then(res => res.json())
-      .then(setSummary);
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to load dashboard summary");
+        return res.json();
+      })
+      .then(setSummary)
+      .catch(console.error);
     
-    orderService.getOrders().then(setOrders);
+    orderService.getOrders()
+      .then(setOrders)
+      .catch(console.error);
   }, []);
 
   if (!summary) return <div>Loading...</div>;
@@ -57,7 +63,7 @@ export default function PharmacyDashboard() {
                 <td className="py-2">{new Date(o.created_at).toLocaleDateString()}</td>
                 <td className="py-2">৳{o.totalAmount}</td>
                 <td className="py-2">
-                  <button onClick={() => orderService.downloadInvoice(o.id).then(res => window.open(res.invoiceUrl, "_blank"))} className="text-brand-purple">
+                  <button onClick={() => orderService.downloadInvoice(o.id).then(res => window.open(res.invoiceUrl, "_blank")).catch(console.error)} className="text-brand-purple">
                     <Download className="w-4 h-4" />
                   </button>
                 </td>

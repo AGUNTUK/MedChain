@@ -68,6 +68,7 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
+  readableId?: string;
   pharmacyId: string;
   status: OrderStatus;
   paymentMethod: "Cash on Delivery" | "bKash" | "Nagad";

@@ -110,14 +110,24 @@ export default function App() {
   };
 
   useEffect(() => {
-    // Initial fetch of static assets and current states
+    // Initial fetch of static assets and verify existing session
     refreshProducts();
     refreshPharmacyProfile();
-    refreshOrders();
-    refreshNotifications();
-    refreshCartCounter();
-    refreshFavourites();
   }, []);
+
+  useEffect(() => {
+    if (currentUser) {
+      refreshOrders();
+      refreshNotifications();
+      refreshCartCounter();
+      refreshFavourites();
+    } else {
+      setOrders([]);
+      setNotifications([]);
+      setCartCount(0);
+      setFavouriteIds([]);
+    }
+  }, [currentUser]);
 
   // Compute unread count
   const unreadNotificationsCount = notifications.filter(n => !n.read).length;
@@ -213,7 +223,17 @@ export default function App() {
   const renderMobileContent = () => {
     switch (appStep) {
       case "splash":
-        return <Splash onComplete={() => setAppStep("login")} />;
+        return (
+          <Splash
+            onComplete={() => {
+              if (currentUser) {
+                setAppStep(pharmacy ? "main" : "setup");
+              } else {
+                setAppStep("login");
+              }
+            }}
+          />
+        );
       case "login":
         return <Login onLoginSuccess={handleLoginSuccess} />;
       case "setup":

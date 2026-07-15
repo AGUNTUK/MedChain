@@ -304,6 +304,12 @@ ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE favourites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE prescriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE returns ENABLE ROW LEVEL SECURITY;
+ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE inventory ENABLE ROW LEVEL SECURITY;
 
 -- 1. Users Policies:
 -- Users can read, insert, and update their own user profile.
@@ -399,6 +405,72 @@ CREATE POLICY "Pharmacies can view own order items" ON order_items
 CREATE POLICY "Users can view relevant notifications" ON notifications 
     FOR SELECT USING (user_id IS NULL OR user_id = auth.uid());
 
+-- 7. Invoices Policies:
+-- Pharmacies can view their own invoices. Admins and Staff can view all invoices.
+CREATE POLICY "Pharmacies can view own invoices" ON invoices 
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM orders
+            JOIN pharmacies ON orders.pharmacy_id = pharmacies.id
+            WHERE invoices.order_id = orders.id AND pharmacies.user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Staff and Admins can view all invoices" ON invoices 
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM users 
+            WHERE users.id = auth.uid() AND users.role IN ('Admin', 'Depot Staff', 'Delivery Staff')
+        )
+    );
+
+-- 8. Payments Policies:
+-- Pharmacies can view their own payments. Admins can view/manage all payments.
+CREATE POLICY "Pharmacies can view own payments" ON payments 
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM invoices
+            JOIN orders ON invoices.order_id = orders.id
+            JOIN pharmacies ON orders.pharmacy_id = pharmacies.id
+            WHERE payments.invoice_id = invoices.id AND pharmacies.user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Admins have full access on payments" ON payments 
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'Admin'
+        )
+    );
+
+-- 9. Returns Policies:
+-- Pharmacies can view/insert their own returns. Admins and Staff can view/manage all.
+CREATE POLICY "Pharmacies can view own returns" ON returns 
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM orders
+            JOIN pharmacies ON orders.pharmacy_id = pharmacies.id
+            WHERE returns.order_id = orders.id AND pharmacies.user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Pharmacies can insert own returns" ON returns 
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM orders
+            JOIN pharmacies ON orders.pharmacy_id = pharmacies.id
+            WHERE returns.order_id = orders.id AND pharmacies.user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Staff and Admins can view and manage all returns" ON returns 
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM users 
+            WHERE users.id = auth.uid() AND users.role IN ('Admin', 'Depot Staff', 'Delivery Staff')
+        )
+    );
+
 -- ==========================================
 -- 10. STORAGE BUCKETS & SECURITY POLICIES
 -- ==========================================
@@ -460,4 +532,37 @@ CREATE POLICY "Admins manage product images" ON storage.objects
     FOR ALL USING (
         bucket_id = 'product-images' AND 
         EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'Admin')
+    );
+
+-- 11. Categories Policies:
+-- Anyone can view categories. Only Admins can manage.
+CREATE POLICY "Anyone can view categories" ON categories 
+    FOR SELECT USING (true);
+
+CREATE POLICY "Admins can manage categories" ON categories 
+    FOR ALL USING (
+        EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'Admin')
+    );
+
+-- 12. Products Policies:
+-- Anyone can view products. Only Admins can manage.
+CREATE POLICY "Anyone can view products" ON products 
+    FOR SELECT USING (true);
+
+CREATE POLICY "Admins can manage products" ON products 
+    FOR ALL USING (
+        EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'Admin')
+    );
+
+-- 13. Inventory Policies:
+-- Authenticated users can view inventory details. Only Admins and Depot Staff can manage.
+CREATE POLICY "Authenticated users can view inventory" ON inventory 
+    FOR SELECT USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Admins and Staff can manage inventory" ON inventory 
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM users 
+            WHERE users.id = auth.uid() AND users.role IN ('Admin', 'Depot Staff')
+        )
     );

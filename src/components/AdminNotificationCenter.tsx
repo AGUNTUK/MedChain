@@ -7,7 +7,7 @@ export default function AdminNotificationCenter() {
   const [form, setForm] = useState({ title: "", message: "", type: "system_alert", target_role: "All" });
 
   useEffect(() => {
-    notificationService.getNotifications().then(setNotifications);
+    notificationService.getNotifications().then(setNotifications).catch(console.error);
   }, []);
 
   const sendNotification = async () => {
@@ -18,7 +18,7 @@ export default function AdminNotificationCenter() {
         role_target: form.target_role === "All" ? undefined : form.target_role
     });
     setForm({ title: "", message: "", type: "system_alert", target_role: "All" });
-    notificationService.getNotifications().then(setNotifications);
+    notificationService.getNotifications().then(setNotifications).catch(console.error);
   };
 
   return (

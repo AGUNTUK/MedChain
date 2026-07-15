@@ -14,7 +14,7 @@ export default function NotificationBell() {
     const channel = supabase
       .channel('notifications')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, (payload) => {
-        notificationService.getNotifications().then(setNotifications);
+        notificationService.getNotifications().then(setNotifications).catch(console.error);
       })
       .subscribe();
 
@@ -44,7 +44,7 @@ export default function NotificationBell() {
         <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-lg shadow-xl z-50">
           <div className="p-3 border-b border-slate-100 font-bold text-xs uppercase text-slate-500 flex justify-between">
             Notifications
-            <button onClick={() => notificationService.markAllAsRead().then(() => notificationService.getNotifications().then(setNotifications))} className="text-brand-purple">Mark all</button>
+            <button onClick={() => notificationService.markAllAsRead().then(() => notificationService.getNotifications().then(setNotifications).catch(console.error)).catch(console.error)} className="text-brand-purple">Mark all</button>
           </div>
           <div className="max-h-80 overflow-y-auto">
             {notifications.length === 0 && <div className="p-4 text-center text-slate-500 text-xs">No notifications</div>}
