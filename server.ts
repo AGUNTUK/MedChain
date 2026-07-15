@@ -23,7 +23,7 @@ dotenv.config();
 
 const app = express();
 app.set("trust proxy", 1); // Trust first proxy (necessary for secure cookie-sessions on reverse proxies like Vercel/Cloud Run)
-const PORT = parseInt(process.env.PORT || "3000", 10);
+const PORT = 3000;
 
 // Body parsers
 app.use(express.json({ limit: "20mb" }));
@@ -198,7 +198,7 @@ app.post("/api/auth/local-signup", loginLimiter, async (req, res) => {
       id: "local-usr-" + Math.random().toString(36).substring(2, 11),
       email: normalizedEmail,
       name,
-      role: role || "Pharmacy Owner",
+      role: "Pharmacy Owner",
       passwordHash,
       createdAt: new Date().toISOString()
     };
@@ -283,13 +283,13 @@ app.post("/api/auth/local-login", loginLimiter, async (req, res) => {
 });
 
 app.post("/api/auth/sync-session", loginLimiter, async (req, res) => {
-  const { id, email, name, phone } = req.body;
+  const { id, email, name, phone, role } = req.body;
   if (!id || !email) {
     return res.status(400).json({ error: "Missing required session parameters (id, email)." });
   }
 
   try {
-    const { data: user, error } = await dbService.syncSession(id, email, name, "Pharmacy Owner", phone);
+    const { data: user, error } = await dbService.syncSession(id, email, name, role || "Pharmacy Owner", phone);
     if (error || !user) {
       return res.status(500).json({ error: "Failed to synchronize session: " + error?.message });
     }
@@ -321,34 +321,21 @@ app.post("/api/auth/logout", (req, res) => {
   res.json({ success: true });
 });
 
-app.post("/api/auth/switch-role", requireAuth, async (req, res) => {
-  const { role } = req.body;
-  const allowedRoles = ["Pharmacy Owner", "Admin", "Depot Staff", "Delivery Staff"];
-  if (!allowedRoles.includes(role)) {
-    return res.status(400).json({ error: "Invalid role specified." });
-  }
-
-  try {
-    const userId = req.user.id;
-    await dbService.updateUserRole(userId, role);
-
-    req.session!.role = role;
-    req.user.role = role;
-
-    const updatedUser = await dbService.getUserById(userId);
-
-    res.json({ success: true, user: updatedUser });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // --- PHARMACY PROFILE WORKFLOWS ---
 
 app.get("/api/pharmacy/profile", requireAuth, async (req, res) => {
   try {
-    const user = await dbService.getUserById(req.user.id);
-    const pharmacy = await dbService.getPharmacyProfile(req.user.id);
+    let user = await dbService.getUserById(req.user.id).catch(() => null);
+    if (!user) {
+      user = {
+        id: req.user.id,
+        email: req.user.email,
+        name: req.user.name,
+        role: req.user.role,
+        phone: ""
+      };
+    }
+    const pharmacy = await dbService.getPharmacyProfile(req.user.id).catch(() => null);
     res.json({
       user,
       pharmacy
@@ -591,7 +578,8 @@ app.get("/api/pharmacy/dashboard-summary", requireAuth, async (req, res) => {
 
 app.get("/api/orders", requireAuth, async (req, res) => {
   try {
-    const user = await dbService.getUserById(req.user.id);
+    let user = await dbService.getUserById(req.user.id).catch(() => null);
+    if (!user) user = req.user;
     if (user?.role === "Pharmacy Owner") {
       const pharmacy = await dbService.getPharmacyProfile(req.user.id);
       if (!pharmacy) return res.json([]);

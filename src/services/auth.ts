@@ -36,7 +36,7 @@ export const authService = {
             id: user.id,
             email: email,
             name: name,
-            role: role,
+            role: "Pharmacy Owner",
           });
 
         if (dbError) {
@@ -54,7 +54,7 @@ export const authService = {
           id: user.id,
           email,
           name,
-          role,
+          role: "Pharmacy Owner",
         }),
       });
 

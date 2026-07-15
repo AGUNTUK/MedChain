@@ -116,7 +116,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser && (pharmacy || ["Admin", "Depot Staff", "Delivery Staff"].includes(currentUser.role))) {
       const isSpecialRole = ["Admin", "Depot Staff", "Delivery Staff"].includes(currentUser.role);
       if (!isSpecialRole) {
         refreshOrders();
@@ -124,13 +124,13 @@ export default function App() {
         refreshCartCounter();
         refreshFavourites();
       }
-    } else {
+    } else if (!currentUser) {
       setOrders([]);
       setNotifications([]);
       setCartCount(0);
       setFavouriteIds([]);
     }
-  }, [currentUser]);
+  }, [currentUser, pharmacy]);
 
   // Compute unread count
   const unreadNotificationsCount = notifications.filter(n => !n.read).length;
@@ -161,6 +161,7 @@ export default function App() {
       await authService.logout();
       setPharmacy(null);
       setPhone("");
+      setCurrentUser(null);
       setAppStep("login");
     } catch (err) {
       console.error(err);
@@ -231,7 +232,7 @@ export default function App() {
           <Splash
             onComplete={() => {
               if (currentUser) {
-                const isSpecialRole = ["Admin", "Depot Staff", "Rider"].includes(currentUser.role);
+                const isSpecialRole = ["Admin", "Depot Staff", "Delivery Staff"].includes(currentUser.role);
                 setAppStep(pharmacy || isSpecialRole ? "main" : "setup");
               } else {
                 setAppStep("login");
