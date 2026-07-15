@@ -237,7 +237,7 @@ export default function App() {
       case "login":
         return <Login onLoginSuccess={handleLoginSuccess} />;
       case "setup":
-        return <ProfileSetup phone={phone} onSetupComplete={handleSetupComplete} />;
+        return <ProfileSetup phone={phone} onSetupComplete={handleSetupComplete} onBack={() => setAppStep("login")} />;
       case "checkout":
         return (
           <Checkout

@@ -1,15 +1,16 @@
 import React, { useState } from "react";
 import MediChainLogo from "./MediChainLogo";
 import { motion } from "motion/react";
-import { Building2, User, Phone, MapPin, FileSpreadsheet, Sparkles, RefreshCw, AlertCircle } from "lucide-react";
+import { ArrowLeft, Building2, User, Phone, MapPin, FileSpreadsheet, Sparkles, RefreshCw, AlertCircle } from "lucide-react";
 import { profileService } from "../services";
 
 interface ProfileSetupProps {
   phone: string;
   onSetupComplete: () => void;
+  onBack?: () => void;
 }
 
-export default function ProfileSetup({ phone, onSetupComplete }: ProfileSetupProps) {
+export default function ProfileSetup({ phone, onSetupComplete, onBack }: ProfileSetupProps) {
   const [pharmacyName, setPharmacyName] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [ownerPhone, setOwnerPhone] = useState(phone && !phone.includes("@") ? phone : "");
@@ -48,6 +49,17 @@ export default function ProfileSetup({ phone, onSetupComplete }: ProfileSetupPro
 
   return (
     <div className="w-full h-full bg-brand-bg flex flex-col justify-between p-6 select-none relative overflow-y-auto">
+      {/* Back button */}
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="absolute top-6 left-6 p-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-100 transition-colors cursor-pointer z-50 shadow-sm"
+          title="Go Back"
+        >
+          <ArrowLeft className="w-4 h-4 text-slate-600" />
+        </button>
+      )}
+
       {/* Header */}
       <div className="flex flex-col items-center mt-3">
         <MediChainLogo size="sm" withText={false} />
