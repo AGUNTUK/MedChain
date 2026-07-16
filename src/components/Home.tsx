@@ -19,7 +19,6 @@ import MediChainLogo from "./MediChainLogo";
 import { Product } from "../types";
 import { productService } from "../services";
 import NotificationBell from "./NotificationBell";
-import PharmacyDashboard from "./PharmacyDashboard";
 
 interface HomeProps {
   onTriggerSearch: (query?: string, category?: string) => void;
@@ -130,8 +129,6 @@ export default function Home({
         </div>
       </div>
 
-      <PharmacyDashboard />
-
       {/* Main Body */}
       <div className="p-4 space-y-4">
         {/* Mock Search Trigger */}
@@ -183,6 +180,62 @@ export default function Home({
             ))}
           </div>
         </div>
+
+        {/* Frequent / Recently Ordered */}
+        {frequentProducts.length > 0 && (
+          <div className="space-y-2.5">
+            <div className="flex justify-between items-center">
+              <h3 className="text-[10px] uppercase font-bold text-slate-400 tracking-wider flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-brand-lime" />
+                Frequently Ordered
+              </h3>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-2 pr-4 -mr-4 pl-1">
+              {frequentProducts.map(p => {
+                const inCartQty = cartQuantities[p.id] || 0;
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => onOpenProductDetails(p)}
+                    className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm hover:border-slate-200 cursor-pointer flex flex-col justify-between relative min-w-[140px] flex-shrink-0"
+                  >
+                    {inCartQty > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 bg-brand-purple text-white text-[8px] font-black px-1.5 py-0.5 rounded-full z-10 shadow-sm animate-fade-in">
+                        {inCartQty} in cart
+                      </span>
+                    )}
+                    <div>
+                      <div className="flex justify-between items-start mb-1.5">
+                        <span className="bg-slate-100 text-slate-500 text-[8px] font-black px-1.5 py-0.5 rounded">
+                          {p.category}
+                        </span>
+                        <span className="text-[9px] text-slate-400 font-mono font-bold">{p.packSize}</span>
+                      </div>
+                      <h4 className="text-xs font-black text-brand-charcoal truncate">{p.name}</h4>
+                      <p className="text-[9px] text-slate-400 uppercase font-bold truncate mt-0.5">{p.genericName}</p>
+                    </div>
+                    <div className="mt-3 flex justify-between items-center">
+                      <span className="text-xs font-black text-brand-purple">৳{p.sellingPrice}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (inCartQty > 0) {
+                            onUpdateCartQty && onUpdateCartQty(p.id, inCartQty, 1);
+                          } else {
+                            handleQuickBuy(p.id);
+                          }
+                        }}
+                        className="bg-brand-lime text-slate-900 p-1 rounded hover:bg-brand-lime-dark transition-all"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* B2B Today's Promotional Banner */}
         <div className="bg-gradient-to-r from-brand-purple to-brand-purple-dark rounded-3xl p-4.5 text-white shadow-lg relative overflow-hidden">

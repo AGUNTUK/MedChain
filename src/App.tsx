@@ -48,7 +48,19 @@ try {
       } catch (err) {
         console.error("Fetch interceptor session inject error:", err);
       }
-      return originalFetch(input, init);
+      
+      const response = await originalFetch(input, init);
+      
+      if (response.status === 401 && typeof input === "string" && !input.includes("/api/auth")) {
+        const hadUser = localStorage.getItem("medichain_user");
+        localStorage.removeItem("medichain_user");
+        localStorage.removeItem("medichain_pharmacy");
+        if (hadUser) {
+          window.location.reload();
+        }
+      }
+      
+      return response;
     },
     writable: true,
     configurable: true,
@@ -60,7 +72,7 @@ try {
 
 export default function App() {
   // Mobile app navigation state
-  const [appStep, setAppStep] = useState<"splash" | "login" | "setup" | "main" | "checkout" | "success" | "tracking">("splash");
+  const [appStep, setAppStep] = useState<"splash" | "login" | "setup" | "main" | "cart" | "checkout" | "success" | "tracking">("splash");
   const [activeTab, setActiveTab] = useState<"home" | "search" | "upload" | "history" | "account">("home");
 
   // Core Data State
@@ -191,7 +203,9 @@ export default function App() {
   useEffect(() => {
     // Initial fetch of static assets and verify existing session
     refreshProducts();
-    refreshPharmacyProfile();
+    if (currentUser) {
+      refreshPharmacyProfile();
+    }
   }, []);
 
   useEffect(() => {
@@ -243,10 +257,12 @@ export default function App() {
   const activeOrderToDeliver = orders.find(o => o.status !== "Delivered");
 
   // Authentication callbacks
-  const handleLoginSuccess = (userPhone: string, needsSetup: boolean, role: string) => {
-    setPhone(userPhone);
-    setCurrentUser({ id: "", name: "", phone: userPhone, role: role as any });
-    const isSpecialRole = ["Admin", "Depot Staff", "Delivery Staff"].includes(role);
+  const handleLoginSuccess = (user: any, needsSetup: boolean) => {
+    setPhone(user.phone || user.email);
+    setCurrentUser(user);
+    localStorage.setItem("medichain_user", JSON.stringify(user));
+    
+    const isSpecialRole = ["Admin", "Depot Staff", "Delivery Staff"].includes(user.role);
     if (needsSetup && !isSpecialRole) {
       setAppStep("setup");
     } else {
@@ -367,6 +383,7 @@ export default function App() {
               refreshOrders();
               refreshPharmacyProfile();
               refreshProducts();
+              refreshCartCounter();
               setTrackingOrderId(orderId);
               setAppStep("success");
             }}

@@ -5,7 +5,7 @@ import { Mail, Lock, User, RefreshCw, AlertCircle, ArrowRight, ShieldCheck, User
 import { authService } from "../services";
 
 interface LoginProps {
-  onLoginSuccess: (phoneOrEmail: string, needsSetup: boolean, role: string) => void;
+  onLoginSuccess: (user: any, needsSetup: boolean) => void;
 }
 
 export default function Login({ onLoginSuccess }: LoginProps) {
@@ -43,7 +43,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         const data = await authService.login(email, password);
         setSuccessMsg("Logged in successfully!");
         setTimeout(() => {
-          onLoginSuccess(data.user.phone || data.user.email, data.needsSetup, data.user.role);
+          onLoginSuccess(data.user, data.needsSetup);
         }, 500);
       } else {
         await authService.signUp(email, password, name, "Pharmacy Owner");

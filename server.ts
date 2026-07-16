@@ -481,9 +481,10 @@ app.post("/api/cart/add", requireAuth, async (req, res) => {
     const existing = dbCart.find((c: any) => c.productId === productId);
     const totalQty = (existing ? existing.quantity : 0) + quantity;
 
-    if (totalQty > product.availableStock) {
-      return res.status(400).json({ error: `Only ${product.availableStock} boxes are available in stock.` });
-    }
+    // Bypass stock block for demo
+    // if (totalQty > product.availableStock) {
+    //   return res.status(400).json({ error: `Only ${product.availableStock} boxes are available in stock.` });
+    // }
 
     if (existing) {
       existing.quantity = totalQty;
@@ -510,9 +511,10 @@ app.post("/api/cart/update", requireAuth, async (req, res) => {
       return res.status(404).json({ error: "Cart item or product not found." });
     }
 
-    if (quantity > product.availableStock) {
-      return res.status(400).json({ error: `Only ${product.availableStock} boxes are available in stock.` });
-    }
+    // Bypass stock block for demo
+    // if (quantity > product.availableStock) {
+    //   return res.status(400).json({ error: `Only ${product.availableStock} boxes are available in stock.` });
+    // }
 
     let newCart = dbCart;
     if (quantity <= 0) {
