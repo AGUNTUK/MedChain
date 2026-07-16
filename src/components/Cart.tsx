@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { ShoppingBag, Trash2, Plus, Minus, Receipt, ArrowRight, ShieldCheck } from "lucide-react";
+import { ShoppingBag, Trash2, Plus, Minus, Receipt, ArrowRight, ShieldCheck, ArrowLeft, Package } from "lucide-react";
 import { Product } from "../types";
 import { orderService } from "../services";
 
 interface CartProps {
   onCheckoutTrigger: () => void;
   onRefreshCartCounter: () => void;
+  onBack: () => void;
 }
 
-export default function Cart({ onCheckoutTrigger, onRefreshCartCounter }: CartProps) {
+export default function Cart({ onCheckoutTrigger, onRefreshCartCounter, onBack }: CartProps) {
   const [cartData, setCartData] = useState<{
     items: Array<{ product: Product; quantity: number }>;
     totalMrp: number;
@@ -52,20 +53,43 @@ export default function Cart({ onCheckoutTrigger, onRefreshCartCounter }: CartPr
 
   if (!cartData || cartData.items.length === 0) {
     return (
-      <div className="w-full h-full bg-brand-bg flex flex-col items-center justify-center p-6 select-none">
-        <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center border border-slate-100 shadow-sm mb-4">
-          <ShoppingBag className="w-6 h-6 text-slate-300" />
+      <div className="w-full h-full bg-brand-bg flex flex-col justify-between select-none">
+        {/* Header Area */}
+        <div className="p-4 bg-white border-b border-slate-100 flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={onBack}
+            className="p-1.5 rounded-full bg-slate-50 hover:bg-slate-100 border border-slate-200/40 transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4 text-slate-600" />
+          </button>
+          <h2 className="text-sm font-black text-brand-charcoal">Procurement Cart</h2>
         </div>
-        <h3 className="text-xs font-black text-slate-700">Your Procurement Cart is Empty</h3>
-        <p className="text-[10px] text-slate-400 max-w-[200px] text-center mt-1.5 leading-relaxed">
-          Browse medicines, check today's bulk discounts, and add items to place wholesale orders.
-        </p>
+        <div className="flex-1 flex flex-col items-center justify-center p-6 bg-white">
+          <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center border border-slate-100 shadow-sm mb-4">
+            <ShoppingBag className="w-6 h-6 text-slate-300" />
+          </div>
+          <h3 className="text-xs font-black text-slate-700">Your Procurement Cart is Empty</h3>
+          <p className="text-[10px] text-slate-400 max-w-[200px] text-center mt-1.5 leading-relaxed">
+            Browse medicines, check today's bulk discounts, and add items to place wholesale orders.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="w-full h-full bg-brand-bg flex flex-col justify-between select-none">
+      {/* Header Area */}
+      <div className="p-4 bg-white border-b border-slate-100 flex items-center gap-2 flex-shrink-0">
+        <button
+          onClick={onBack}
+          className="p-1.5 rounded-full bg-slate-50 hover:bg-slate-100 border border-slate-200/40 transition-colors cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4 text-slate-600" />
+        </button>
+        <h2 className="text-sm font-black text-brand-charcoal">Procurement Cart</h2>
+      </div>
+
       {/* Cart Items Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-24">
         <div className="flex justify-between items-center mb-1">
@@ -87,16 +111,29 @@ export default function Cart({ onCheckoutTrigger, onRefreshCartCounter }: CartPr
               <Trash2 className="w-4 h-4" />
             </button>
 
+            {/* Product image */}
+            <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-50 border border-slate-100 flex-shrink-0 flex items-center justify-center">
+              {product.imageUrl || product.image_url ? (
+                <img src={product.imageUrl || product.image_url} alt={product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                <Package className="w-6 h-6 text-slate-300" />
+              )}
+            </div>
+
             {/* Icon / Brand block */}
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <span className="text-[8px] bg-brand-purple/10 text-brand-purple font-extrabold px-1.5 py-0.5 rounded tracking-wide">
                 {product.category}
               </span>
-              <h4 className="text-xs font-black text-brand-charcoal mt-1 leading-tight">
+              <h4 className="text-xs font-black text-brand-charcoal mt-1 leading-tight truncate">
                 {product.name} <span className="text-[10px] font-bold text-slate-400">{product.strength}</span>
               </h4>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{product.genericName}</p>
-              <p className="text-[8px] text-slate-400 font-semibold mt-0.5">{product.company}</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">{product.genericName}</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="text-[8px] text-slate-400 font-semibold truncate">{product.company}</p>
+                <span className="text-slate-300 text-[8px]">•</span>
+                <p className="text-[8px] text-brand-purple font-bold">Pack: {product.packSize || "N/A"}</p>
+              </div>
 
               {/* Subtotal & item calculation */}
               <div className="flex items-center gap-3 mt-3">
@@ -112,7 +149,7 @@ export default function Cart({ onCheckoutTrigger, onRefreshCartCounter }: CartPr
             {/* Vertical Increment/Decrement controller */}
             <div className="flex flex-col justify-center items-center bg-slate-100 rounded-xl px-1.5 py-1.5 border border-slate-200/40">
               <button
-                onClick={() => handleUpdateQty(product.id, quantity, 5)}
+                onClick={() => handleUpdateQty(product.id, quantity, 1)}
                 className="text-slate-500 hover:text-brand-purple p-1 rounded hover:bg-white transition-all cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -121,7 +158,7 @@ export default function Cart({ onCheckoutTrigger, onRefreshCartCounter }: CartPr
                 {quantity}
               </span>
               <button
-                onClick={() => handleUpdateQty(product.id, quantity, -5)}
+                onClick={() => handleUpdateQty(product.id, quantity, -1)}
                 className="text-slate-500 hover:text-brand-purple p-1 rounded hover:bg-white transition-all cursor-pointer"
               >
                 <Minus className="w-3.5 h-3.5" />

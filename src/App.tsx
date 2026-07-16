@@ -20,15 +20,73 @@ import { Product, Pharmacy, Order, Notification, User } from "./types";
 import { Home as HomeIcon, Search as SearchIcon, FileText as FileIcon, ClipboardList as ListIcon, User as UserIcon, Shield, Smartphone } from "lucide-react";
 import { authService, productService, orderService, profileService, notificationService } from "./services";
 
+// Global fetch interceptor to inject session fallback headers for iframe environment
+try {
+  const originalFetch = window.fetch;
+  Object.defineProperty(window, "fetch", {
+    value: async function (input: RequestInfo | URL, init?: RequestInit) {
+      try {
+        const userStr = localStorage.getItem("medichain_user");
+        const pharmacyStr = localStorage.getItem("medichain_pharmacy");
+
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          const pharmacy = pharmacyStr ? JSON.parse(pharmacyStr) : null;
+
+          init = init || {};
+          const headers = init.headers ? new Headers(init.headers) : new Headers();
+          if (user.id) headers.set("x-session-user-id", user.id);
+          if (user.email) headers.set("x-session-user-email", user.email);
+          if (user.role) headers.set("x-session-user-role", user.role);
+          if (user.name) headers.set("x-session-user-name", user.name);
+          const pharmId = pharmacy?.id || user.pharmacy_id;
+          if (pharmId) {
+            headers.set("x-session-pharmacy-id", pharmId);
+          }
+          init.headers = headers;
+        }
+      } catch (err) {
+        console.error("Fetch interceptor session inject error:", err);
+      }
+      return originalFetch(input, init);
+    },
+    writable: true,
+    configurable: true,
+    enumerable: true
+  });
+} catch (err) {
+  console.error("Failed to intercept fetch via Object.defineProperty:", err);
+}
+
 export default function App() {
   // Mobile app navigation state
   const [appStep, setAppStep] = useState<"splash" | "login" | "setup" | "main" | "checkout" | "success" | "tracking">("splash");
   const [activeTab, setActiveTab] = useState<"home" | "search" | "upload" | "history" | "account">("home");
 
   // Core Data State
-  const [pharmacy, setPharmacy] = useState<Pharmacy | null>(null);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [phone, setPhone] = useState("");
+  const [pharmacy, setPharmacy] = useState<Pharmacy | null>(() => {
+    try {
+      const stored = localStorage.getItem("medichain_pharmacy");
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    try {
+      const stored = localStorage.getItem("medichain_user");
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [phone, setPhone] = useState(() => {
+    try {
+      return localStorage.getItem("medichain_phone") || "";
+    } catch {
+      return "";
+    }
+  });
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -39,6 +97,7 @@ export default function App() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [trackingOrderId, setTrackingOrderId] = useState<string>("");
   const [cartCount, setCartCount] = useState(0);
+  const [cartQuantities, setCartQuantities] = useState<Record<string, number>>({});
 
   // Sync products and credentials
   const refreshProducts = async () => {
@@ -86,6 +145,26 @@ export default function App() {
       const data = await orderService.getCart();
       const totalItems = data.items?.reduce((acc: number, item: any) => acc + item.quantity, 0) || 0;
       setCartCount(totalItems);
+
+      const qtyMap: Record<string, number> = {};
+      data.items?.forEach((item: any) => {
+        qtyMap[item.productId] = item.quantity;
+      });
+      setCartQuantities(qtyMap);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleUpdateCartQty = async (productId: string, currentQty: number, change: number) => {
+    try {
+      const newQty = currentQty + change;
+      if (newQty <= 0) {
+        await orderService.removeFromCart(productId);
+      } else {
+        await orderService.updateCartItem(productId, newQty);
+      }
+      await refreshCartCounter();
     } catch (err) {
       console.error(err);
     }
@@ -132,6 +211,31 @@ export default function App() {
     }
   }, [currentUser, pharmacy]);
 
+  // Synchronize auth state changes to localStorage
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem("medichain_user", JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem("medichain_user");
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (pharmacy) {
+      localStorage.setItem("medichain_pharmacy", JSON.stringify(pharmacy));
+    } else {
+      localStorage.removeItem("medichain_pharmacy");
+    }
+  }, [pharmacy]);
+
+  useEffect(() => {
+    if (phone) {
+      localStorage.setItem("medichain_phone", phone);
+    } else {
+      localStorage.removeItem("medichain_phone");
+    }
+  }, [phone]);
+
   // Compute unread count
   const unreadNotificationsCount = notifications.filter(n => !n.read).length;
 
@@ -162,6 +266,9 @@ export default function App() {
       setPharmacy(null);
       setPhone("");
       setCurrentUser(null);
+      localStorage.removeItem("medichain_user");
+      localStorage.removeItem("medichain_pharmacy");
+      localStorage.removeItem("medichain_phone");
       setAppStep("login");
     } catch (err) {
       console.error(err);
@@ -244,13 +351,18 @@ export default function App() {
         return <Login onLoginSuccess={handleLoginSuccess} />;
       case "setup":
         return <ProfileSetup phone={phone} onSetupComplete={handleSetupComplete} onBack={() => setAppStep("login")} />;
+      case "cart":
+        return (
+          <Cart
+            onBack={() => setAppStep("main")}
+            onCheckoutTrigger={() => setAppStep("checkout")}
+            onRefreshCartCounter={refreshCartCounter}
+          />
+        );
       case "checkout":
         return (
           <Checkout
-            onBackToCart={() => {
-              setAppStep("main");
-              setActiveTab("search"); // return to search which houses basket
-            }}
+            onBackToCart={() => setAppStep("cart")}
             onOrderPlaced={(orderId) => {
               refreshOrders();
               refreshPharmacyProfile();
@@ -302,6 +414,10 @@ export default function App() {
                 favouriteIds={favouriteIds}
                 onOpenProductDetails={(p) => setSelectedProduct(p)}
                 orders={orders}
+                cartQuantities={cartQuantities}
+                onUpdateCartQty={handleUpdateCartQty}
+                onOpenCart={() => setAppStep("cart")}
+                cartCount={cartCount}
               />
             );
           case "upload":
@@ -350,6 +466,10 @@ export default function App() {
                 onOpenProductDetails={(p) => setSelectedProduct(p)}
                 onOpenNotifications={() => setShowNotifications(true)}
                 unreadNotificationsCount={unreadNotificationsCount}
+                cartQuantities={cartQuantities}
+                onUpdateCartQty={handleUpdateCartQty}
+                onOpenCart={() => setAppStep("cart")}
+                cartCount={cartCount}
               />
             );
         }

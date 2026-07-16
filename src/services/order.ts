@@ -10,11 +10,18 @@ export const orderService = {
    * Retrieves full procurement order history for the authenticated pharmacy.
    */
   async getOrders(): Promise<Order[]> {
-    const res = await fetch("/api/orders");
-    if (!res.ok) {
-      throw new Error("Failed to load your pharmacy's order history.");
+    try {
+      const res = await fetch("/api/orders");
+      const contentType = res.headers.get("content-type");
+      if (!res.ok || !contentType || !contentType.includes("application/json")) {
+        console.warn("Orders history request failed or returned invalid format.");
+        return [];
+      }
+      return await res.json();
+    } catch (err) {
+      console.error("Failed to load order history:", err);
+      return [];
     }
-    return res.json();
   },
 
   /**

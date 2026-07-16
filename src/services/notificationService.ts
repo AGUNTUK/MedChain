@@ -8,20 +8,35 @@ import { Notification } from "../types";
 
 export const notificationService = {
   async getNotifications(): Promise<Notification[]> {
-    const res = await fetch("/api/notifications");
-    if (!res.ok) throw new Error("Failed to load notifications.");
-    return res.json();
+    try {
+      const res = await fetch("/api/notifications");
+      const contentType = res.headers.get("content-type");
+      if (!res.ok || !contentType || !contentType.includes("application/json")) {
+        console.warn("Notifications request failed or returned invalid format.");
+        return [];
+      }
+      return await res.json();
+    } catch (err) {
+      console.error("Failed to load notifications:", err);
+      return [];
+    }
   },
 
   async markAsRead(notificationId: string): Promise<{ success: boolean }> {
     const res = await fetch(`/api/notifications/read/${notificationId}`, { method: "POST" });
-    if (!res.ok) throw new Error("Failed to mark as read.");
+    const contentType = res.headers.get("content-type");
+    if (!res.ok || !contentType || !contentType.includes("application/json")) {
+      throw new Error("Failed to mark as read.");
+    }
     return res.json();
   },
 
   async markAllAsRead(): Promise<{ success: boolean }> {
     const res = await fetch("/api/notifications/read-all", { method: "POST" });
-    if (!res.ok) throw new Error("Failed to mark all as read.");
+    const contentType = res.headers.get("content-type");
+    if (!res.ok || !contentType || !contentType.includes("application/json")) {
+      throw new Error("Failed to mark all as read.");
+    }
     return res.json();
   },
 

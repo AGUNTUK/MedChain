@@ -98,11 +98,11 @@ export default function Checkout({ onBackToCart, onOrderPlaced, pharmacy }: Chec
         <div className="bg-white rounded-2xl p-4 border border-slate-100 space-y-3">
           <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
             <CreditCard className="w-4 h-4 text-brand-purple" />
-            Settlement Method Selection
+            Select Payment Method
           </h3>
 
           <div className="space-y-2">
-            {/* Cash on Delivery with credit verification */}
+            {/* Cash on Delivery */}
             <label className={`flex items-center justify-between p-3.5 rounded-xl border-2 transition-all cursor-pointer ${
               paymentMethod === "Cash on Delivery"
                 ? "border-brand-purple bg-brand-purple/5"
@@ -119,15 +119,12 @@ export default function Checkout({ onBackToCart, onOrderPlaced, pharmacy }: Chec
                 <div className="text-left">
                   <span>Cash on Delivery (COD)</span>
                   <p className="text-[9px] text-slate-400 mt-0.5 font-medium leading-tight">
-                    Uses outstanding pharmacy credit line.
+                    Pay with cash at your doorstep upon delivery.
                   </p>
                 </div>
               </div>
-              <div className="text-right font-mono">
-                <span className="text-[10px] text-slate-400 block uppercase">Available Credit</span>
-                <span className="text-xs font-extrabold text-brand-purple">
-                  ৳{pharmacy?.availableCredit?.toLocaleString()}
-                </span>
+              <div className="bg-emerald-100 text-emerald-800 text-[9px] font-black px-2 py-0.5 rounded-md uppercase">
+                Recommended
               </div>
             </label>
 
@@ -145,10 +142,10 @@ export default function Checkout({ onBackToCart, onOrderPlaced, pharmacy }: Chec
                   onChange={() => setPaymentMethod("bKash")}
                   className="accent-brand-purple"
                 />
-                <span>bKash Mobile Wallet</span>
+                <span>bKash Wallet</span>
               </div>
               <div className="bg-[#E2125D] text-white text-[9px] font-black px-2 py-0.5 rounded-md uppercase">
-                Instant Rebate
+                Instant
               </div>
             </label>
 
@@ -169,7 +166,7 @@ export default function Checkout({ onBackToCart, onOrderPlaced, pharmacy }: Chec
                 <span>Nagad Wallet</span>
               </div>
               <div className="bg-[#F15A22] text-white text-[9px] font-black px-2 py-0.5 rounded-md uppercase">
-                Fast Checkout
+                Instant
               </div>
             </label>
           </div>

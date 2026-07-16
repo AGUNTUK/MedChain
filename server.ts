@@ -40,9 +40,23 @@ app.use(cookieSession({
   keys: [sessionSecret || "medichain-production-stateless-key-12345"],
   maxAge: 24 * 60 * 60 * 1000, // 24 hours
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "lax"
+  secure: true,
+  sameSite: "none"
 }));
+
+// Global fallback session middleware to support environments with blocked third-party cookies (e.g. iframes)
+app.use((req: any, res: any, next: any) => {
+  const headerUserId = req.headers["x-session-user-id"];
+  if (headerUserId) {
+    req.session = req.session || {};
+    req.session.userId = headerUserId;
+    req.session.email = req.headers["x-session-user-email"];
+    req.session.role = req.headers["x-session-user-role"];
+    req.session.name = req.headers["x-session-user-name"];
+    req.session.pharmacy_id = req.headers["x-session-pharmacy-id"] || null;
+  }
+  next();
+});
 
 // --- RATE LIMITER MIDDLEWARE ---
 

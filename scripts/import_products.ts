@@ -11,7 +11,7 @@ async function runImport() {
   
   const result = importBulkCatalog(csvContent, existingProducts);
   
-  console.log(`Import processed. Success: ${result.successCount}, Errors: ${result.errorCount}`);
+  console.log(`Import processed. Success: ${result.successCount}, Errors: ${result.failureCount}`);
   
   let processed = 0;
   for (const product of result.importedProducts) {

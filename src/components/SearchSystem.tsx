@@ -28,6 +28,10 @@ interface SearchSystemProps {
   favouriteIds: string[];
   onOpenProductDetails: (product: Product) => void;
   orders?: Order[];
+  cartQuantities?: Record<string, number>;
+  onUpdateCartQty?: (productId: string, currentQty: number, change: number) => Promise<void>;
+  onOpenCart?: () => void;
+  cartCount?: number;
 }
 
 export default function SearchSystem({
@@ -35,7 +39,11 @@ export default function SearchSystem({
   onToggleFavourite,
   favouriteIds,
   onOpenProductDetails,
-  orders = []
+  orders = [],
+  cartQuantities = {},
+  onUpdateCartQty,
+  onOpenCart,
+  cartCount = 0
 }: SearchSystemProps) {
   // Input states
   const [search, setSearch] = useState("");
@@ -190,8 +198,8 @@ export default function SearchSystem({
   return (
     <div className="w-full h-full flex flex-col bg-brand-bg select-none">
       {/* Search Header Area */}
-      <div className="p-4 bg-white border-b border-slate-100 flex-shrink-0 shadow-xs">
-        <div className="relative flex items-center bg-slate-100 rounded-2xl px-3.5 py-3 focus-within:ring-2 focus-within:ring-brand-purple/20 focus-within:bg-white transition-all border border-transparent focus-within:border-brand-purple/30">
+      <div className="p-4 bg-white border-b border-slate-100 flex-shrink-0 shadow-xs flex items-center gap-2">
+        <div className="flex-1 relative flex items-center bg-slate-100 rounded-2xl px-3.5 py-3 focus-within:ring-2 focus-within:ring-brand-purple/20 focus-within:bg-white transition-all border border-transparent focus-within:border-brand-purple/30">
           <Search className="text-slate-400 w-4 h-4 mr-2" />
           <input
             type="text"
@@ -212,6 +220,21 @@ export default function SearchSystem({
             </button>
           )}
         </div>
+
+        {onOpenCart && (
+          <button
+            type="button"
+            onClick={onOpenCart}
+            className="p-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 relative cursor-pointer flex items-center justify-center flex-shrink-0 border border-slate-200/40 transition-colors"
+          >
+            <ShoppingCart className="w-4.5 h-4.5" />
+            {cartCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 bg-brand-lime text-slate-900 font-extrabold text-[8px] px-1.5 py-0.5 rounded-full min-w-4 text-center">
+                {cartCount}
+              </span>
+            )}
+          </button>
+        )}
 
         {/* Spelling Suggestions Bar */}
         {correctedQuery && (
@@ -388,69 +411,109 @@ export default function SearchSystem({
 
                       {/* Quantity Preset Selectors & Controls */}
                       <div className="mt-3.5 pt-3 border-t border-slate-100 flex flex-col gap-2">
-                        {/* Quick preset boxes */}
-                        <div className="flex items-center gap-1">
-                          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mr-1">Boxes:</span>
-                          {[10, 50, 100, 200].map(qtyVal => (
-                            <button
-                              key={qtyVal}
-                              onClick={() => handleQtyChange(p.id, qtyVal)}
-                              className={`px-2 py-0.5 rounded-md text-[9px] font-bold transition-all cursor-pointer ${
-                                currentQty === qtyVal
-                                  ? "bg-brand-purple text-white font-black"
-                                  : "bg-slate-100 hover:bg-slate-200 text-slate-600"
-                              }`}
-                            >
-                              {qtyVal} Box
-                            </button>
-                          ))}
-                        </div>
+                        {(() => {
+                          const inCartQty = cartQuantities[p.id] || 0;
+                          if (inCartQty > 0) {
+                            return (
+                              <div className="flex items-center justify-between gap-3 w-full animate-fade-in">
+                                <span className="text-[10px] text-brand-purple font-black uppercase tracking-wider">
+                                  In Basket:
+                                </span>
+                                <div className="flex-1 flex items-center justify-between bg-brand-purple/5 border border-brand-purple/20 rounded-xl px-2 py-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => onUpdateCartQty && onUpdateCartQty(p.id, inCartQty, -5)}
+                                    className="text-brand-purple hover:bg-brand-purple hover:text-white p-1 rounded-lg transition-all cursor-pointer flex items-center justify-center"
+                                  >
+                                    <Minus className="w-3.5 h-3.5" />
+                                  </button>
+                                  <span className="text-xs font-black text-brand-purple font-mono">
+                                    {inCartQty} boxes
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => onUpdateCartQty && onUpdateCartQty(p.id, inCartQty, 5)}
+                                    className="text-brand-purple hover:bg-brand-purple hover:text-white p-1 rounded-lg transition-all cursor-pointer flex items-center justify-center"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          }
 
-                        {/* Action controllers */}
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center bg-slate-100 rounded-xl px-2 py-1.5 border border-slate-200/40">
-                            <button
-                              onClick={() => handleQtyChange(p.id, currentQty - 5)}
-                              className="text-slate-500 hover:text-brand-purple p-1 rounded hover:bg-white transition-all cursor-pointer"
-                            >
-                              <Minus className="w-3 h-3" />
-                            </button>
-                            <input
-                              type="number"
-                              value={currentQty}
-                              onChange={(e) => handleQtyChange(p.id, parseInt(e.target.value) || 1)}
-                              className="w-10 text-center text-xs font-extrabold text-slate-800 bg-transparent outline-none border-none font-mono"
-                            />
-                            <button
-                              onClick={() => handleQtyChange(p.id, currentQty + 5)}
-                              className="text-slate-500 hover:text-brand-purple p-1 rounded hover:bg-white transition-all cursor-pointer"
-                            >
-                              <Plus className="w-3 h-3" />
-                            </button>
-                          </div>
+                          return (
+                            <>
+                              {/* Quick preset boxes */}
+                              <div className="flex items-center gap-1">
+                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mr-1">Boxes:</span>
+                                {[10, 50, 100, 200].map(qtyVal => (
+                                  <button
+                                    key={qtyVal}
+                                    type="button"
+                                    onClick={() => handleQtyChange(p.id, qtyVal)}
+                                    className={`px-2 py-0.5 rounded-md text-[9px] font-bold transition-all cursor-pointer ${
+                                      currentQty === qtyVal
+                                        ? "bg-brand-purple text-white font-black"
+                                        : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+                                    }`}
+                                  >
+                                    {qtyVal} Box
+                                  </button>
+                                ))}
+                              </div>
 
-                          <button
-                            onClick={() => handleAddToCartClick(p.id, p.availableStock)}
-                            disabled={cartAdding[p.id] || (isLowStock && p.availableStock <= 0)}
-                            className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                              addedSuccess[p.id]
-                                ? "bg-brand-purple text-white"
-                                : "bg-brand-lime text-slate-900 hover:shadow-md hover:shadow-brand-lime/20"
-                            }`}
-                          >
-                            {addedSuccess[p.id] ? (
-                              <>
-                                <Check className="w-4 h-4" />
-                                Added!
-                              </>
-                            ) : (
-                              <>
-                                <ShoppingCart className="w-3.5 h-3.5" />
-                                Cart (৳{(currentQty * p.sellingPrice).toLocaleString()})
-                              </>
-                            )}
-                          </button>
-                        </div>
+                              {/* Action controllers */}
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center bg-slate-100 rounded-xl px-2 py-1.5 border border-slate-200/40">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQtyChange(p.id, currentQty - 5)}
+                                    className="text-slate-500 hover:text-brand-purple p-1 rounded hover:bg-white transition-all cursor-pointer"
+                                  >
+                                    <Minus className="w-3 h-3" />
+                                  </button>
+                                  <input
+                                    type="number"
+                                    value={currentQty}
+                                    onChange={(e) => handleQtyChange(p.id, parseInt(e.target.value) || 1)}
+                                    className="w-10 text-center text-xs font-extrabold text-slate-800 bg-transparent outline-none border-none font-mono"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQtyChange(p.id, currentQty + 5)}
+                                    className="text-slate-500 hover:text-brand-purple p-1 rounded hover:bg-white transition-all cursor-pointer"
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                  </button>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddToCartClick(p.id, p.availableStock)}
+                                  disabled={cartAdding[p.id] || (isLowStock && p.availableStock <= 0)}
+                                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                                    addedSuccess[p.id]
+                                      ? "bg-brand-purple text-white"
+                                      : "bg-brand-lime text-slate-900 hover:shadow-md hover:shadow-brand-lime/20"
+                                  }`}
+                                >
+                                  {addedSuccess[p.id] ? (
+                                    <>
+                                      <Check className="w-4 h-4" />
+                                      Added!
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ShoppingCart className="w-3.5 h-3.5" />
+                                      Cart (৳{(currentQty * p.sellingPrice).toLocaleString()})
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   );
@@ -540,22 +603,53 @@ export default function SearchSystem({
                           <p className="text-[8.5px] text-brand-purple font-black mt-1">৳{p.sellingPrice} <span className="text-[8px] font-bold text-slate-400 line-through">৳{p.mrp}</span></p>
                         </div>
 
-                        <div className="mt-2.5 pt-2 border-t border-slate-50 flex items-center gap-1.5">
-                          <input
-                            type="number"
-                            value={currentQty}
-                            onChange={(e) => handleQtyChange(p.id, parseInt(e.target.value) || 1)}
-                            className="w-8 text-center text-[10px] font-bold text-slate-800 bg-slate-100 rounded-md py-1 border-none outline-none font-mono"
-                          />
-                          <button
-                            onClick={() => handleAddToCartClick(p.id, p.availableStock)}
-                            disabled={cartAdding[p.id]}
-                            className="flex-1 bg-brand-lime hover:bg-brand-lime/90 text-slate-900 py-1 rounded-md text-[9.5px] font-extrabold flex items-center justify-center gap-1 cursor-pointer transition-colors"
-                          >
-                            {addedSuccess[p.id] ? <Check className="w-3 h-3" /> : <ShoppingCart className="w-3 h-3" />}
-                            Buy
-                          </button>
-                        </div>
+                        {(() => {
+                          const inCartQty = cartQuantities[p.id] || 0;
+                          if (inCartQty > 0) {
+                            return (
+                              <div className="mt-2.5 pt-2 border-t border-slate-50 flex flex-col gap-1 w-full animate-fade-in">
+                                <span className="text-[8px] font-black text-brand-purple text-center">In Basket: {inCartQty} box</span>
+                                <div className="flex items-center justify-between bg-brand-purple/5 border border-brand-purple/20 rounded-lg p-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => onUpdateCartQty && onUpdateCartQty(p.id, inCartQty, -1)}
+                                    className="text-brand-purple hover:bg-brand-purple hover:text-white p-0.5 rounded transition-all cursor-pointer flex items-center justify-center"
+                                  >
+                                    <Minus className="w-3 h-3" />
+                                  </button>
+                                  <span className="text-[10px] font-black text-brand-purple font-mono">{inCartQty}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => onUpdateCartQty && onUpdateCartQty(p.id, inCartQty, 1)}
+                                    className="text-brand-purple hover:bg-brand-purple hover:text-white p-0.5 rounded transition-all cursor-pointer flex items-center justify-center"
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div className="mt-2.5 pt-2 border-t border-slate-50 flex items-center gap-1.5">
+                              <input
+                                type="number"
+                                value={currentQty}
+                                onChange={(e) => handleQtyChange(p.id, parseInt(e.target.value) || 1)}
+                                className="w-8 text-center text-[10px] font-bold text-slate-800 bg-slate-100 rounded-md py-1 border-none outline-none font-mono"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleAddToCartClick(p.id, p.availableStock)}
+                                disabled={cartAdding[p.id]}
+                                className="flex-1 bg-brand-lime hover:bg-brand-lime/90 text-slate-900 py-1 rounded-md text-[9.5px] font-extrabold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                              >
+                                {addedSuccess[p.id] ? <Check className="w-3 h-3" /> : <ShoppingCart className="w-3 h-3" />}
+                                Buy
+                              </button>
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })}

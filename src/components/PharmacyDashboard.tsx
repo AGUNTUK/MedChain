@@ -5,22 +5,43 @@ import { Download, CreditCard, ShoppingBag, TrendingUp, AlertCircle } from "luci
 export default function PharmacyDashboard() {
   const [summary, setSummary] = useState<any>(null);
   const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/pharmacy/dashboard-summary")
       .then(res => {
-        if (!res.ok) throw new Error("Failed to load dashboard summary");
+        const isJson = res.headers.get("content-type")?.includes("application/json");
+        if (!res.ok || !isJson) throw new Error("Failed to load dashboard summary");
         return res.json();
       })
-      .then(setSummary)
-      .catch(console.error);
+      .then(data => {
+        setSummary(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Dashboard summary sync error:", err);
+        setSummary({
+          totalOrders: 0,
+          monthlyPurchase: 0,
+          creditLimit: 0,
+          outstandingDue: 0
+        });
+        setLoading(false);
+      });
     
     orderService.getOrders()
       .then(setOrders)
       .catch(console.error);
   }, []);
 
-  if (!summary) return <div>Loading...</div>;
+  if (loading && !summary) {
+    return (
+      <div className="p-8 text-center text-xs font-bold text-slate-400 flex flex-col items-center justify-center gap-2">
+        <div className="w-5 h-5 border-2 border-brand-purple border-t-transparent rounded-full animate-spin"></div>
+        Syncing business overview...
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 space-y-6">

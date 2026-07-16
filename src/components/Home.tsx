@@ -11,7 +11,9 @@ import {
   RefreshCw,
   Clock,
   Heart,
-  Plus
+  Plus,
+  ShoppingCart,
+  Minus
 } from "lucide-react";
 import MediChainLogo from "./MediChainLogo";
 import { Product } from "../types";
@@ -28,6 +30,10 @@ interface HomeProps {
   onOpenProductDetails: (product: Product) => void;
   onOpenNotifications?: () => void;
   unreadNotificationsCount?: number;
+  cartQuantities?: Record<string, number>;
+  onUpdateCartQty?: (productId: string, currentQty: number, change: number) => Promise<void>;
+  onOpenCart?: () => void;
+  cartCount?: number;
 }
 
 export default function Home({
@@ -37,6 +43,12 @@ export default function Home({
   favouriteIds,
   pharmacyName = "City Pharma",
   onOpenProductDetails,
+  onOpenNotifications,
+  unreadNotificationsCount = 0,
+  cartQuantities = {},
+  onUpdateCartQty,
+  onOpenCart,
+  cartCount = 0
 }: HomeProps) {
   const [bestDeals, setBestDeals] = useState<Product[]>([]);
   const [frequentProducts, setFrequentProducts] = useState<Product[]>([]);
@@ -76,7 +88,7 @@ export default function Home({
     fetchHomeWidgets();
   }, []);
 
-  const handleQuickBuy = async (productId: string, defaultBulkSize: number = 10) => {
+  const handleQuickBuy = async (productId: string, defaultBulkSize: number = 1) => {
     const success = await onAddToCart(productId, defaultBulkSize);
     if (success) {
       setSuccessId(productId);
@@ -99,7 +111,23 @@ export default function Home({
         </div>
 
         {/* Notifications and status */}
-        <NotificationBell />
+        <div className="flex items-center gap-2">
+          {onOpenCart && (
+            <button
+              type="button"
+              onClick={onOpenCart}
+              className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 relative cursor-pointer flex items-center justify-center border border-slate-200/20 transition-colors"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-brand-lime text-slate-900 font-extrabold text-[8px] px-1.5 py-0.5 rounded-full min-w-4 text-center">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+          )}
+          <NotificationBell />
+        </div>
       </div>
 
       <PharmacyDashboard />
@@ -220,29 +248,66 @@ export default function Home({
                   </div>
                 </div>
 
-                {/* Add block */}
+                 {/* Add block */}
                 <div className="flex flex-col justify-end">
-                  <button
-                    onClick={() => handleQuickBuy(p.id)}
-                    disabled={successId === p.id}
-                    className={`py-1.5 px-3 rounded-xl text-[10px] font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
-                      successId === p.id
-                        ? "bg-brand-purple text-white"
-                        : "bg-brand-lime text-slate-900 hover:shadow-sm"
-                    }`}
-                  >
-                    {successId === p.id ? (
-                      <>
-                        <Clock className="w-3 h-3" />
-                        Added
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-3.5 h-3.5" />
-                        Buy 10 Box
-                      </>
-                    )}
-                  </button>
+                  {(() => {
+                    const inCartQty = cartQuantities[p.id] || 0;
+                    if (inCartQty > 0) {
+                      return (
+                        <div className="flex items-center gap-1.5 bg-brand-purple/5 border border-brand-purple/20 rounded-xl px-1.5 py-1" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onUpdateCartQty && onUpdateCartQty(p.id, inCartQty, -1);
+                            }}
+                            className="text-brand-purple hover:bg-brand-purple hover:text-white p-0.5 rounded transition-all cursor-pointer flex items-center justify-center"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="text-[10px] font-black text-brand-purple font-mono">{inCartQty}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onUpdateCartQty && onUpdateCartQty(p.id, inCartQty, 1);
+                            }}
+                            className="text-brand-purple hover:bg-brand-purple hover:text-white p-0.5 rounded transition-all cursor-pointer flex items-center justify-center"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleQuickBuy(p.id);
+                        }}
+                        disabled={successId === p.id}
+                        className={`py-1.5 px-3 rounded-xl text-[10px] font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
+                          successId === p.id
+                            ? "bg-brand-purple text-white"
+                            : "bg-brand-lime text-slate-900 hover:shadow-sm"
+                        }`}
+                      >
+                        {successId === p.id ? (
+                          <>
+                            <Clock className="w-3 h-3" />
+                            Added
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-3.5 h-3.5" />
+                            Buy
+                          </>
+                        )}
+                      </button>
+                    );
+                  })()}
                 </div>
               </div>
             ))}
@@ -258,28 +323,36 @@ export default function Home({
             </h3>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            {highestDiscounts.map(p => (
-              <div
-                key={p.id}
-                onClick={() => onOpenProductDetails(p)}
-                className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm hover:border-slate-200 cursor-pointer flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex justify-between items-start mb-1.5">
-                    <span className="bg-brand-purple/10 text-brand-purple text-[8px] font-black px-1.5 py-0.5 rounded">
-                      {p.discountPercentage}% OFF
+            {highestDiscounts.map(p => {
+              const inCartQty = cartQuantities[p.id] || 0;
+              return (
+                <div
+                  key={p.id}
+                  onClick={() => onOpenProductDetails(p)}
+                  className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm hover:border-slate-200 cursor-pointer flex flex-col justify-between relative"
+                >
+                  {inCartQty > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-brand-purple text-white text-[8px] font-black px-1.5 py-0.5 rounded-full z-10 shadow-sm animate-fade-in">
+                      {inCartQty} in cart
                     </span>
-                    <span className="text-[9px] text-slate-400 font-mono font-bold">Pack: {p.packSize.split(" ")[0]}</span>
+                  )}
+                  <div>
+                    <div className="flex justify-between items-start mb-1.5">
+                      <span className="bg-brand-purple/10 text-brand-purple text-[8px] font-black px-1.5 py-0.5 rounded">
+                        {p.discountPercentage}% OFF
+                      </span>
+                      <span className="text-[9px] text-slate-400 font-mono font-bold">Pack: {p.packSize.split(" ")[0]}</span>
+                    </div>
+                    <h4 className="text-xs font-black text-brand-charcoal truncate">{p.name}</h4>
+                    <p className="text-[9px] text-slate-400 uppercase font-bold truncate mt-0.5">{p.genericName}</p>
                   </div>
-                  <h4 className="text-xs font-black text-brand-charcoal truncate">{p.name}</h4>
-                  <p className="text-[9px] text-slate-400 uppercase font-bold truncate mt-0.5">{p.genericName}</p>
+                  <div className="mt-3 flex justify-between items-center">
+                    <span className="text-xs font-black text-brand-purple">৳{p.sellingPrice}</span>
+                    <span className="text-[9px] text-slate-400 line-through">৳{p.mrp}</span>
+                  </div>
                 </div>
-                <div className="mt-3 flex justify-between items-center">
-                  <span className="text-xs font-black text-brand-purple">৳{p.sellingPrice}</span>
-                  <span className="text-[9px] text-slate-400 line-through">৳{p.mrp}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
