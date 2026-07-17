@@ -54,18 +54,66 @@ export default function Home({
   const [highestDiscounts, setHighestDiscounts] = useState<Product[]>([]);
   const [lowStockAlerts, setLowStockAlerts] = useState<Product[]>([]);
   const [successId, setSuccessId] = useState<string | null>(null);
+  const [dbCategories, setDbCategories] = useState<string[]>([]);
+  const [showAllCategories, setShowAllCategories] = useState(false);
 
-  const categories = [
-    { name: "Tablet", color: "bg-blue-50 border-blue-100 text-blue-700", icon: "💊" },
-    { name: "Capsule", color: "bg-amber-50 border-amber-100 text-amber-700", icon: "🧬" },
-    { name: "Syrup", color: "bg-rose-50 border-rose-100 text-rose-700", icon: "🧪" },
-    { name: "Injection", color: "bg-purple-50 border-purple-100 text-purple-700", icon: "💉" },
-    { name: "Cream", color: "bg-teal-50 border-teal-100 text-teal-700", icon: "🧴" },
-    { name: "Supplement", color: "bg-indigo-50 border-indigo-100 text-indigo-700", icon: "🥗" }
-  ];
+  const categoryIconMap: Record<string, string> = {
+    "Tablet": "💊",
+    "Capsule": "🧬",
+    "Syrup": "🧪",
+    "Suspension": "🧫",
+    "Drops": "💧",
+    "Injection": "💉",
+    "Infusion": "🩻",
+    "Inhaler": "🌬️",
+    "Cream": "🧴",
+    "Ointment": "🩹",
+    "Gel": "🧊",
+    "Lotion": "🫧",
+    "Powder": "🧂",
+    "Sachet": "🛍️",
+    "Oral Solution": "🍹",
+    "Oral Saline": "🧂",
+    "Eye Drop": "👁️",
+    "Eye Ointment": "👁️‍🗨️",
+    "Ear Drop": "👂",
+    "Nasal Spray": "👃",
+    "Suppository": "💊",
+    "Pessary": "💊",
+    "Patch": "🩹",
+    "Insulin": "💉",
+    "Vaccine": "🛡️",
+    "Medical Devices": "🩺",
+    "Surgical Items": "✂️",
+    "Dressing": "🤕",
+    "Bandage": "🩹",
+    "Gloves": "🧤",
+    "Masks": "😷",
+    "Test Kits": "🧪",
+    "Nebulizer Solution": "💨",
+    "Herbal": "🌿",
+    "Ayurvedic": "🍂",
+    "Homeopathic": "🌼",
+    "Vitamins": "🍊",
+    "Supplements": "🥗",
+    "Baby Care": "🍼",
+    "Personal Care": "🧼",
+    "Diabetic Care": "🩸",
+    "First Aid": "🚑",
+    "Others": "📦"
+  };
 
   const fetchHomeWidgets = async () => {
     try {
+      // 0. Fetch Categories
+      const categoriesData = await productService.getCategories();
+      if (categoriesData.length > 0) {
+        setDbCategories(categoriesData);
+      } else {
+        // Fallback to default full list if DB is empty
+        setDbCategories(Object.keys(categoryIconMap));
+      }
+
       // 1. Fetch Deals
       const dataDeals = await productService.getProducts({ filter: "deals" });
       setBestDeals(dataDeals.slice(0, 3));
@@ -94,6 +142,17 @@ export default function Home({
       setTimeout(() => setSuccessId(null), 1500);
     }
   };
+
+  const displayCategoryNames = dbCategories.length > 0 
+    ? dbCategories 
+    : Object.keys(categoryIconMap);
+
+  const displayCategories = displayCategoryNames.map(name => ({
+    name,
+    icon: categoryIconMap[name] || "📦"
+  }));
+
+  const visibleCategories = showAllCategories ? displayCategories : displayCategories.slice(0, 12);
 
   return (
     <div className="w-full h-full bg-brand-bg flex flex-col select-none overflow-y-auto pb-20">
@@ -166,19 +225,47 @@ export default function Home({
             <h3 className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
               Browse Drug Class / Categories
             </h3>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {categories.map(cat => (
+            {displayCategories.length > 12 && (
               <button
-                key={cat.name}
-                onClick={() => onTriggerSearch(undefined, cat.name)}
-                className={`p-3 rounded-2xl border flex flex-col items-center justify-center text-center shadow-sm cursor-pointer hover:shadow hover:scale-[1.02] transition-all bg-white`}
+                onClick={() => setShowAllCategories(!showAllCategories)}
+                className="text-[10px] font-bold text-brand-purple hover:underline"
               >
-                <span className="text-xl mb-1">{cat.icon}</span>
-                <span className="text-[10px] font-extrabold text-slate-700">{cat.name}</span>
+                {showAllCategories ? "View Less" : "View All"}
               </button>
-            ))}
+            )}
           </div>
+          
+          {showAllCategories ? (
+            <div className="grid grid-cols-4 gap-2">
+              {visibleCategories.map(cat => (
+                <button
+                  key={cat.name}
+                  onClick={() => onTriggerSearch(undefined, cat.name)}
+                  className="flex flex-col items-center justify-center py-2 px-1 rounded-2xl border shadow-sm cursor-pointer hover:shadow hover:scale-[1.02] transition-all bg-white"
+                >
+                  <span className="text-xl mb-1.5">{cat.icon}</span>
+                  <span className="text-[8px] font-extrabold text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis w-full text-center px-1">
+                    {cat.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="flex overflow-x-auto gap-3 pb-2 -mx-4 px-4 scrollbar-hide snap-x">
+              {visibleCategories.map(cat => (
+                <button
+                  key={cat.name}
+                  onClick={() => onTriggerSearch(undefined, cat.name)}
+                  className="flex-shrink-0 snap-start flex flex-col items-center justify-center py-2 px-1 w-20 h-20 rounded-2xl border shadow-sm cursor-pointer hover:shadow hover:scale-[1.02] transition-all bg-white"
+                >
+                  <span className="text-2xl mb-1.5">{cat.icon}</span>
+                  <span className="text-[9px] font-extrabold text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis w-full text-center px-1">
+                    {cat.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Frequent / Recently Ordered */}

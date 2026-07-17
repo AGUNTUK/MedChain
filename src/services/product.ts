@@ -24,6 +24,18 @@ export const productService = {
   },
 
   /**
+   * Fetches the distinct product categories from the catalog.
+   */
+  async getCategories(): Promise<string[]> {
+    const res = await fetch("/api/categories");
+    if (!res.ok) {
+      console.warn("Failed to fetch product categories.");
+      return [];
+    }
+    return res.json();
+  },
+
+  /**
    * Fetches the B2B wholesale product catalog with full pagination, scoring, and spelling corrections.
    */
   async getProductsPaginated(params: {

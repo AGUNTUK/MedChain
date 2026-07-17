@@ -389,6 +389,17 @@ app.post("/api/pharmacy/profile", requireAuth, async (req, res) => {
 
 // --- MEDICINES & PRODUCT CATALOG ---
 
+app.get("/api/categories", async (req, res) => {
+  try {
+    const allProducts = await dbService.getProductsRaw();
+    const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Boolean)));
+    res.json(categories);
+  } catch (err) {
+    console.error("Error fetching categories:", err);
+    res.status(500).json({ error: "Failed to fetch categories." });
+  }
+});
+
 app.get("/api/products", async (req, res) => {
   const { search, category, filter, page, limit, paginate } = req.query;
 

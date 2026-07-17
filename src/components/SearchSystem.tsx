@@ -71,8 +71,11 @@ export default function SearchSystem({
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [cartAdding, setCartAdding] = useState<Record<string, boolean>>({});
   const [addedSuccess, setAddedSuccess] = useState<Record<string, boolean>>({});
+  const [dbCategories, setDbCategories] = useState<string[]>([]);
 
-  const categories = ["All", "Tablet", "Capsule", "Syrup", "Injection", "Cream", "Supplement"];
+  const defaultCategories = ["All", "Tablet", "Capsule", "Syrup", "Suspension", "Drops", "Injection", "Infusion", "Inhaler", "Cream", "Ointment", "Gel", "Lotion", "Powder", "Sachet", "Oral Solution", "Oral Saline", "Eye Drop", "Eye Ointment", "Ear Drop", "Nasal Spray", "Suppository", "Pessary", "Patch", "Insulin", "Vaccine", "Medical Devices", "Surgical Items", "Dressing", "Bandage", "Gloves", "Masks", "Test Kits", "Nebulizer Solution", "Herbal", "Ayurvedic", "Homeopathic", "Vitamins", "Supplements", "Baby Care", "Personal Care", "Diabetic Care", "First Aid", "Others"];
+
+  const categories = dbCategories.length > 0 ? ["All", ...dbCategories] : defaultCategories;
 
   // 1. Load Recent Searches & Frequent Products on Mount
   useEffect(() => {
@@ -84,6 +87,15 @@ export default function SearchSystem({
         console.error(e);
       }
     }
+    
+    // Load categories
+    productService.getCategories()
+      .then(data => {
+        if (data.length > 0) {
+          setDbCategories(data);
+        }
+      })
+      .catch(console.error);
 
     // Load popular/frequently ordered items
     productService.getProducts({ filter: "frequent" })
