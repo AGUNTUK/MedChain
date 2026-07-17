@@ -17,7 +17,8 @@ import {
   Award,
   Clock,
   ThumbsUp,
-  AlertCircle
+  AlertCircle,
+  Store
 } from "lucide-react";
 import { Product, Order } from "../types";
 import { productService } from "../services";
@@ -332,9 +333,184 @@ export default function SearchSystem({
             <RefreshCw className="w-8 h-8 text-brand-purple animate-spin mb-3" />
             <span className="text-xs font-bold text-slate-500">Searching MediChain Ledger...</span>
           </div>
-        ) : debouncedSearch ? (
+        ) : true ? (
           /* Search results matching state */
           <>
+            {/* Quick Order Cockpit Hub - Shown only when there is no search query */}
+            {!debouncedSearch && (
+              <div className="space-y-4 mb-5 animate-fade-in">
+                {/* Recent Searches Row */}
+                {recentSearches.length > 0 && (
+                  <div className="bg-white rounded-2xl p-3.5 border border-slate-100/80 shadow-3xs">
+                    <div className="flex justify-between items-center mb-2.5">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" /> Recent Searches
+                      </span>
+                      <button
+                        onClick={clearRecentSearches}
+                        className="text-[9px] text-slate-400 hover:text-rose-500 font-bold uppercase transition-colors cursor-pointer"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {recentSearches.map((q, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setSearch(q)}
+                          className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1"
+                        >
+                          <Search className="w-2.5 h-2.5 text-slate-400" /> {q}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Quick Procurement (Frequently Ordered) */}
+                {frequentProducts.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 px-1">
+                      <TrendingUp className="w-4 h-4 text-brand-purple" /> Frequently Procured Medicines
+                    </span>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {frequentProducts.map(p => {
+                        const currentQty = quantities[p.id] || 10;
+                        return (
+                          <div
+                            key={p.id}
+                            className="bg-white rounded-2xl p-3 border border-slate-100 shadow-3xs flex flex-col justify-between hover:border-slate-200 transition-all"
+                          >
+                            <div onClick={() => onOpenProductDetails(p)} className="cursor-pointer">
+                              {p.imageUrl && (
+                                <div className="w-full h-16 rounded-xl overflow-hidden bg-slate-50 border border-slate-100 mb-2">
+                                  <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                                </div>
+                              )}
+                              <span className="text-[7.5px] bg-brand-purple/10 text-brand-purple px-1.5 py-0.5 rounded uppercase font-black tracking-wider inline-block mb-1">
+                                {p.category}
+                              </span>
+                              <h4 className="text-[11px] font-black text-brand-charcoal truncate">{p.name}</h4>
+                              <p className="text-[8px] font-bold text-slate-400 truncate uppercase">{p.genericName}</p>
+                              <p className="text-[8.5px] text-brand-purple font-black mt-1">৳{p.sellingPrice} <span className="text-[8px] font-bold text-slate-400 line-through">৳{p.mrp}</span></p>
+                            </div>
+
+                            {(() => {
+                              const inCartQty = cartQuantities ? cartQuantities[p.id] || 0 : 0;
+                              if (inCartQty > 0) {
+                                return (
+                                  <div className="mt-2.5 pt-2 border-t border-slate-50 flex flex-col gap-1 w-full animate-fade-in">
+                                    <span className="text-[8px] font-black text-brand-purple text-center">In Basket: {inCartQty} box</span>
+                                    <div className="flex items-center justify-between bg-brand-purple/5 border border-brand-purple/20 rounded-lg p-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => onUpdateCartQty && onUpdateCartQty(p.id, inCartQty, -1)}
+                                        className="text-brand-purple hover:bg-brand-purple hover:text-white p-0.5 rounded transition-all cursor-pointer flex items-center justify-center"
+                                      >
+                                        <Minus className="w-3 h-3" />
+                                      </button>
+                                      <span className="text-[10px] font-black text-brand-purple font-mono">{inCartQty}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => onUpdateCartQty && onUpdateCartQty(p.id, inCartQty, 1)}
+                                        className="text-brand-purple hover:bg-brand-purple hover:text-white p-0.5 rounded transition-all cursor-pointer flex items-center justify-center"
+                                      >
+                                        <Plus className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div className="mt-2.5 pt-2 border-t border-slate-50 flex items-center gap-1.5">
+                                  <input
+                                    type="number"
+                                    value={currentQty}
+                                    onChange={(e) => handleQtyChange(p.id, parseInt(e.target.value) || 1)}
+                                    className="w-8 text-center text-[10px] font-bold text-slate-800 bg-slate-100 rounded-md py-1 border-none outline-none font-mono"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAddToCartClick(p.id, p.availableStock)}
+                                    disabled={cartAdding[p.id]}
+                                    className="flex-1 bg-brand-lime hover:bg-brand-lime/90 text-slate-900 py-1 rounded-md text-[9.5px] font-extrabold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                                  >
+                                    {addedSuccess[p.id] ? <Check className="w-3 h-3" /> : <ShoppingCart className="w-3 h-3" />}
+                                    Buy
+                                  </button>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Past Invoices One-Tap Reorders */}
+                {orders.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 px-1">
+                      <History className="w-4 h-4 text-emerald-500" /> One-Tap Past Invoice Reorders
+                    </span>
+                    <div className="space-y-2.5">
+                      {orders.slice(0, 2).map(o => (
+                        <div
+                          key={o.id}
+                          className="bg-white rounded-2xl p-3 border border-slate-100 shadow-3xs flex flex-col gap-2 hover:border-slate-200 transition-all"
+                        >
+                          <div className="flex justify-between items-center text-[10px]">
+                            <div>
+                              <span className="font-extrabold text-slate-700">Invoice {o.id}</span>
+                              <span className="text-slate-400 ml-1.5 font-mono">{o.items.length} medicines</span>
+                            </div>
+                            <span className="font-mono text-slate-500 font-extrabold">৳{o.totalAmount.toLocaleString()}</span>
+                          </div>
+
+                          <div className="flex items-center justify-between border-t border-slate-50 pt-2">
+                            <div className="flex flex-wrap gap-1 max-w-[200px]">
+                              {o.items.slice(0, 3).map((item, idx) => (
+                                <span
+                                  key={idx}
+                                  className="text-[8px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-md font-semibold"
+                                >
+                                  {item.name} ({item.quantity})
+                                </span>
+                              ))}
+                              {o.items.length > 3 && <span className="text-[8px] text-slate-400 font-bold">+{o.items.length - 3} more</span>}
+                            </div>
+
+                            <button
+                              onClick={() => handleOneTapReorder(o)}
+                              disabled={isReordering[o.id]}
+                              className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-150 py-1 px-2.5 rounded-lg text-[9px] font-black flex items-center gap-1 cursor-pointer transition-colors"
+                            >
+                              {isReordering[o.id] ? (
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Check className="w-3 h-3" />
+                              )}
+                              1-Tap Reorder
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Section label for wholesale medicine catalog */}
+            <div className="flex items-center gap-1.5 mb-3 px-1 pt-2 border-t border-slate-100/50">
+              <Store className="w-4 h-4 text-brand-purple" />
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                {debouncedSearch ? `Catalog Matches (${totalProducts} items)` : `${selectedCategory === "All" ? "Wholesale Medicine Catalog" : `${selectedCategory} Catalog`} (${totalProducts} items)`}
+              </span>
+            </div>
+
             {products.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center bg-white rounded-2xl border border-slate-100 p-6">
                 <AlertCircle className="w-8 h-8 text-slate-300 mb-2" />
@@ -556,172 +732,7 @@ export default function SearchSystem({
               </div>
             )}
           </>
-        ) : (
-          /* Empty Search Query: Show Quick Order Cockpit Hub */
-          <div className="space-y-4">
-            {/* Recent Searches Row */}
-            {recentSearches.length > 0 && (
-              <div className="bg-white rounded-2xl p-3.5 border border-slate-100/80 shadow-3xs">
-                <div className="flex justify-between items-center mb-2.5">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-slate-400" /> Recent Searches
-                  </span>
-                  <button
-                    onClick={clearRecentSearches}
-                    className="text-[9px] text-slate-400 hover:text-rose-500 font-bold uppercase transition-colors cursor-pointer"
-                  >
-                    Clear All
-                  </button>
-                </div>
-                <div className="flex gap-1.5 flex-wrap">
-                  {recentSearches.map((q, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setSearch(q)}
-                      className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1"
-                    >
-                      <Search className="w-2.5 h-2.5 text-slate-400" /> {q}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Quick Procurement (Frequently Ordered) */}
-            {frequentProducts.length > 0 && (
-              <div className="space-y-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 px-1">
-                  <TrendingUp className="w-4 h-4 text-brand-purple" /> Frequently Procured Medicines
-                </span>
-                <div className="grid grid-cols-2 gap-2.5">
-                  {frequentProducts.map(p => {
-                    const currentQty = quantities[p.id] || 10;
-                    return (
-                      <div
-                        key={p.id}
-                        className="bg-white rounded-2xl p-3 border border-slate-100 shadow-3xs flex flex-col justify-between hover:border-slate-200 transition-all"
-                      >
-                        <div onClick={() => onOpenProductDetails(p)} className="cursor-pointer">
-                          {p.imageUrl && (
-                            <div className="w-full h-16 rounded-xl overflow-hidden bg-slate-50 border border-slate-100 mb-2">
-                              <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
-                            </div>
-                          )}
-                          <span className="text-[7.5px] bg-brand-purple/10 text-brand-purple px-1.5 py-0.5 rounded uppercase font-black tracking-wider inline-block mb-1">
-                            {p.category}
-                          </span>
-                          <h4 className="text-[11px] font-black text-brand-charcoal truncate">{p.name}</h4>
-                          <p className="text-[8px] font-bold text-slate-400 truncate uppercase">{p.genericName}</p>
-                          <p className="text-[8.5px] text-brand-purple font-black mt-1">৳{p.sellingPrice} <span className="text-[8px] font-bold text-slate-400 line-through">৳{p.mrp}</span></p>
-                        </div>
-
-                        {(() => {
-                          const inCartQty = cartQuantities[p.id] || 0;
-                          if (inCartQty > 0) {
-                            return (
-                              <div className="mt-2.5 pt-2 border-t border-slate-50 flex flex-col gap-1 w-full animate-fade-in">
-                                <span className="text-[8px] font-black text-brand-purple text-center">In Basket: {inCartQty} box</span>
-                                <div className="flex items-center justify-between bg-brand-purple/5 border border-brand-purple/20 rounded-lg p-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => onUpdateCartQty && onUpdateCartQty(p.id, inCartQty, -1)}
-                                    className="text-brand-purple hover:bg-brand-purple hover:text-white p-0.5 rounded transition-all cursor-pointer flex items-center justify-center"
-                                  >
-                                    <Minus className="w-3 h-3" />
-                                  </button>
-                                  <span className="text-[10px] font-black text-brand-purple font-mono">{inCartQty}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => onUpdateCartQty && onUpdateCartQty(p.id, inCartQty, 1)}
-                                    className="text-brand-purple hover:bg-brand-purple hover:text-white p-0.5 rounded transition-all cursor-pointer flex items-center justify-center"
-                                  >
-                                    <Plus className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          }
-
-                          return (
-                            <div className="mt-2.5 pt-2 border-t border-slate-50 flex items-center gap-1.5">
-                              <input
-                                type="number"
-                                value={currentQty}
-                                onChange={(e) => handleQtyChange(p.id, parseInt(e.target.value) || 1)}
-                                className="w-8 text-center text-[10px] font-bold text-slate-800 bg-slate-100 rounded-md py-1 border-none outline-none font-mono"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleAddToCartClick(p.id, p.availableStock)}
-                                disabled={cartAdding[p.id]}
-                                className="flex-1 bg-brand-lime hover:bg-brand-lime/90 text-slate-900 py-1 rounded-md text-[9.5px] font-extrabold flex items-center justify-center gap-1 cursor-pointer transition-colors"
-                              >
-                                {addedSuccess[p.id] ? <Check className="w-3 h-3" /> : <ShoppingCart className="w-3 h-3" />}
-                                Buy
-                              </button>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Past Invoices One-Tap Reorders */}
-            {orders.length > 0 && (
-              <div className="space-y-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 px-1">
-                  <History className="w-4 h-4 text-emerald-500" /> One-Tap Past Invoice Reorders
-                </span>
-                <div className="space-y-2.5">
-                  {orders.slice(0, 2).map(o => (
-                    <div
-                      key={o.id}
-                      className="bg-white rounded-2xl p-3 border border-slate-100 shadow-3xs flex flex-col gap-2 hover:border-slate-200 transition-all"
-                    >
-                      <div className="flex justify-between items-center text-[10px]">
-                        <div>
-                          <span className="font-extrabold text-slate-700">Invoice {o.id}</span>
-                          <span className="text-slate-400 ml-1.5 font-mono">{o.items.length} medicines</span>
-                        </div>
-                        <span className="font-mono text-slate-500 font-extrabold">৳{o.totalAmount.toLocaleString()}</span>
-                      </div>
-
-                      <div className="flex items-center justify-between border-t border-slate-50 pt-2">
-                        <div className="flex flex-wrap gap-1 max-w-[200px]">
-                          {o.items.slice(0, 3).map((item, idx) => (
-                            <span
-                              key={idx}
-                              className="text-[8px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-md font-semibold"
-                            >
-                              {item.name} ({item.quantity})
-                            </span>
-                          ))}
-                          {o.items.length > 3 && <span className="text-[8px] text-slate-400 font-bold">+{o.items.length - 3} more</span>}
-                        </div>
-
-                        <button
-                          onClick={() => handleOneTapReorder(o)}
-                          disabled={isReordering[o.id]}
-                          className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-150 py-1 px-2.5 rounded-lg text-[9px] font-black flex items-center gap-1 cursor-pointer transition-colors"
-                        >
-                          {isReordering[o.id] ? (
-                            <RefreshCw className="w-3 h-3 animate-spin" />
-                          ) : (
-                            <Check className="w-3 h-3" />
-                          )}
-                          1-Tap Reorder
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
