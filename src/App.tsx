@@ -53,10 +53,10 @@ try {
       
       if (response.status === 401 && typeof input === "string" && !input.includes("/api/auth")) {
         const hadUser = localStorage.getItem("medichain_user");
-        localStorage.removeItem("medichain_user");
-        localStorage.removeItem("medichain_pharmacy");
         if (hadUser) {
-          window.location.reload();
+          localStorage.removeItem("medichain_user");
+          localStorage.removeItem("medichain_pharmacy");
+          window.dispatchEvent(new Event("auth-expired"));
         }
       }
       
