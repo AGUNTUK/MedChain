@@ -8,8 +8,15 @@ import { createClient } from "@supabase/supabase-js";
  * to prevent startup crashes when keys are not yet configured.
  */
 
-const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
-const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+const getEnvVar = (key: string): string | undefined => {
+  if (typeof window !== "undefined") {
+    return (import.meta as any).env?.[key];
+  }
+  return (import.meta as any).env?.[key] || (typeof process !== "undefined" ? process.env?.[key] : undefined);
+};
+
+const supabaseUrl = getEnvVar("VITE_SUPABASE_URL");
+const supabaseAnonKey = getEnvVar("VITE_SUPABASE_ANON_KEY");
 
 export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
 
