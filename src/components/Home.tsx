@@ -143,9 +143,10 @@ export default function Home({
     }
   };
 
-  const displayCategoryNames = dbCategories.length > 0 
-    ? dbCategories 
-    : Object.keys(categoryIconMap);
+  const displayCategoryNames = Array.from(new Set([
+    ...Object.keys(categoryIconMap),
+    ...dbCategories
+  ]));
 
   const displayCategories = displayCategoryNames.map(name => ({
     name,

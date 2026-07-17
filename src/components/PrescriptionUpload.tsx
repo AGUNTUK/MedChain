@@ -35,30 +35,55 @@ export default function PrescriptionUpload({ onAddToCart, onTriggerTab }: Prescr
     setResults([]);
 
     try {
-      let base64Str = "";
-      let storageUrl = "";
+      let fileToSend: File | Blob;
+      let filename = "upload.png";
 
       if (fileOrBase64 instanceof File) {
-        // 1. Upload to Supabase Storage (with full validation & error handling inside)
-        const uploadResult = await storageService.uploadPrescription(fileOrBase64);
-        storageUrl = uploadResult.url;
-
-        // 2. Read as base64 for Gemini OCR ingestion
-        base64Str = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(fileOrBase64);
-        });
+        fileToSend = fileOrBase64;
+        filename = fileOrBase64.name;
       } else {
-        // Fallback for simulation presets
-        base64Str = fileOrBase64;
-        storageUrl = fileOrBase64;
+        const isSample1 = fileOrBase64 === SAMPLES[0].data;
+        filename = isSample1 ? "sample_daily_bulk_list.png" : "sample_beximco_square_restock.png";
+        
+        // Convert the 1x1 transparent pixel base64 to a Blob
+        const byteString = atob(fileOrBase64.split(",")[1]);
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) {
+          ia[i] = byteString.charCodeAt(i);
+        }
+        fileToSend = new Blob([ab], { type: "image/png" });
       }
 
-      // 3. Post to Gemini parsing backend
-      const data = await inventoryService.uploadPrescription(base64Str, storageUrl);
-      setResults(data.results || []);
+      const formData = new FormData();
+      formData.append("file", fileToSend, filename);
+
+      const response = await fetch("/api/v1/ocr/process", {
+        method: "POST",
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || errData.details || "Failed to analyze and digitize prescription.");
+      }
+
+      const data = await response.json();
+      if (!data.success || !data.medicines) {
+        throw new Error(data.error || "The OCR processor returned an invalid response.");
+      }
+
+      const mappedResults = data.medicines.map((item: any) => ({
+        query: `${item.brand_name || item.generic_name || "Unknown Medicine"} ${item.strength || ""}`.trim(),
+        matchedProductId: item.matchedProduct?.id || null,
+        matchedProductName: item.matchedProduct?.name || null,
+        matchedProductPrice: item.matchedProduct?.sellingPrice || 0,
+        strength: item.strength || item.matchedProduct?.strength || "",
+        quantitySuggested: typeof item.quantity === "number" ? item.quantity : parseInt(item.quantity) || 10,
+        confidence: item.matchConfidence || 0
+      }));
+
+      setResults(mappedResults);
     } catch (err: any) {
       setError(err.message || "AI prescription upload and analysis failed. Please try again.");
     } finally {

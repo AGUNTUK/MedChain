@@ -76,7 +76,11 @@ export default function SearchSystem({
 
   const defaultCategories = ["All", "Tablet", "Capsule", "Syrup", "Suspension", "Drops", "Injection", "Infusion", "Inhaler", "Cream", "Ointment", "Gel", "Lotion", "Powder", "Sachet", "Oral Solution", "Oral Saline", "Eye Drop", "Eye Ointment", "Ear Drop", "Nasal Spray", "Suppository", "Pessary", "Patch", "Insulin", "Vaccine", "Medical Devices", "Surgical Items", "Dressing", "Bandage", "Gloves", "Masks", "Test Kits", "Nebulizer Solution", "Herbal", "Ayurvedic", "Homeopathic", "Vitamins", "Supplements", "Baby Care", "Personal Care", "Diabetic Care", "First Aid", "Others"];
 
-  const categories = dbCategories.length > 0 ? ["All", ...dbCategories] : defaultCategories;
+  const categories = Array.from(new Set([
+    "All",
+    ...defaultCategories.slice(1),
+    ...dbCategories
+  ]));
 
   // 1. Load Recent Searches & Frequent Products on Mount
   useEffect(() => {

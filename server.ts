@@ -18,6 +18,7 @@ import { importBulkCatalog } from "./src/lib/importService.js";
 import { performSearch } from "./src/lib/searchService.js";
 import { validateProduct, checkDuplicate } from "./src/lib/productValidator.js";
 import * as dbService from "./src/lib/dbService.js";
+import ocrRouter from "./src/routes/ocrRoutes.js";
 
 dotenv.config();
 
@@ -1711,6 +1712,9 @@ app.get("/api/admin/finance/summary", requireRole(["Admin"]), async (req, res) =
     res.status(500).json({ error: err.message });
   }
 });
+
+// --- HYBRID OCR PIPELINE ROUTE ---
+app.use("/api/v1/ocr", ocrRouter);
 
 // --- GLOBAL ERROR HANDLING & INITIALIZATION ---
 
