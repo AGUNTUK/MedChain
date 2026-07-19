@@ -898,6 +898,41 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
     }
   };
 
+  const handleExportProductsCSV = () => {
+    const headers = ["Name", "Generic Name", "Company", "Category", "Strength", "Pack Size", "MRP", "Selling Price", "Stock", "Batch", "Expiry"];
+    const rows = products.map(p => [
+      p.name, p.genericName, p.company, p.category, p.strength, p.packSize, p.mrp, p.sellingPrice, p.availableStock, p.batchNumber, p.expiryDate
+    ]);
+    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `medichain-catalog-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    setSuccessMsg("Catalog exported as CSV.");
+  };
+
+  const handleExportProductsExcel = () => {
+    const worksheet = XLSX.utils.json_to_sheet(products.map(p => ({
+      "Product Name": p.name,
+      "Generic Name": p.genericName,
+      "Company": p.company,
+      "Category": p.category,
+      "Strength": p.strength,
+      "Pack Size": p.packSize,
+      "MRP": p.mrp,
+      "Selling Price": p.sellingPrice,
+      "Stock": p.availableStock,
+      "Batch": p.batchNumber,
+      "Expiry": p.expiryDate
+    })));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Medicine Catalog");
+    XLSX.writeFile(workbook, `medichain-catalog-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    setSuccessMsg("Catalog exported as Excel.");
+  };
+
   // Quick Action Utilities
   const handleTriggerPriceDropAction = async () => {
     if (!window.confirm("Broadcast 5% Wholesale Catalog Price Drop to all pharmacies?")) return;
@@ -1559,12 +1594,26 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                       />
                     </div>
 
-                    <button
-                      onClick={handleOpenAddProduct}
-                      className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold py-2 px-4 rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-lg"
-                    >
-                      <Plus className="w-4 h-4" /> Add Manual Medicine
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleExportProductsCSV}
+                        className="bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 text-xs font-semibold py-2 px-4 rounded-xl transition-all cursor-pointer flex items-center gap-2"
+                      >
+                        <FileText className="w-4 h-4" /> Export CSV
+                      </button>
+                      <button
+                        onClick={handleExportProductsExcel}
+                        className="bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 text-xs font-semibold py-2 px-4 rounded-xl transition-all cursor-pointer flex items-center gap-2"
+                      >
+                        <FileText className="w-4 h-4" /> Export XLSX
+                      </button>
+                      <button
+                        onClick={handleOpenAddProduct}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold py-2 px-4 rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-lg"
+                      >
+                        <Plus className="w-4 h-4" /> Add Manual Medicine
+                      </button>
+                    </div>
                   </div>
 
                   {/* Bulk Import Section */}
