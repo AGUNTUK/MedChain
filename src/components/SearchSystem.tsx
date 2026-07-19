@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Search,
   ShoppingCart,
@@ -120,10 +120,24 @@ export default function SearchSystem({
     return () => clearTimeout(handler);
   }, [search]);
 
+  // Infinite scrolling observer ref
+  const observer = useRef<IntersectionObserver | null>(null);
+  const lastProductElementRef = useCallback((node: HTMLDivElement) => {
+    if (isLoading) return;
+    if (observer.current) observer.current.disconnect();
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && page < totalPages) {
+        setPage(prevPage => prevPage + 1);
+      }
+    });
+    if (node) observer.current.observe(node);
+  }, [isLoading, page, totalPages]);
+
   // 3. Fetch products dynamically when state parameters change
   useEffect(() => {
     const fetchResults = async () => {
-      setIsLoading(true);
+      // Only set loading if it's the first page to not flash empty screen on scroll
+      if (page === 1) setIsLoading(true);
       try {
         const response = await productService.getProductsPaginated({
           search: debouncedSearch || undefined,
@@ -133,7 +147,15 @@ export default function SearchSystem({
           limit: 10
         });
 
-        setProducts(response.products);
+        if (page === 1) {
+          setProducts(response.products);
+        } else {
+          setProducts(prev => {
+            // Deduplicate products based on ID to avoid duplicate rendering issues on double fetch
+            const newProducts = response.products.filter(p => !prev.some(existing => existing.id === p.id));
+            return [...prev, ...newProducts];
+          });
+        }
         setTotalProducts(response.total);
         setTotalPages(response.pages || 1);
         setSuggestions(response.suggestions || []);
@@ -525,7 +547,7 @@ export default function SearchSystem({
               </div>
             ) : (
               <div className="space-y-3.5">
-                {products.map(p => {
+                {products.map((p, index) => {
                   const currentQty = quantities[p.id] || 10;
                   const isFav = favouriteIds.includes(p.id);
                   const isLowStock = p.availableStock <= 150;
@@ -533,6 +555,7 @@ export default function SearchSystem({
                   return (
                     <div
                       key={p.id}
+                      ref={products.length === index + 1 ? lastProductElementRef : null}
                       className="bg-white rounded-2xl p-4 border border-slate-150/70 hover:border-slate-200 transition-all shadow-sm relative overflow-hidden flex flex-col justify-between"
                     >
                       {/* Discount ribbon */}
@@ -711,26 +734,10 @@ export default function SearchSystem({
                   );
                 })}
 
-                {/* Pagination Controls */}
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-between bg-white border border-slate-100 rounded-2xl p-3 shadow-3xs">
-                    <button
-                      onClick={() => setPage(prev => Math.max(1, prev - 1))}
-                      disabled={page === 1}
-                      className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-500 disabled:opacity-40 text-[10.5px] font-bold cursor-pointer hover:bg-slate-50 transition-colors flex items-center gap-1"
-                    >
-                      <ArrowLeft className="w-3.5 h-3.5" /> Prev
-                    </button>
-                    <span className="text-[10.5px] font-extrabold text-slate-600">
-                      Page {page} of {totalPages}
-                    </span>
-                    <button
-                      onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
-                      disabled={page === totalPages}
-                      className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-500 disabled:opacity-40 text-[10.5px] font-bold cursor-pointer hover:bg-slate-50 transition-colors flex items-center gap-1"
-                    >
-                      Next <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
+                {/* Infinite Scroll Loading Indicator */}
+                {isLoading && page > 1 && (
+                  <div className="flex justify-center items-center py-4">
+                    <RefreshCw className="w-5 h-5 text-brand-purple animate-spin" />
                   </div>
                 )}
               </div>

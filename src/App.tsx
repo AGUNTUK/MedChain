@@ -17,7 +17,7 @@ import AdminPanel from "./components/AdminPanel";
 import DepotDashboard from "./components/DepotDashboard";
 import DeliveryDashboard from "./components/DeliveryDashboard";
 import { Product, Pharmacy, Order, Notification, User } from "./types";
-import { Home as HomeIcon, Search as SearchIcon, FileText as FileIcon, ClipboardList as ListIcon, User as UserIcon, Shield, Smartphone } from "lucide-react";
+import { Home as HomeIcon, Search as SearchIcon, Package as PackageIcon, FileText as FileIcon, ClipboardList as ListIcon, User as UserIcon, Shield, Smartphone } from "lucide-react";
 import { authService, productService, orderService, profileService, notificationService } from "./services";
 
 // Global fetch interceptor to inject session fallback headers for iframe environment
@@ -553,8 +553,8 @@ export default function App() {
                 activeTab === "search" ? "text-brand-purple scale-110" : "text-slate-400 hover:text-slate-500"
               }`}
             >
-              <SearchIcon className="w-5 h-5" />
-              <span className="text-[10px] font-bold">Catalog</span>
+              <PackageIcon className="w-5 h-5" />
+              <span className="text-[10px] font-bold">Products</span>
               {cartCount > 0 && (
                 <span className="absolute -top-1 -right-1.5 bg-brand-lime text-slate-900 font-extrabold text-[8px] px-1.5 py-0.5 rounded-full min-w-4 text-center">
                   {cartCount}
