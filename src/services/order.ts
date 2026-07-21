@@ -201,6 +201,24 @@ export const orderService = {
   },
 
   /**
+   * [DEPOT STAFF ACTION] Assigns a delivery rider to a packed order and dispatches it.
+   */
+  async assignDelivery(orderId: string, assignedRiderId: string): Promise<{ success: boolean }> {
+    const res = await fetch(`/api/depot/orders/${orderId}/assign-delivery`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assignedRiderId }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Failed to assign delivery rider.");
+    }
+
+    return res.json();
+  },
+
+  /**
    * [ADMIN/STAFF ACTION] Approves a pending product return and clears credit/accounts.
    */
   async approveReturn(orderId: string): Promise<{ success: boolean }> {

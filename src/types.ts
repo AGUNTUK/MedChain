@@ -84,6 +84,7 @@ export interface Order {
   hasReturnRequested?: boolean;
   returnReason?: string;
   returnStatus?: "None" | "Pending" | "Approved" | "Rejected";
+  assignedRiderId?: string;
 }
 
 export interface AuditLog {

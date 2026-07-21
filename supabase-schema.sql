@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY, -- Linked with Supabase Auth user id (auth.uid() = id)
     email VARCHAR(255) UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255),
     role VARCHAR(100) NOT NULL DEFAULT 'Pharmacy Owner',
     phone VARCHAR(50),
     pharmacy_id UUID, -- Will be set up as foreign key once pharmacies table is created
@@ -71,6 +72,7 @@ CREATE TABLE IF NOT EXISTS pharmacies (
 
 -- Add relation linkage from users back to pharmacies table
 ALTER TABLE users ADD COLUMN IF NOT EXISTS pharmacy_id UUID;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name VARCHAR(255);
 
 DO $$
 BEGIN
@@ -109,11 +111,20 @@ CREATE TABLE IF NOT EXISTS products (
     selling_price DECIMAL(12, 2) NOT NULL CHECK (selling_price >= 0),
     discount_percentage DECIMAL(5, 2) GENERATED ALWAYS AS (ROUND((1.0 - (selling_price / mrp)) * 100.0, 2)) STORED,
     image_url TEXT,
+    rack_location VARCHAR(100),
+    batch_number VARCHAR(100),
+    expiry_date DATE,
+    stock_quantity INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT check_selling_price_mrp CHECK (selling_price <= mrp),
     CONSTRAINT unique_product_combination UNIQUE (company, name, generic_name, strength, pack_size)
 );
+
+ALTER TABLE products ADD COLUMN IF NOT EXISTS rack_location VARCHAR(100);
+ALTER TABLE products ADD COLUMN IF NOT EXISTS batch_number VARCHAR(100);
+ALTER TABLE products ADD COLUMN IF NOT EXISTS expiry_date DATE;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS stock_quantity INTEGER DEFAULT 0;
 
 -- ==========================================
 -- 5. INVENTORY TABLE (FEFO Optimized)
@@ -131,7 +142,7 @@ CREATE TABLE IF NOT EXISTS inventory (
 );
 
 -- ==========================================
--- 8. CREDIT ACCOUNTS TABLE (B2B Credit Lines)
+-- 6. CREDIT ACCOUNTS TABLE (B2B Credit Lines)
 -- ==========================================
 CREATE TABLE IF NOT EXISTS credit_accounts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -143,7 +154,7 @@ CREATE TABLE IF NOT EXISTS credit_accounts (
 );
 
 -- ==========================================
--- 9. ORDERS TABLE
+-- 7. ORDERS TABLE
 -- ==========================================
 CREATE TABLE IF NOT EXISTS orders (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -161,16 +172,20 @@ CREATE TABLE IF NOT EXISTS orders (
     estimated_delivery TIMESTAMP WITH TIME ZONE,
     has_return_requested BOOLEAN DEFAULT FALSE,
     return_reason TEXT,
-    return_status return_status DEFAULT 'None'
+    return_status return_status DEFAULT 'None',
+    assigned_rider_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    handover_otp VARCHAR(6)
 );
 
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_address TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS has_return_requested BOOLEAN DEFAULT FALSE;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS return_reason TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS return_status return_status DEFAULT 'None';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS assigned_rider_id UUID REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS handover_otp VARCHAR(6);
 
 -- ==========================================
--- 10. ORDER ITEMS TABLE
+-- 8. ORDER ITEMS TABLE
 -- ==========================================
 CREATE TABLE IF NOT EXISTS order_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -178,11 +193,29 @@ CREATE TABLE IF NOT EXISTS order_items (
     product_id UUID REFERENCES products(id) ON DELETE SET NULL,
     quantity INTEGER NOT NULL CHECK (quantity > 0),
     price DECIMAL(12, 2) NOT NULL CHECK (price >= 0),
-    subtotal DECIMAL(12, 2) GENERATED ALWAYS AS (quantity * price) STORED
+    subtotal DECIMAL(12, 2) GENERATED ALWAYS AS (quantity * price) STORED,
+    unit_price DECIMAL(12, 2),
+    total_price DECIMAL(12, 2)
+);
+
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS unit_price DECIMAL(12, 2);
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS total_price DECIMAL(12, 2);
+
+-- ==========================================
+-- 9. DEPOT DISPATCHES TABLE
+-- ==========================================
+CREATE TABLE IF NOT EXISTS depot_dispatches (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
+    rider_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    depot_staff_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    dispatch_status VARCHAR(50) DEFAULT 'Pending', -- 'Pending', 'Dispatched', 'Delivered', 'Cancelled'
+    handover_otp VARCHAR(6),
+    dispatched_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ==========================================
--- 11. INVOICES TABLE
+-- 10. INVOICES TABLE
 -- ==========================================
 CREATE TABLE IF NOT EXISTS invoices (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -195,7 +228,7 @@ CREATE TABLE IF NOT EXISTS invoices (
 );
 
 -- ==========================================
--- 12. PAYMENTS TABLE
+-- 11. PAYMENTS TABLE
 -- ==========================================
 CREATE TABLE IF NOT EXISTS payments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -208,7 +241,7 @@ CREATE TABLE IF NOT EXISTS payments (
 );
 
 -- ==========================================
--- 13. FAVOURITES TABLE
+-- 12. FAVOURITES TABLE
 -- ==========================================
 CREATE TABLE IF NOT EXISTS favourites (
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -218,7 +251,7 @@ CREATE TABLE IF NOT EXISTS favourites (
 );
 
 -- ==========================================
--- 14. NOTIFICATIONS TABLE
+-- 13. NOTIFICATIONS TABLE
 -- ==========================================
 CREATE TABLE IF NOT EXISTS notifications (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -231,7 +264,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 
 -- ==========================================
--- 15. PRESCRIPTIONS TABLE (Optical OCR uploads)
+-- 14. PRESCRIPTIONS TABLE (Optical OCR uploads)
 -- ==========================================
 CREATE TABLE IF NOT EXISTS prescriptions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -244,7 +277,7 @@ CREATE TABLE IF NOT EXISTS prescriptions (
 );
 
 -- ==========================================
--- 16. RETURNS TABLE
+-- 15. RETURNS TABLE
 -- ==========================================
 CREATE TABLE IF NOT EXISTS returns (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -263,14 +296,19 @@ CREATE TABLE IF NOT EXISTS returns (
 -- DB INDEXES (Optimization & Rapid Query Performance)
 -- ============================================================================
 CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
 CREATE INDEX IF NOT EXISTS idx_products_name_generic ON products(name, generic_name);
+CREATE INDEX IF NOT EXISTS idx_products_rack_location ON products(rack_location);
 CREATE INDEX IF NOT EXISTS idx_inventory_product ON inventory(product_id);
 CREATE INDEX IF NOT EXISTS idx_inventory_expiry ON inventory(expiry_date); -- Critical for FEFO queries
 CREATE INDEX IF NOT EXISTS idx_orders_pharmacy ON orders(pharmacy_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+CREATE INDEX IF NOT EXISTS idx_orders_assigned_rider ON orders(assigned_rider_id);
 CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id) WHERE read = FALSE;
+CREATE INDEX IF NOT EXISTS idx_depot_dispatches_order ON depot_dispatches(order_id);
+CREATE INDEX IF NOT EXISTS idx_depot_dispatches_rider ON depot_dispatches(rider_id);
 
 
 -- ============================================================================
@@ -301,6 +339,7 @@ ALTER TABLE pharmacies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE credit_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE depot_dispatches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE favourites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE prescriptions ENABLE ROW LEVEL SECURITY;
@@ -400,12 +439,38 @@ CREATE POLICY "Pharmacies can view own order items" ON order_items
         )
     );
 
--- 6. Notifications Policies:
+-- 6. Depot Dispatches Policies:
+CREATE POLICY "Staff/Admins can view all dispatches" ON depot_dispatches
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM users 
+            WHERE users.id = auth.uid() AND users.role IN ('Admin', 'Depot Staff', 'Delivery Staff')
+        )
+    );
+
+CREATE POLICY "Pharmacies can view own order dispatches" ON depot_dispatches
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM orders
+            JOIN pharmacies ON orders.pharmacy_id = pharmacies.id
+            WHERE depot_dispatches.order_id = orders.id AND pharmacies.user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Staff/Admins can insert and update dispatches" ON depot_dispatches
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM users 
+            WHERE users.id = auth.uid() AND users.role IN ('Admin', 'Depot Staff')
+        )
+    );
+
+-- 7. Notifications Policies:
 -- Users can see general broadcasts or targeted notifications.
 CREATE POLICY "Users can view relevant notifications" ON notifications 
     FOR SELECT USING (user_id IS NULL OR user_id = auth.uid());
 
--- 7. Invoices Policies:
+-- 8. Invoices Policies:
 -- Pharmacies can view their own invoices. Admins and Staff can view all invoices.
 CREATE POLICY "Pharmacies can view own invoices" ON invoices 
     FOR SELECT USING (
@@ -424,7 +489,7 @@ CREATE POLICY "Staff and Admins can view all invoices" ON invoices
         )
     );
 
--- 8. Payments Policies:
+-- 9. Payments Policies:
 -- Pharmacies can view their own payments. Admins can view/manage all payments.
 CREATE POLICY "Pharmacies can view own payments" ON payments 
     FOR SELECT USING (
@@ -443,7 +508,7 @@ CREATE POLICY "Admins have full access on payments" ON payments
         )
     );
 
--- 9. Returns Policies:
+-- 10. Returns Policies:
 -- Pharmacies can view/insert their own returns. Admins and Staff can view/manage all.
 CREATE POLICY "Pharmacies can view own returns" ON returns 
     FOR SELECT USING (
@@ -471,9 +536,43 @@ CREATE POLICY "Staff and Admins can view and manage all returns" ON returns
         )
     );
 
--- ==========================================
--- 10. STORAGE BUCKETS & SECURITY POLICIES
--- ==========================================
+-- 11. Categories Policies:
+-- Anyone can view categories. Only Admins can manage.
+CREATE POLICY "Anyone can view categories" ON categories 
+    FOR SELECT USING (true);
+
+CREATE POLICY "Admins can manage categories" ON categories 
+    FOR ALL USING (
+        EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'Admin')
+    );
+
+-- 12. Products Policies:
+-- Anyone can view products. Only Admins can manage.
+CREATE POLICY "Anyone can view products" ON products 
+    FOR SELECT USING (true);
+
+CREATE POLICY "Admins can manage products" ON products 
+    FOR ALL USING (
+        EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'Admin')
+    );
+
+-- 13. Inventory Policies:
+-- Authenticated users can view inventory details. Only Admins and Depot Staff can manage.
+CREATE POLICY "Authenticated users can view inventory" ON inventory 
+    FOR SELECT USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Admins and Staff can manage inventory" ON inventory 
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM users 
+            WHERE users.id = auth.uid() AND users.role IN ('Admin', 'Depot Staff')
+        )
+    );
+
+
+-- ============================================================================
+-- 17. STORAGE BUCKETS & SECURITY POLICIES
+-- ============================================================================
 
 -- Prescriptions Bucket (Private)
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -532,37 +631,4 @@ CREATE POLICY "Admins manage product images" ON storage.objects
     FOR ALL USING (
         bucket_id = 'product-images' AND 
         EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'Admin')
-    );
-
--- 11. Categories Policies:
--- Anyone can view categories. Only Admins can manage.
-CREATE POLICY "Anyone can view categories" ON categories 
-    FOR SELECT USING (true);
-
-CREATE POLICY "Admins can manage categories" ON categories 
-    FOR ALL USING (
-        EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'Admin')
-    );
-
--- 12. Products Policies:
--- Anyone can view products. Only Admins can manage.
-CREATE POLICY "Anyone can view products" ON products 
-    FOR SELECT USING (true);
-
-CREATE POLICY "Admins can manage products" ON products 
-    FOR ALL USING (
-        EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'Admin')
-    );
-
--- 13. Inventory Policies:
--- Authenticated users can view inventory details. Only Admins and Depot Staff can manage.
-CREATE POLICY "Authenticated users can view inventory" ON inventory 
-    FOR SELECT USING (auth.uid() IS NOT NULL);
-
-CREATE POLICY "Admins and Staff can manage inventory" ON inventory 
-    FOR ALL USING (
-        EXISTS (
-            SELECT 1 FROM users 
-            WHERE users.id = auth.uid() AND users.role IN ('Admin', 'Depot Staff')
-        )
     );

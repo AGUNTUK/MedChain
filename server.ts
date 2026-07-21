@@ -1082,11 +1082,22 @@ app.post("/api/depot/orders/:id/pack", requireRole(["Admin", "Depot Staff"]), as
 });
 
 app.post("/api/depot/orders/:id/assign-delivery", requireRole(["Admin", "Depot Staff"]), async (req, res) => {
+  const { assignedRiderId } = req.body;
   try {
-    const { error } = await dbService.updateOrderStatus(req.params.id, "Out for Delivery");
+    const { error } = await dbService.updateOrderStatus(req.params.id, "Out for Delivery", undefined, assignedRiderId);
     if (error) return res.status(400).json({ error: error.message });
     const order = await dbService.getOrderById(req.params.id);
     res.json({ success: true, order });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/depot/delivery-staff", requireRole(["Admin", "Depot Staff"]), async (req, res) => {
+  try {
+    const { data, error } = await dbService.getDeliveryStaff();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, staff: data });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1475,7 +1486,7 @@ app.delete("/api/admin/products/:id", requireRole(["Admin"]), async (req, res) =
   }
 });
 
-app.post("/api/admin/inventory/update", requireRole(["Admin"]), async (req, res) => {
+app.post("/api/admin/inventory/update", requireRole(["Admin", "Depot Staff"]), async (req, res) => {
   const { id, availableStock, batchNumber, expiryDate } = req.body;
   try {
     await dbService.updateInventoryStock(id, availableStock, batchNumber, expiryDate);

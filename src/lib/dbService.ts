@@ -344,6 +344,14 @@ export async function updateUserRole(id: string, role: string) {
     .eq("id", id);
 }
 
+export async function getDeliveryStaff() {
+  const { data, error } = await supabaseAdmin
+    .from("users")
+    .select("id, name, email, phone, role")
+    .eq("role", "Delivery Staff");
+  return { data, error };
+}
+
 // ==========================================
 // PHARMACIES & PROFILES
 // ==========================================
@@ -1149,7 +1157,8 @@ export async function getOrders(pharmacyId?: string): Promise<Order[]> {
       estimatedDelivery: order.status === "Delivered" ? "Delivered" : "Estimated delivery in 24 hours",
       hasReturnRequested: order.has_return_requested,
       returnReason: order.return_reason,
-      returnStatus: order.return_status as any
+      returnStatus: order.return_status as any,
+      assignedRiderId: order.assigned_rider_id
     };
   });
 }
@@ -1214,17 +1223,23 @@ export async function getOrderById(orderId: string): Promise<Order | null> {
     estimatedDelivery: data.status === "Delivered" ? "Delivered" : "Estimated delivery in 24 hours",
     hasReturnRequested: data.has_return_requested,
     returnReason: data.return_reason,
-    returnStatus: data.return_status as any
+    returnStatus: data.return_status as any,
+    assignedRiderId: data.assigned_rider_id
   };
 }
 
-export async function updateOrderStatus(orderId: string, status: string, notes?: string) {
+export async function updateOrderStatus(orderId: string, status: string, notes?: string, assignedRiderId?: string) {
   const order = await getOrderById(orderId);
   if (!order) return { error: { message: "Order not found" } };
 
+  const updatePayload: any = { status };
+  if (assignedRiderId) {
+    updatePayload.assigned_rider_id = assignedRiderId;
+  }
+
   const { error } = await supabaseAdmin
     .from("orders")
-    .update({ status })
+    .update(updatePayload)
     .eq("id", orderId);
 
   if (!error) {
