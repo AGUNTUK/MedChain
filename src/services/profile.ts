@@ -22,16 +22,9 @@ export const profileService = {
   },
 
   /**
-   * Updates or registers the pharmacy verification credentials.
+   * Updates or registers the pharmacy verification credentials and profile details.
    */
-  async updatePharmacyProfile(profileData: {
-    pharmacyName: string;
-    ownerName: string;
-    phone: string;
-    address: string;
-    city: string;
-    licenseNo: string;
-  }): Promise<{ success: boolean; pharmacy: Pharmacy }> {
+  async updatePharmacyProfile(profileData: Partial<Pharmacy>): Promise<{ success: boolean; pharmacy: Pharmacy }> {
     const response = await fetch("/api/pharmacy/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

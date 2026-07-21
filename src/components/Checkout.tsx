@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, MapPin, CreditCard, Receipt, ShieldCheck, RefreshCw, AlertCircle } from "lucide-react";
+import { ArrowLeft, MapPin, CreditCard, Receipt, ShieldCheck, RefreshCw, AlertCircle, Check } from "lucide-react";
 import { Pharmacy } from "../types";
 import { orderService } from "../services";
 
@@ -81,10 +81,18 @@ export default function Checkout({ onBackToCart, onOrderPlaced, pharmacy }: Chec
 
         {/* Delivery Address Card */}
         <div className="bg-white rounded-2xl p-4 border border-slate-100">
-          <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-            <MapPin className="w-4 h-4 text-brand-purple" />
-            Default Shipping Address
-          </h3>
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+              <MapPin className="w-4 h-4 text-brand-purple" />
+              Default Shipping Address
+            </h3>
+            {pharmacy?.verificationStatus === "Approved" && (
+              <span className="bg-emerald-50 text-emerald-600 text-[9px] font-black px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
+                <Check className="w-3 h-3 text-emerald-600 stroke-[3]" />
+                Verified Pharmacy
+              </span>
+            )}
+          </div>
           <div className="text-xs">
             <div className="font-bold text-slate-800">{pharmacy?.pharmacyName}</div>
             <p className="text-slate-500 mt-1 leading-relaxed">{pharmacy?.address}, {pharmacy?.city}</p>

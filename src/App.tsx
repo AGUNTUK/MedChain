@@ -467,6 +467,7 @@ export default function App() {
                 onLogout={handleLogout}
                 onAddToCart={handleAddToCart}
                 favouriteIds={favouriteIds}
+                onRefreshProfile={refreshPharmacyProfile}
               />
             );
           case "home":

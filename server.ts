@@ -384,21 +384,8 @@ app.get("/api/pharmacy/profile", requireAuth, async (req, res) => {
 });
 
 app.post("/api/pharmacy/profile", requireAuth, async (req, res) => {
-  const { pharmacyName, ownerName, phone, address, city, licenseNo } = req.body;
-
-  if (!pharmacyName || !ownerName || !phone || !address || !city || !licenseNo) {
-    return res.status(400).json({ error: "All profile fields are required." });
-  }
-
   try {
-    const { data: ph, error } = await dbService.updatePharmacyProfile(req.user.id, {
-      pharmacyName,
-      ownerName,
-      phone,
-      address,
-      city,
-      licenseNo
-    });
+    const { data: ph, error } = await dbService.updatePharmacyProfile(req.user.id, req.body);
 
     if (error || !ph) {
       return res.status(500).json({ error: "Failed to update profile: " + error?.message });
@@ -581,6 +568,40 @@ app.post("/api/cart/clear", requireAuth, async (req, res) => {
   try {
     await dbService.saveCart(req.user.id, []);
     res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/analytics", requireAuth, async (req, res) => {
+  try {
+    const pharmacy = await dbService.getPharmacyProfile(req.user.id);
+    if (!pharmacy) {
+      return res.json({
+        totalPurchase: 0,
+        activeCredit: 0,
+        dueAmount: 0,
+        totalSavings: 0,
+        ordersTrend: []
+      });
+    }
+
+    const orders = await dbService.getOrders(pharmacy.id);
+    const totalPurchase = orders.reduce((sum: number, o: any) => sum + o.totalAmount, 0);
+    const totalSavings = orders.reduce((sum: number, o: any) => sum + (o.totalSavings || 0), 0);
+
+    const ordersTrend = orders.slice(-7).map((o: any) => ({
+      date: new Date(o.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      amount: o.totalAmount
+    }));
+
+    res.json({
+      totalPurchase,
+      activeCredit: pharmacy.usedCredit,
+      dueAmount: pharmacy.usedCredit,
+      totalSavings,
+      ordersTrend
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1606,6 +1627,22 @@ app.post("/api/admin/trigger-new-offer", requireRole(["Admin"]), async (req, res
   const { title, message } = req.body;
   try {
     await dbService.sendNotification(null, title || "Exclusive Offer!", message || "Save up to 15% on wholesale select drugs.", "offer");
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/audit-log", requireAuth, async (req, res) => {
+  const { action, module, description, entity_id } = req.body;
+  try {
+    await dbService.logAudit(
+      `${action}: ${description || ""}`,
+      module || "General",
+      entity_id || "",
+      req.user.email,
+      req.user.role
+    );
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

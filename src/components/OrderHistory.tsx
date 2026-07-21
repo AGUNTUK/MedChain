@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { ListFilter, Receipt, ArrowRight, CornerDownLeft, RefreshCw, Eye, Check, AlertCircle, XCircle } from "lucide-react";
+import { ListFilter, Receipt, ArrowRight, CornerDownLeft, RefreshCw, Eye, Check, AlertCircle, XCircle, Phone } from "lucide-react";
 import { Order } from "../types";
 import { orderService } from "../services";
+import { formatRefId, generateOrderOTP } from "../lib/utils";
 
 interface OrderHistoryProps {
   onTrackOrder: (orderId: string) => void;
@@ -104,12 +105,72 @@ export default function OrderHistory({ onTrackOrder, onRefreshCart, onTriggerTab
             <div className="flex justify-between items-center pb-2.5 border-b border-slate-50">
               <div>
                 <span className="text-[10px] text-slate-400 font-mono block">Order ID</span>
-                <span className="text-xs font-extrabold text-brand-charcoal font-mono">{order.id}</span>
+                <span className="text-xs font-black text-brand-charcoal font-mono">{formatRefId(order.id, "ORD")}</span>
               </div>
               <div className="text-right">
                 {getStatusBadge(order.status)}
               </div>
             </div>
+
+            {/* 4-Stage Horizontal Progress Tracker */}
+            {order.status !== "Cancelled" && (
+              <div className="py-2.5 px-1 bg-slate-50/50 rounded-xl border border-slate-50">
+                <div className="flex items-center justify-between relative px-2">
+                  {/* Background line */}
+                  <div className="absolute top-[7px] left-4 right-4 h-0.5 bg-slate-100 z-0" />
+                  {/* Progress filler line */}
+                  <div 
+                    className="absolute top-[7px] left-4 h-0.5 bg-brand-purple z-0 transition-all duration-500" 
+                    style={{
+                      width: order.status === "Delivered" || order.status === "Completed" ? "calc(100% - 32px)" :
+                             order.status === "Out for Delivery" ? "66%" :
+                             order.status === "Packed" ? "33%" : "0px"
+                    }}
+                  />
+
+                  {/* 4 dots */}
+                  {[
+                    { label: "Confirmed", active: ["Confirmed", "Processing", "Packed", "Out for Delivery", "Delivered", "Completed"].includes(order.status) },
+                    { label: "Packed", active: ["Packed", "Out for Delivery", "Delivered", "Completed"].includes(order.status) },
+                    { label: "In Transit", active: ["Out for Delivery", "Delivered", "Completed"].includes(order.status) },
+                    { label: "Delivered", active: ["Delivered", "Completed"].includes(order.status) }
+                  ].map((st, sIdx) => (
+                    <div key={sIdx} className="flex flex-col items-center z-10 relative">
+                      <div className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center transition-all ${
+                        st.active ? "bg-brand-purple border-brand-purple text-white scale-110" : "bg-white border-slate-200"
+                      }`}>
+                        {st.active && <div className="w-1.5 h-1.5 bg-brand-lime rounded-full" />}
+                      </div>
+                      <span className={`text-[8.5px] font-extrabold mt-1 ${st.active ? "text-brand-purple" : "text-slate-400"}`}>
+                        {st.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Rider Handover OTP & Secure Actions */}
+            {order.status === "Out for Delivery" && (
+              <div className="bg-brand-purple/5 border border-brand-purple/15 p-3 rounded-2xl flex items-center justify-between gap-2 animate-fade-in">
+                <div>
+                  <span className="text-[8px] text-brand-purple font-black uppercase tracking-wider block">Handover Verification</span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="bg-brand-purple text-white font-mono font-black text-xs px-2 py-0.5 rounded shadow-sm">
+                      OTP: {generateOrderOTP(order.id)}
+                    </span>
+                    <span className="text-[8.5px] text-slate-500 font-semibold">Share only upon secure delivery</span>
+                  </div>
+                </div>
+                <a
+                  href="tel:+880191234567"
+                  className="bg-brand-lime text-slate-900 px-3 py-1.5 rounded-xl text-[9px] font-black flex items-center gap-1 hover:shadow-xs transition-shadow cursor-pointer flex-shrink-0"
+                >
+                  <Phone className="w-2.5 h-2.5" />
+                  Call Rider
+                </a>
+              </div>
+            )}
 
             {/* Content summary */}
             <div onClick={() => onTrackOrder(order.id)} className="cursor-pointer">
@@ -244,7 +305,7 @@ export default function OrderHistory({ onTrackOrder, onRefreshCart, onTriggerTab
             <div className="text-center pb-4 border-b border-dashed border-slate-200 mt-2">
               <div className="text-sm font-extrabold text-brand-purple">MediChain Logistics Invoice</div>
               <div className="text-[10px] text-slate-400 mt-1">Authorized Wholesaler & Depot Operations</div>
-              <div className="text-[9px] font-mono text-slate-400 mt-0.5">INV-REF: {selectedInvoice.id}</div>
+              <div className="text-[9px] font-mono text-slate-400 mt-0.5">INV-REF: {formatRefId(selectedInvoice.id, "INV")}</div>
             </div>
 
             {/* Bill Details */}

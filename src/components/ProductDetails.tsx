@@ -1,6 +1,7 @@
 import React from "react";
 import { X, ShieldCheck, AlertCircle, Calendar, Truck, Layers, Coins } from "lucide-react";
 import { Product } from "../types";
+import { formatProductPriceLabel } from "../lib/utils";
 
 interface ProductDetailsProps {
   product: Product | null;
@@ -96,16 +97,24 @@ export default function ProductDetails({ product, onClose, onAddToCart }: Produc
         </div>
 
         {/* Pricing details */}
-        <div className="grid grid-cols-2 gap-3 mb-5">
-          <div className="bg-white p-3.5 rounded-2xl border border-slate-100 text-center">
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <div className="bg-white p-3.5 rounded-2xl border border-slate-100 text-center flex flex-col justify-center">
             <span className="text-[9px] text-slate-400 block font-bold uppercase tracking-wider">M.R.P. Box Price</span>
             <span className="text-base font-extrabold text-slate-400 line-through mt-1 block">৳{product.mrp}</span>
+            <span className="text-[8px] text-slate-400 font-bold font-mono mt-0.5">{formatProductPriceLabel(product.mrp, product.packSize)}</span>
           </div>
 
-          <div className="bg-brand-purple/5 p-3.5 rounded-2xl border border-brand-purple/20 text-center">
-            <span className="text-[9px] text-brand-purple block font-extrabold uppercase tracking-wider">MediChain Wholesale Price</span>
+          <div className="bg-brand-purple/5 p-3.5 rounded-2xl border border-brand-purple/20 text-center flex flex-col justify-center">
+            <span className="text-[9px] text-brand-purple block font-extrabold uppercase tracking-wider">MediChain Net Wholesale</span>
             <span className="text-lg font-black text-brand-purple mt-1 block">৳{product.sellingPrice}</span>
+            <span className="text-[8px] text-brand-purple font-bold font-mono mt-0.5">{formatProductPriceLabel(product.sellingPrice, product.packSize)}</span>
           </div>
+        </div>
+
+        {/* High contrast Net Rebate savings pill */}
+        <div className="bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-xl px-4 py-2.5 text-center text-xs font-bold mb-5 flex items-center justify-between shadow-3xs">
+          <span>B2B Net Savings:</span>
+          <span className="bg-emerald-600 text-white px-2.5 py-0.5 rounded-lg text-[10px] font-black font-mono">Save ৳{product.mrp - product.sellingPrice} / Box</span>
         </div>
 
         {/* Quick Add To Cart triggers */}

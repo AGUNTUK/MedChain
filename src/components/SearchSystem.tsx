@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Product, Order } from "../types";
 import { productService } from "../services";
+import { formatRefId, formatProductPriceLabel } from "../lib/utils";
 
 interface SearchSystemProps {
   onAddToCart: (productId: string, qty: number) => Promise<boolean>;
@@ -489,29 +490,22 @@ export default function SearchSystem({
                         >
                           <div className="flex justify-between items-center text-[10px]">
                             <div>
-                              <span className="font-extrabold text-slate-700">Invoice {o.id}</span>
-                              <span className="text-slate-400 ml-1.5 font-mono">{o.items.length} medicines</span>
+                              <span className="font-extrabold text-slate-700">Invoice {formatRefId(o.id, "INV")}</span>
+                              <span className="text-slate-400 ml-1.5 font-mono">{o.items.length} lines</span>
                             </div>
-                            <span className="font-mono text-slate-500 font-extrabold">৳{o.totalAmount.toLocaleString()}</span>
+                            <span className="font-mono text-slate-600 font-extrabold">৳{o.totalAmount.toLocaleString()}</span>
                           </div>
 
-                          <div className="flex items-center justify-between border-t border-slate-50 pt-2">
-                            <div className="flex flex-wrap gap-1 max-w-[200px]">
-                              {o.items.slice(0, 3).map((item, idx) => (
-                                <span
-                                  key={idx}
-                                  className="text-[8px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-md font-semibold"
-                                >
-                                  {item.name} ({item.quantity})
-                                </span>
-                              ))}
-                              {o.items.length > 3 && <span className="text-[8px] text-slate-400 font-bold">+{o.items.length - 3} more</span>}
+                          <div className="flex items-center justify-between border-t border-slate-50 pt-2 gap-2">
+                            <div className="text-[9px] text-slate-500 font-semibold leading-relaxed max-w-[210px] truncate">
+                              {o.items.slice(0, 2).map(item => `${item.name} (${item.quantity} Box)`).join(", ")}
+                              {o.items.length > 2 ? ` + ${o.items.length - 2} more` : ""}
                             </div>
 
                             <button
                               onClick={() => handleOneTapReorder(o)}
                               disabled={isReordering[o.id]}
-                              className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-150 py-1 px-2.5 rounded-lg text-[9px] font-black flex items-center gap-1 cursor-pointer transition-colors"
+                              className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-150 py-1 px-2.5 rounded-lg text-[9px] font-black flex items-center gap-1 cursor-pointer transition-colors flex-shrink-0"
                             >
                               {isReordering[o.id] ? (
                                 <RefreshCw className="w-3 h-3 animate-spin" />
@@ -593,33 +587,38 @@ export default function SearchSystem({
                             <p className="text-[9px] text-slate-500 mt-1 font-semibold">{p.company}</p>
                           </div>
                           <div className="text-right flex-shrink-0 ml-2">
-                            {isLowStock ? (
-                              <span className="text-[8px] bg-rose-50 text-rose-600 border border-rose-100 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider block mb-1">
-                                Low Stock
+                            {p.availableStock <= 0 ? (
+                              <span className="text-[8px] bg-slate-100 text-slate-500 border border-slate-200 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider block mb-1">
+                                Restocking Soon
+                              </span>
+                            ) : p.availableStock <= 15 ? (
+                              <span className="text-[8.5px] bg-rose-50 text-rose-600 border border-rose-100 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider block mb-1 animate-pulse">
+                                Only {p.availableStock} Left
                               </span>
                             ) : (
                               <span className="text-[8px] bg-emerald-50 text-emerald-700 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider block mb-1">
-                                Available
+                                In Stock
                               </span>
                             )}
                             <span className="text-[9px] text-slate-400 block font-mono">Pack: {p.packSize}</span>
-                            <span className="text-[9px] text-slate-500 block font-mono font-bold mt-0.5">Stock: {p.availableStock}</span>
+                            <span className="text-[9px] text-slate-500 block font-mono font-bold mt-0.5">Stock: {p.availableStock} Box</span>
                           </div>
                         </div>
 
-                        {/* Price box */}
-                        <div className="flex items-center gap-2 mt-3 bg-slate-50 p-2.5 rounded-xl">
-                          <div className="flex-1">
-                            <span className="text-[8.5px] text-slate-400 block font-mono uppercase tracking-wider">MRP Box</span>
+                        {/* Price box with sharp B2B hierarchy */}
+                        <div className="grid grid-cols-3 items-center gap-2 mt-3.5 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                          <div>
+                            <span className="text-[8px] text-slate-400 block font-bold uppercase tracking-wider">Retail MRP</span>
                             <span className="text-xs font-bold text-slate-400 line-through">৳{p.mrp}</span>
                           </div>
-                          <div className="flex-1 border-l border-slate-200 pl-2">
-                            <span className="text-[8.5px] text-slate-400 block font-mono uppercase tracking-wider">MediChain Net</span>
+                          <div className="border-l border-slate-200 pl-2.5">
+                            <span className="text-[8px] text-brand-purple block font-black uppercase tracking-wider">B2B Wholesale</span>
                             <span className="text-xs font-black text-brand-purple">৳{p.sellingPrice}</span>
+                            <span className="text-[7.5px] text-slate-400 font-bold block leading-tight">{formatProductPriceLabel(p.sellingPrice, p.packSize)}</span>
                           </div>
-                          <div className="bg-brand-purple/5 text-brand-purple px-2 py-1 rounded-lg text-right">
-                            <span className="text-[7.5px] uppercase font-mono block font-black">Net Rebate</span>
-                            <span className="text-[11px] font-black">৳{p.mrp - p.sellingPrice}</span>
+                          <div className="bg-emerald-50 text-emerald-800 border border-emerald-100 px-2.5 py-1 rounded-xl text-center flex flex-col justify-center items-center">
+                            <span className="text-[7px] uppercase font-bold block">Net Savings</span>
+                            <span className="text-[11px] font-black tracking-tight text-emerald-700">Save ৳{p.mrp - p.sellingPrice}</span>
                           </div>
                         </div>
                       </div>

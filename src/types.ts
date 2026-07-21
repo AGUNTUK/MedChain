@@ -43,6 +43,21 @@ export interface Pharmacy {
   creditLimit: number;
   usedCredit: number;
   availableCredit: number;
+  
+  // Custom Profile & KYC Verification Fields
+  nidNumber?: string;
+  nidOwnerName?: string;
+  dob?: string;
+  nidFrontUrl?: string;
+  nidBackUrl?: string;
+  drugLicenseExpiry?: string;
+  drugLicenseUrl?: string;
+  division?: string;
+  district?: string;
+  upazila?: string;
+  streetAddress?: string;
+  logoUrl?: string;
+  email?: string;
 }
 
 export interface CreditAccount {

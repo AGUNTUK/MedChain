@@ -19,6 +19,7 @@ import MediChainLogo from "./MediChainLogo";
 import { Product } from "../types";
 import { productService } from "../services";
 import NotificationBell from "./NotificationBell";
+import { formatProductPriceLabel } from "../lib/utils";
 
 interface HomeProps {
   onTriggerSearch: (query?: string, category?: string) => void;
@@ -61,7 +62,7 @@ export default function Home({
     "Tablet": "💊",
     "Capsule": "🧬",
     "Syrup": "🧪",
-    "Suspension": "🧫",
+    "Suspension": "🧴",
     "Drops": "💧",
     "Injection": "💉",
     "Infusion": "🩻",
@@ -202,20 +203,76 @@ export default function Home({
 
         {/* Restock Warning Banner (If any products are low stock) */}
         {lowStockAlerts.length > 0 && (
-          <div className="bg-amber-50 border border-amber-100 rounded-2xl p-3.5 flex gap-3 items-start shadow-sm">
-            <AlertTriangle className="text-amber-600 w-5 h-5 flex-shrink-0 mt-0.5" />
-            <div className="flex-1 text-xs">
-              <h4 className="font-extrabold text-amber-900">Personalized Restock Alert</h4>
-              <p className="text-amber-700/90 text-[10px] mt-0.5 leading-relaxed font-semibold">
-                You have {lowStockAlerts.length} catalog drugs running low on warehouse stocks. Order soon to prevent depot stockout.
-              </p>
+          <div className="bg-gradient-to-br from-amber-50/70 to-orange-50/70 border border-amber-100/85 rounded-3xl p-4 shadow-xs space-y-3">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="text-amber-600 w-4.5 h-4.5" />
+                <h4 className="font-extrabold text-amber-900 text-xs tracking-tight">Personalized Restock Alert</h4>
+              </div>
               <button
                 onClick={() => onTriggerSearch(undefined, "All")}
-                className="text-[10px] font-black text-brand-purple mt-2 flex items-center gap-0.5 hover:underline"
+                className="text-[10.5px] font-black text-brand-purple hover:underline flex items-center gap-0.5"
               >
                 View Low Stocks
                 <ChevronRight className="w-3 h-3" />
               </button>
+            </div>
+            
+            <p className="text-amber-850 text-[10px] leading-relaxed font-semibold">
+              You have {lowStockAlerts.length} catalog items running low on warehouse stocks. Restock instantly below:
+            </p>
+
+            {/* Swipeable Micro-Card Carousel */}
+            <div className="flex gap-3 overflow-x-auto pb-1.5 scrollbar-none -mx-2 px-2 snap-x">
+              {lowStockAlerts.slice(0, 3).map((p) => {
+                const inCartQty = cartQuantities[p.id] || 0;
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => onOpenProductDetails(p)}
+                    className="flex-shrink-0 snap-start w-[170px] bg-white border border-amber-100 rounded-2xl p-3 flex flex-col justify-between shadow-xs hover:border-amber-200 transition-all cursor-pointer relative"
+                  >
+                    {inCartQty > 0 && (
+                      <span className="absolute -top-1.5 -right-1 bg-brand-purple text-white text-[7.5px] font-black px-1.5 py-0.5 rounded-full z-10 shadow-xs">
+                        {inCartQty} in cart
+                      </span>
+                    )}
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="bg-amber-50 text-amber-700 text-[8.5px] font-black px-1.5 py-0.5 rounded">
+                          Only {p.availableStock} Box Left
+                        </span>
+                        <span className="text-[8px] text-slate-400 font-mono font-bold">{p.packSize.split(" ")[0]}</span>
+                      </div>
+                      <h5 className="text-[11px] font-black text-brand-charcoal truncate" title={p.name}>
+                        {p.name}
+                      </h5>
+                      <p className="text-[8px] text-slate-400 truncate uppercase font-bold">{p.genericName}</p>
+                      
+                      <div className="mt-2.5">
+                        <span className="text-[10.5px] font-black text-brand-purple block">৳{p.sellingPrice}</span>
+                        <span className="text-[7.5px] text-slate-400 font-bold font-mono block">{formatProductPriceLabel(p.sellingPrice, p.packSize)}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (inCartQty > 0) {
+                          onUpdateCartQty && onUpdateCartQty(p.id, inCartQty, 5);
+                        } else {
+                          handleQuickBuy(p.id, 10); // Standard quick buy (10 boxes)
+                        }
+                      }}
+                      className="mt-3 bg-amber-500 hover:bg-amber-600 text-white py-1.5 rounded-xl text-[9.5px] font-extrabold flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3" />
+                      1-Tap Restock
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -303,8 +360,12 @@ export default function Home({
                       <p className="text-[9px] text-slate-400 uppercase font-bold truncate mt-0.5">{p.genericName}</p>
                     </div>
                     <div className="mt-3 flex justify-between items-center">
-                      <span className="text-xs font-black text-brand-purple">৳{p.sellingPrice}</span>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-black text-brand-purple">৳{p.sellingPrice}</span>
+                        <span className="text-[8px] text-slate-400 font-bold font-mono">{formatProductPriceLabel(p.sellingPrice, p.packSize)}</span>
+                      </div>
                       <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           if (inCartQty > 0) {
@@ -313,7 +374,7 @@ export default function Home({
                             handleQuickBuy(p.id);
                           }
                         }}
-                        className="bg-brand-lime text-slate-900 p-1 rounded hover:bg-brand-lime-dark transition-all"
+                        className="bg-brand-lime text-slate-900 p-1 rounded hover:bg-brand-lime-dark transition-all cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>
@@ -383,9 +444,14 @@ export default function Home({
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{p.genericName}</p>
                   <p className="text-[9px] text-slate-500 font-semibold mt-1">{p.company}</p>
 
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="text-[10px] text-slate-400 line-through">MRP ৳{p.mrp}</span>
-                    <span className="text-xs font-black text-brand-purple">৳{p.sellingPrice}</span>
+                  <div className="flex items-center justify-between gap-2 mt-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-slate-400 line-through">MRP ৳{p.mrp}</span>
+                      <span className="text-xs font-black text-brand-purple">৳{p.sellingPrice}</span>
+                    </div>
+                    <span className="text-[8px] text-slate-500 font-bold font-mono bg-slate-50 px-1.5 py-0.5 rounded">
+                      {formatProductPriceLabel(p.sellingPrice, p.packSize)}
+                    </span>
                   </div>
                 </div>
 
@@ -487,8 +553,13 @@ export default function Home({
                     <h4 className="text-xs font-black text-brand-charcoal truncate">{p.name}</h4>
                     <p className="text-[9px] text-slate-400 uppercase font-bold truncate mt-0.5">{p.genericName}</p>
                   </div>
-                  <div className="mt-3 flex justify-between items-center">
-                    <span className="text-xs font-black text-brand-purple">৳{p.sellingPrice}</span>
+                  <div className="mt-3 flex justify-between items-end">
+                    <div className="flex flex-col">
+                      <span className="text-xs font-black text-brand-purple">৳{p.sellingPrice}</span>
+                      <span className="text-[7.5px] text-slate-400 font-bold font-mono">
+                        {formatProductPriceLabel(p.sellingPrice, p.packSize)}
+                      </span>
+                    </div>
                     <span className="text-[9px] text-slate-400 line-through">৳{p.mrp}</span>
                   </div>
                 </div>

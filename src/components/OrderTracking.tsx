@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Check, Compass, Truck, RefreshCw, Layers, Calendar } from "lucide-react";
+import { ArrowLeft, Check, Compass, Truck, RefreshCw, Layers, Calendar, Phone } from "lucide-react";
 import { Order, OrderStatus } from "../types";
 import { orderService } from "../services";
+import { formatRefId, generateOrderOTP } from "../lib/utils";
 
 interface OrderTrackingProps {
   orderId: string;
@@ -90,7 +91,7 @@ export default function OrderTracking({ orderId, onBack, onRefreshStats }: Order
           </button>
           <div>
             <h2 className="text-sm font-black text-brand-charcoal">Depot Order Tracking</h2>
-            <p className="text-[10px] text-slate-400 font-mono">ID: {order.id}</p>
+            <p className="text-[10px] text-slate-400 font-mono font-bold">{formatRefId(order.id, "ORD")}</p>
           </div>
         </div>
 
@@ -105,6 +106,65 @@ export default function OrderTracking({ orderId, onBack, onRefreshStats }: Order
             <span className="font-bold text-slate-700">{order.estimatedDelivery}</span>
           </div>
         </div>
+
+        {/* 4-Stage Horizontal Progress Tracker (Premium Widget) */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-100 space-y-3 shadow-3xs">
+          <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Live Delivery Progress</span>
+          <div className="flex items-center justify-between relative px-2.5 pt-1">
+            {/* Background line */}
+            <div className="absolute top-[13px] left-4 right-4 h-0.5 bg-slate-100 z-0" />
+            {/* Progress filler line */}
+            <div 
+              className="absolute top-[13px] left-4 h-0.5 bg-brand-purple z-0 transition-all duration-500" 
+              style={{
+                width: order.status === "Delivered" || order.status === "Completed" ? "calc(100% - 32px)" :
+                       order.status === "Out for Delivery" ? "66%" :
+                       order.status === "Packed" ? "33%" : "0px"
+              }}
+            />
+
+            {/* 4 dots */}
+            {[
+              { label: "Confirmed", active: ["Confirmed", "Processing", "Packed", "Out for Delivery", "Delivered", "Completed"].includes(order.status) },
+              { label: "Packed", active: ["Packed", "Out for Delivery", "Delivered", "Completed"].includes(order.status) },
+              { label: "In Transit", active: ["Out for Delivery", "Delivered", "Completed"].includes(order.status) },
+              { label: "Delivered", active: ["Delivered", "Completed"].includes(order.status) }
+            ].map((st, sIdx) => (
+              <div key={sIdx} className="flex flex-col items-center z-10 relative">
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${
+                  st.active ? "bg-brand-purple border-brand-purple text-white scale-110" : "bg-white border-slate-200"
+                }`}>
+                  {st.active && <div className="w-1.5 h-1.5 bg-brand-lime rounded-full" />}
+                </div>
+                <span className={`text-[8px] font-black mt-1.5 ${st.active ? "text-brand-purple" : "text-slate-400"}`}>
+                  {st.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Rider Handover OTP & Secure Actions */}
+        {order.status === "Out for Delivery" && (
+          <div className="bg-brand-purple/5 border border-brand-purple/15 p-3 rounded-2xl flex items-center justify-between gap-2 animate-fade-in shadow-3xs">
+            <div>
+              <span className="text-[8px] text-brand-purple font-black uppercase tracking-wider block font-bold">Secure Rider Handover</span>
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className="bg-brand-purple text-white font-mono font-black text-xs px-2 py-0.5 rounded shadow-sm">
+                  OTP: {generateOrderOTP(order.id)}
+                </span>
+                <span className="text-[8.5px] text-slate-500 font-semibold leading-tight">Provide OTP only after checking goods</span>
+              </div>
+            </div>
+            <a
+              href="tel:+880191234567"
+              className="bg-brand-lime text-slate-900 px-3 py-2 rounded-xl text-[9px] font-black flex items-center gap-1 hover:shadow-xs transition-all cursor-pointer flex-shrink-0"
+            >
+              <Phone className="w-3 h-3" />
+              Call Rider
+            </a>
+          </div>
+        )}
 
         {/* Vertical Stepper */}
         <div className="bg-white rounded-2xl p-5 border border-slate-100 space-y-6">

@@ -5,12 +5,13 @@ import { Product, Pharmacy, Order, OrderItem } from "../types";
 // UTILITIES & SERIALIZERS
 // ==========================================
 
-export const serializeLicenseInfo = (licenseNo: string, status: string, verifiedAt?: string, verifiedBy?: string) => {
+export const serializeLicenseInfo = (licenseNo: string, status: string, verifiedAt?: string, verifiedBy?: string, extra?: any) => {
   return JSON.stringify({
     licenseNo,
     verificationStatus: status,
     verifiedAt: verifiedAt || null,
-    verifiedBy: verifiedBy || null
+    verifiedBy: verifiedBy || null,
+    ...(extra || {})
   });
 };
 
@@ -26,10 +27,11 @@ export const deserializeLicenseInfo = (rawText: string) => {
   try {
     const parsed = JSON.parse(rawText);
     return {
-      licenseNo: parsed.licenseNo || rawText || "",
+      licenseNo: parsed.licenseNo || "",
       verificationStatus: parsed.verificationStatus || "Approved",
       verifiedAt: parsed.verifiedAt || null,
-      verifiedBy: parsed.verifiedBy || null
+      verifiedBy: parsed.verifiedBy || null,
+      ...parsed
     };
   } catch (e) {
     return {
@@ -382,6 +384,7 @@ export async function getPharmacyProfile(userId: string): Promise<Pharmacy | nul
     address: ph.address,
     city: ph.city,
     area: ph.city, // fallback
+    ...license,
     licenseNo: license.licenseNo,
     verificationStatus: license.verificationStatus as any,
     verificationNotes: "",
@@ -416,6 +419,7 @@ export async function getPharmacyById(pharmacyId: string): Promise<Pharmacy | nu
     address: ph.address,
     city: ph.city,
     area: ph.city, // fallback
+    ...license,
     licenseNo: license.licenseNo,
     verificationStatus: license.verificationStatus as any,
     verificationNotes: "",
@@ -450,6 +454,7 @@ export async function getAllPharmacies(): Promise<Pharmacy[]> {
       address: ph.address,
       city: ph.city,
       area: ph.city,
+      ...license,
       licenseNo: license.licenseNo,
       verificationStatus: license.verificationStatus as any,
       verificationNotes: "",
@@ -461,14 +466,7 @@ export async function getAllPharmacies(): Promise<Pharmacy[]> {
   return out;
 }
 
-export async function updatePharmacyProfile(userId: string, data: {
-  pharmacyName: string;
-  ownerName: string;
-  phone: string;
-  address: string;
-  city: string;
-  licenseNo: string;
-}) {
+export async function updatePharmacyProfile(userId: string, data: any) {
   // Find or create pharmacy record
   const { data: existing } = await supabaseAdmin
     .from("pharmacies")
@@ -476,9 +474,19 @@ export async function updatePharmacyProfile(userId: string, data: {
     .eq("user_id", userId)
     .maybeSingle();
 
-  // For seamless e-commerce, let's default pharmacy verification status to "Approved"
-  const status = "Approved";
-  const license_information = serializeLicenseInfo(data.licenseNo, status);
+  const existingLicense = existing ? deserializeLicenseInfo(existing.license_information) : {};
+
+  // Preserve status, default to Approved if not specified
+  const status = data.verificationStatus || existingLicense.verificationStatus || "Approved";
+  
+  // Merge existing details with incoming data details
+  const mergedLicense = {
+    ...existingLicense,
+    ...data,
+    licenseNo: data.licenseNo !== undefined ? data.licenseNo : (existingLicense.licenseNo || "")
+  };
+
+  const license_information = JSON.stringify(mergedLicense);
 
   const payload = {
     user_id: userId,
@@ -497,10 +505,15 @@ export async function updatePharmacyProfile(userId: string, data: {
     .single();
 
   if (ph && !error) {
-    // Also update pharmacy_id in users table
+    // Also update pharmacy_id, name, phone and email in users table
+    const userUpdatePayload: any = { pharmacy_id: ph.id };
+    if (data.ownerName) userUpdatePayload.name = data.ownerName;
+    if (data.phone) userUpdatePayload.phone = data.phone;
+    if (data.email) userUpdatePayload.email = data.email;
+
     await supabaseAdmin
       .from("users")
-      .update({ pharmacy_id: ph.id })
+      .update(userUpdatePayload)
       .eq("id", userId);
 
     // Automatically create or update credit account with 100k credit limit
@@ -518,10 +531,23 @@ export async function updatePharmacyProfile(userId: string, data: {
 }
 
 export async function updatePharmacyStatus(pharmacyId: string, status: "Approved" | "Rejected" | "Pending" | "Suspended", adminUser: string = "Admin") {
-  const ph = await getPharmacyById(pharmacyId);
-  if (!ph) return { error: "Pharmacy not found." };
+  const { data: rawPh } = await supabaseAdmin
+    .from("pharmacies")
+    .select("license_information, id")
+    .eq("id", pharmacyId)
+    .maybeSingle();
 
-  const license_information = serializeLicenseInfo(ph.licenseNo, status, new Date().toISOString(), adminUser);
+  if (!rawPh) return { error: "Pharmacy not found." };
+
+  const parsed = deserializeLicenseInfo(rawPh.license_information);
+  const updatedLicense = {
+    ...parsed,
+    verificationStatus: status,
+    verifiedAt: new Date().toISOString(),
+    verifiedBy: adminUser
+  };
+
+  const license_information = JSON.stringify(updatedLicense);
 
   const { error } = await supabaseAdmin
     .from("pharmacies")
@@ -541,11 +567,11 @@ export async function updatePharmacyStatus(pharmacyId: string, status: "Approved
         }, { onConflict: "pharmacy_id" });
 
       // Automatically send notification
-      await sendNotification(ph.id, "Account Approved", "Your pharmacy verification account has been fully approved! ৳100,000 credit limit is now active.", "system");
+      await sendNotification(rawPh.id, "Account Approved", "Your pharmacy verification account has been fully approved! ৳100,000 credit limit is now active.", "system");
     } else if (status === "Rejected") {
-      await sendNotification(ph.id, "Verification Rejected", "Your pharmacy trade license details were rejected. Please update verification details.", "system");
+      await sendNotification(rawPh.id, "Verification Rejected", "Your pharmacy trade license details were rejected. Please update verification details.", "system");
     } else if (status === "Pending") {
-      await sendNotification(ph.id, "Verification Pending", "Your pharmacy profile status is now set to Pending verification.", "system");
+      await sendNotification(rawPh.id, "Verification Pending", "Your pharmacy profile status is now set to Pending verification.", "system");
     }
   }
 
