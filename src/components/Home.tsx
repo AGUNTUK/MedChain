@@ -13,13 +13,15 @@ import {
   Heart,
   Plus,
   ShoppingCart,
-  Minus
+  Minus,
+  Check
 } from "lucide-react";
 import MediChainLogo from "./MediChainLogo";
 import { Product } from "../types";
 import { productService } from "../services";
 import NotificationBell from "./NotificationBell";
 import { formatProductPriceLabel } from "../lib/utils";
+import { useFlyToCart } from "../context/FlyToCartContext";
 
 interface HomeProps {
   onTriggerSearch: (query?: string, category?: string) => void;
@@ -136,11 +138,23 @@ export default function Home({
     fetchHomeWidgets();
   }, []);
 
-  const handleQuickBuy = async (productId: string, defaultBulkSize: number = 1) => {
+  const { triggerFlyToCart } = useFlyToCart();
+
+  const handleQuickBuy = async (
+    productId: string,
+    defaultBulkSize: number = 1,
+    e?: React.MouseEvent<HTMLElement>,
+    imageSrc?: string
+  ) => {
+    if (e && e.currentTarget) {
+      triggerFlyToCart(e.currentTarget, imageSrc);
+    }
+    setSuccessId(productId);
     const success = await onAddToCart(productId, defaultBulkSize);
     if (success) {
-      setSuccessId(productId);
-      setTimeout(() => setSuccessId(null), 1500);
+      setTimeout(() => setSuccessId(null), 1200);
+    } else {
+      setSuccessId(null);
     }
   };
 
@@ -262,13 +276,26 @@ export default function Home({
                         if (inCartQty > 0) {
                           onUpdateCartQty && onUpdateCartQty(p.id, inCartQty, 5);
                         } else {
-                          handleQuickBuy(p.id, 10); // Standard quick buy (10 boxes)
+                          handleQuickBuy(p.id, 10, e, p.imageUrl || p.image_url); // Standard quick buy (10 boxes)
                         }
                       }}
-                      className="mt-3 bg-amber-500 hover:bg-amber-600 text-white py-1.5 rounded-xl text-[9.5px] font-extrabold flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                      className={`mt-3 py-1.5 rounded-xl text-[9.5px] font-extrabold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                        successId === p.id
+                          ? "bg-emerald-600 text-white scale-105 shadow-md"
+                          : "bg-amber-500 hover:bg-amber-600 text-white"
+                      }`}
                     >
-                      <Plus className="w-3 h-3" />
-                      1-Tap Restock
+                      {successId === p.id ? (
+                        <>
+                          <Check className="w-3 h-3" />
+                          ✓ Added
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-3 h-3" />
+                          1-Tap Restock
+                        </>
+                      )}
                     </button>
                   </div>
                 );
@@ -371,12 +398,20 @@ export default function Home({
                           if (inCartQty > 0) {
                             onUpdateCartQty && onUpdateCartQty(p.id, inCartQty, 1);
                           } else {
-                            handleQuickBuy(p.id);
+                            handleQuickBuy(p.id, 1, e, p.imageUrl || p.image_url);
                           }
                         }}
-                        className="bg-brand-lime text-slate-900 p-1 rounded hover:bg-brand-lime-dark transition-all cursor-pointer"
+                        className={`p-1.5 rounded-lg transition-all cursor-pointer flex items-center justify-center ${
+                          successId === p.id
+                            ? "bg-emerald-600 text-white scale-110 shadow-md"
+                            : "bg-brand-lime text-slate-900 hover:bg-brand-lime-dark"
+                        }`}
                       >
-                        <Plus className="w-3.5 h-3.5" />
+                        {successId === p.id ? (
+                          <Check className="w-3.5 h-3.5" />
+                        ) : (
+                          <Plus className="w-3.5 h-3.5" />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -492,19 +527,19 @@ export default function Home({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleQuickBuy(p.id);
+                          handleQuickBuy(p.id, 1, e, p.imageUrl || p.image_url);
                         }}
                         disabled={successId === p.id}
                         className={`py-1.5 px-3 rounded-xl text-[10px] font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
                           successId === p.id
-                            ? "bg-brand-purple text-white"
+                            ? "bg-emerald-600 text-white shadow-md scale-105"
                             : "bg-brand-lime text-slate-900 hover:shadow-sm"
                         }`}
                       >
                         {successId === p.id ? (
                           <>
-                            <Clock className="w-3 h-3" />
-                            Added
+                            <Check className="w-3.5 h-3.5" />
+                            ✓ Added
                           </>
                         ) : (
                           <>

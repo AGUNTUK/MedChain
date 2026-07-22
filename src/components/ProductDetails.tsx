@@ -2,6 +2,7 @@ import React from "react";
 import { X, ShieldCheck, AlertCircle, Calendar, Truck, Layers, Coins } from "lucide-react";
 import { Product } from "../types";
 import { formatProductPriceLabel } from "../lib/utils";
+import { useFlyToCart } from "../context/FlyToCartContext";
 
 interface ProductDetailsProps {
   product: Product | null;
@@ -10,9 +11,14 @@ interface ProductDetailsProps {
 }
 
 export default function ProductDetails({ product, onClose, onAddToCart }: ProductDetailsProps) {
+  const { triggerFlyToCart } = useFlyToCart();
+
   if (!product) return null;
 
-  const handleQuickAdd = (qty: number) => {
+  const handleQuickAdd = (qty: number, e?: React.MouseEvent<HTMLElement>) => {
+    if (e && e.currentTarget) {
+      triggerFlyToCart(e.currentTarget, product.imageUrl || product.image_url);
+    }
     onAddToCart(product.id, qty);
     onClose();
   };
@@ -124,7 +130,7 @@ export default function ProductDetails({ product, onClose, onAddToCart }: Produc
           </span>
           <div className="grid grid-cols-3 gap-2">
             <button
-              onClick={() => handleQuickAdd(10)}
+              onClick={(e) => handleQuickAdd(10, e)}
               className="bg-white hover:bg-slate-50 border border-slate-100 hover:border-brand-purple p-3 rounded-xl text-xs font-bold text-slate-700 flex flex-col items-center gap-0.5 cursor-pointer"
             >
               <span className="text-xs font-black">10 Boxes</span>
@@ -132,7 +138,7 @@ export default function ProductDetails({ product, onClose, onAddToCart }: Produc
             </button>
 
             <button
-              onClick={() => handleQuickAdd(25)}
+              onClick={(e) => handleQuickAdd(25, e)}
               className="bg-white hover:bg-slate-50 border border-slate-100 hover:border-brand-purple p-3 rounded-xl text-xs font-bold text-slate-700 flex flex-col items-center gap-0.5 cursor-pointer"
             >
               <span className="text-xs font-black">25 Boxes</span>
@@ -140,7 +146,7 @@ export default function ProductDetails({ product, onClose, onAddToCart }: Produc
             </button>
 
             <button
-              onClick={() => handleQuickAdd(50)}
+              onClick={(e) => handleQuickAdd(50, e)}
               className="bg-brand-purple text-white hover:bg-brand-purple-dark p-3 rounded-xl text-xs font-bold flex flex-col items-center gap-0.5 cursor-pointer"
             >
               <span className="text-xs font-black">50 Boxes</span>

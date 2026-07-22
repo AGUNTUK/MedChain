@@ -23,6 +23,7 @@ import {
 import { Product, Order } from "../types";
 import { productService } from "../services";
 import { formatRefId, formatProductPriceLabel } from "../lib/utils";
+import { useFlyToCart } from "../context/FlyToCartContext";
 
 interface SearchSystemProps {
   onAddToCart: (productId: string, qty: number) => Promise<boolean>;
@@ -199,7 +200,18 @@ export default function SearchSystem({
     }));
   };
 
-  const handleAddToCartClick = async (productId: string, stock: number) => {
+  const { triggerFlyToCart } = useFlyToCart();
+
+  const handleAddToCartClick = async (
+    productId: string,
+    stock: number,
+    e?: React.MouseEvent<HTMLElement>,
+    imageSrc?: string
+  ) => {
+    if (e && e.currentTarget) {
+      triggerFlyToCart(e.currentTarget, imageSrc);
+    }
+
     const qty = quantities[productId] || 10; // Default bulk size (e.g. 10 boxes)
     if (qty > stock) return;
 
@@ -459,12 +471,16 @@ export default function SearchSystem({
                                   />
                                   <button
                                     type="button"
-                                    onClick={() => handleAddToCartClick(p.id, p.availableStock)}
+                                    onClick={(e) => handleAddToCartClick(p.id, p.availableStock, e, p.imageUrl || p.image_url)}
                                     disabled={cartAdding[p.id]}
-                                    className="flex-1 bg-brand-lime hover:bg-brand-lime/90 text-slate-900 py-1 rounded-md text-[9.5px] font-extrabold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                                    className={`flex-1 py-1 rounded-md text-[9.5px] font-extrabold flex items-center justify-center gap-1 cursor-pointer transition-all ${
+                                      addedSuccess[p.id]
+                                        ? "bg-emerald-600 text-white shadow-sm"
+                                        : "bg-brand-lime hover:bg-brand-lime/90 text-slate-900"
+                                    }`}
                                   >
-                                    {addedSuccess[p.id] ? <Check className="w-3 h-3" /> : <ShoppingCart className="w-3 h-3" />}
-                                    Buy
+                                    {addedSuccess[p.id] ? <Check className="w-3 h-3 text-white" /> : <ShoppingCart className="w-3 h-3" />}
+                                    {addedSuccess[p.id] ? "✓ Added" : "Buy"}
                                   </button>
                                 </div>
                               );
@@ -704,18 +720,18 @@ export default function SearchSystem({
 
                                 <button
                                   type="button"
-                                  onClick={() => handleAddToCartClick(p.id, p.availableStock)}
+                                  onClick={(e) => handleAddToCartClick(p.id, p.availableStock, e, p.imageUrl || p.image_url)}
                                   disabled={cartAdding[p.id] || (isLowStock && p.availableStock <= 0)}
                                   className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                                     addedSuccess[p.id]
-                                      ? "bg-brand-purple text-white"
+                                      ? "bg-emerald-600 text-white shadow-md scale-102"
                                       : "bg-brand-lime text-slate-900 hover:shadow-md hover:shadow-brand-lime/20"
                                   }`}
                                 >
                                   {addedSuccess[p.id] ? (
                                     <>
-                                      <Check className="w-4 h-4" />
-                                      Added!
+                                      <Check className="w-4 h-4 text-white" />
+                                      ✓ Added to Cart!
                                     </>
                                   ) : (
                                     <>

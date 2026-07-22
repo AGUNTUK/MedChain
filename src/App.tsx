@@ -16,6 +16,9 @@ import NotificationsPanel from "./components/NotificationsPanel";
 import AdminPanel from "./components/AdminPanel";
 import DepotDashboard from "./components/DepotDashboard";
 import DeliveryDashboard from "./components/DeliveryDashboard";
+import FloatingCartBar from "./components/FloatingCartBar";
+import FlyToCartOverlay from "./components/FlyToCartOverlay";
+import { FlyToCartProvider } from "./context/FlyToCartContext";
 import { Product, Pharmacy, Order, Notification, User } from "./types";
 import { Home as HomeIcon, Search as SearchIcon, Package as PackageIcon, FileText as FileIcon, ClipboardList as ListIcon, User as UserIcon, Shield, Smartphone } from "lucide-react";
 import { authService, productService, orderService, profileService, notificationService } from "./services";
@@ -110,6 +113,12 @@ export default function App() {
   const [trackingOrderId, setTrackingOrderId] = useState<string>("");
   const [cartCount, setCartCount] = useState(0);
   const [cartQuantities, setCartQuantities] = useState<Record<string, number>>({});
+  const [cartData, setCartData] = useState<{
+    items: Array<{ product: Product; quantity: number }>;
+    totalMrp: number;
+    totalAmount: number;
+    totalSavings: number;
+  } | null>(null);
 
   // Sync products and credentials
   const refreshProducts = async () => {
@@ -155,6 +164,7 @@ export default function App() {
   const refreshCartCounter = async () => {
     try {
       const data = await orderService.getCart();
+      setCartData(data);
       const totalItems = data.items?.reduce((acc: number, item: any) => acc + item.quantity, 0) || 0;
       setCartCount(totalItems);
 
@@ -507,94 +517,115 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen w-screen bg-slate-50 font-sans select-none overflow-hidden justify-center items-center">
-      <div className="w-full h-full max-w-md bg-white shadow-2xl relative flex flex-col overflow-hidden">
-        {/* Screen Content */}
-        <div className="flex-1 overflow-hidden relative">
-          {renderMobileContent()}
-          
-          {/* Floating product details overlay */}
-          {selectedProduct && (
-            <ProductDetails
-              product={selectedProduct}
-              onClose={() => setSelectedProduct(null)}
-              onAddToCart={(pid, qty) => handleAddToCart(pid, qty)}
-            />
-          )}
+    <FlyToCartProvider>
+      <div className="flex h-screen w-screen bg-slate-50 font-sans select-none overflow-hidden justify-center items-center">
+        <div className="w-full h-full max-w-md bg-white shadow-2xl relative flex flex-col overflow-hidden">
+          {/* Screen Content */}
+          <div className="flex-1 overflow-hidden relative">
+            {renderMobileContent()}
+            
+            {/* Floating product details overlay */}
+            {selectedProduct && (
+              <ProductDetails
+                product={selectedProduct}
+                onClose={() => setSelectedProduct(null)}
+                onAddToCart={(pid, qty) => handleAddToCart(pid, qty)}
+              />
+            )}
 
-          {/* Broadcast notifications panel overlay */}
-          {showNotifications && (
-            <NotificationsPanel
-              onClose={() => {
-                setShowNotifications(false);
-                refreshNotifications();
-              }}
-              onRefreshNotifications={() => {
-                refreshNotifications();
-              }}
-            />
+            {/* Broadcast notifications panel overlay */}
+            {showNotifications && (
+              <NotificationsPanel
+                onClose={() => {
+                  setShowNotifications(false);
+                  refreshNotifications();
+                }}
+                onRefreshNotifications={() => {
+                  refreshNotifications();
+                }}
+              />
+            )}
+          </div>
+
+          {/* Floating Bottom Cart Bar (Sticky Footer) & Slide-Up Cart Drawer */}
+          <FloatingCartBar
+            cartData={cartData}
+            cartCount={cartCount}
+            onUpdateCartQty={handleUpdateCartQty}
+            onRemoveItem={async (productId) => {
+              await orderService.removeFromCart(productId);
+              await refreshCartCounter();
+            }}
+            onCheckoutTrigger={() => {
+              setAppStep("checkout");
+            }}
+            onRefreshCartCounter={refreshCartCounter}
+            isVisible={appStep === "main"}
+          />
+
+          {/* Dynamic Fly-To-Cart Parabolic Overlay */}
+          <FlyToCartOverlay />
+
+          {/* Bottom persistent Nav Bar */}
+          {appStep === "main" && (
+            <div className="bg-white border-t border-slate-100 px-6 py-3 flex items-center justify-between shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-40 flex-shrink-0">
+              <button
+                onClick={() => setActiveTab("home")}
+                className={`flex flex-col items-center gap-1 cursor-pointer transition-all ${
+                  activeTab === "home" ? "text-brand-purple scale-110" : "text-slate-400 hover:text-slate-500"
+                }`}
+              >
+                <HomeIcon className="w-5 h-5" />
+                <span className="text-[10px] font-bold">Home</span>
+              </button>
+              <button
+                onClick={() => setActiveTab("search")}
+                className={`flex flex-col items-center gap-1 cursor-pointer transition-all relative ${
+                  activeTab === "search" ? "text-brand-purple scale-110" : "text-slate-400 hover:text-slate-500"
+                }`}
+              >
+                <PackageIcon className="w-5 h-5" />
+                <span className="text-[10px] font-bold">Products</span>
+                {cartCount > 0 && (
+                  <span className="absolute -top-1 -right-1.5 bg-brand-lime text-slate-900 font-extrabold text-[8px] px-1.5 py-0.5 rounded-full min-w-4 text-center">
+                    {cartCount}
+                  </span>
+                )}
+              </button>
+              
+              <button
+                onClick={() => setActiveTab("upload")}
+                className={`flex flex-col items-center gap-1 cursor-pointer transition-all ${
+                  activeTab === "upload" ? "text-brand-purple scale-110" : "text-slate-400 hover:text-slate-500"
+                }`}
+              >
+                <FileIcon className="w-5 h-5" />
+                <span className="text-[10px] font-bold">AI OCR</span>
+              </button>
+              
+              <button
+                onClick={() => setActiveTab("history")}
+                className={`flex flex-col items-center gap-1 cursor-pointer transition-all ${
+                  activeTab === "history" ? "text-brand-purple scale-110" : "text-slate-400 hover:text-slate-500"
+                }`}
+              >
+                <ListIcon className="w-5 h-5" />
+                <span className="text-[10px] font-bold">Orders</span>
+              </button>
+              
+              <button
+                onClick={() => setActiveTab("account")}
+                className={`flex flex-col items-center gap-1 cursor-pointer transition-all ${
+                  activeTab === "account" ? "text-brand-purple scale-110" : "text-slate-400 hover:text-slate-500"
+                }`}
+              >
+                <UserIcon className="w-5 h-5" />
+                <span className="text-[10px] font-bold">Account</span>
+              </button>
+            </div>
           )}
         </div>
-
-        {/* Bottom persistent Nav Bar */}
-        {appStep === "main" && (
-          <div className="bg-white border-t border-slate-100 px-6 py-3 flex items-center justify-between shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-40 flex-shrink-0">
-            <button
-              onClick={() => setActiveTab("home")}
-              className={`flex flex-col items-center gap-1 cursor-pointer transition-all ${
-                activeTab === "home" ? "text-brand-purple scale-110" : "text-slate-400 hover:text-slate-500"
-              }`}
-            >
-              <HomeIcon className="w-5 h-5" />
-              <span className="text-[10px] font-bold">Home</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("search")}
-              className={`flex flex-col items-center gap-1 cursor-pointer transition-all relative ${
-                activeTab === "search" ? "text-brand-purple scale-110" : "text-slate-400 hover:text-slate-500"
-              }`}
-            >
-              <PackageIcon className="w-5 h-5" />
-              <span className="text-[10px] font-bold">Products</span>
-              {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1.5 bg-brand-lime text-slate-900 font-extrabold text-[8px] px-1.5 py-0.5 rounded-full min-w-4 text-center">
-                  {cartCount}
-                </span>
-              )}
-            </button>
-            
-            <button
-              onClick={() => setActiveTab("upload")}
-              className={`flex flex-col items-center gap-1 cursor-pointer transition-all ${
-                activeTab === "upload" ? "text-brand-purple scale-110" : "text-slate-400 hover:text-slate-500"
-              }`}
-            >
-              <FileIcon className="w-5 h-5" />
-              <span className="text-[10px] font-bold">AI OCR</span>
-            </button>
-            
-            <button
-              onClick={() => setActiveTab("history")}
-              className={`flex flex-col items-center gap-1 cursor-pointer transition-all ${
-                activeTab === "history" ? "text-brand-purple scale-110" : "text-slate-400 hover:text-slate-500"
-              }`}
-            >
-              <ListIcon className="w-5 h-5" />
-              <span className="text-[10px] font-bold">Orders</span>
-            </button>
-            
-            <button
-              onClick={() => setActiveTab("account")}
-              className={`flex flex-col items-center gap-1 cursor-pointer transition-all ${
-                activeTab === "account" ? "text-brand-purple scale-110" : "text-slate-400 hover:text-slate-500"
-              }`}
-            >
-              <UserIcon className="w-5 h-5" />
-              <span className="text-[10px] font-bold">Account</span>
-            </button>
-          </div>
-        )}
       </div>
-    </div>
+    </FlyToCartProvider>
   );
 }
