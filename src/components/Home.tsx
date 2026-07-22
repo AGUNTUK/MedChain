@@ -274,9 +274,9 @@ export default function Home({
                       onClick={(e) => {
                         e.stopPropagation();
                         if (inCartQty > 0) {
-                          onUpdateCartQty && onUpdateCartQty(p.id, inCartQty, 5);
+                          onUpdateCartQty && onUpdateCartQty(p.id, inCartQty, 1);
                         } else {
-                          handleQuickBuy(p.id, 10, e, p.imageUrl || p.image_url); // Standard quick buy (10 boxes)
+                          handleQuickBuy(p.id, 1, e, p.imageUrl || p.image_url); // Standard quick buy (1 box)
                         }
                       }}
                       className={`mt-3 py-1.5 rounded-xl text-[9.5px] font-extrabold flex items-center justify-center gap-1 transition-all cursor-pointer ${

@@ -208,12 +208,14 @@ export default function SearchSystem({
     e?: React.MouseEvent<HTMLElement>,
     imageSrc?: string
   ) => {
+    if (e) {
+      e.stopPropagation();
+    }
     if (e && e.currentTarget) {
       triggerFlyToCart(e.currentTarget, imageSrc);
     }
 
-    const qty = quantities[productId] || 10; // Default bulk size (e.g. 10 boxes)
-    if (qty > stock) return;
+    const qty = quantities[productId] || 1; // Default bulk size (e.g. 1 box)
 
     setCartAdding(prev => ({ ...prev, [productId]: true }));
     const success = await onAddToCart(productId, qty);
@@ -414,7 +416,7 @@ export default function SearchSystem({
                     </span>
                     <div className="grid grid-cols-2 gap-2.5">
                       {frequentProducts.map(p => {
-                        const currentQty = quantities[p.id] || 10;
+                        const currentQty = quantities[p.id] || 1;
                         return (
                           <div
                             key={p.id}
@@ -558,7 +560,7 @@ export default function SearchSystem({
             ) : (
               <div className="space-y-3.5">
                 {products.map((p, index) => {
-                  const currentQty = quantities[p.id] || 10;
+                  const currentQty = quantities[p.id] || 1;
                   const isFav = favouriteIds.includes(p.id);
                   const isLowStock = p.availableStock <= 150;
 
@@ -652,7 +654,7 @@ export default function SearchSystem({
                                 <div className="flex-1 flex items-center justify-between bg-brand-purple/5 border border-brand-purple/20 rounded-xl px-2 py-1.5">
                                   <button
                                     type="button"
-                                    onClick={() => onUpdateCartQty && onUpdateCartQty(p.id, inCartQty, -5)}
+                                    onClick={() => onUpdateCartQty && onUpdateCartQty(p.id, inCartQty, -1)}
                                     className="text-brand-purple hover:bg-brand-purple hover:text-white p-1 rounded-lg transition-all cursor-pointer flex items-center justify-center"
                                   >
                                     <Minus className="w-3.5 h-3.5" />
@@ -662,7 +664,7 @@ export default function SearchSystem({
                                   </span>
                                   <button
                                     type="button"
-                                    onClick={() => onUpdateCartQty && onUpdateCartQty(p.id, inCartQty, 5)}
+                                    onClick={() => onUpdateCartQty && onUpdateCartQty(p.id, inCartQty, 1)}
                                     className="text-brand-purple hover:bg-brand-purple hover:text-white p-1 rounded-lg transition-all cursor-pointer flex items-center justify-center"
                                   >
                                     <Plus className="w-3.5 h-3.5" />
@@ -677,7 +679,7 @@ export default function SearchSystem({
                               {/* Quick preset boxes */}
                               <div className="flex items-center gap-1">
                                 <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mr-1">Boxes:</span>
-                                {[10, 50, 100, 200].map(qtyVal => (
+                                {[1, 5, 10, 50].map(qtyVal => (
                                   <button
                                     key={qtyVal}
                                     type="button"
@@ -698,7 +700,7 @@ export default function SearchSystem({
                                 <div className="flex items-center bg-slate-100 rounded-xl px-2 py-1.5 border border-slate-200/40">
                                   <button
                                     type="button"
-                                    onClick={() => handleQtyChange(p.id, currentQty - 5)}
+                                    onClick={() => handleQtyChange(p.id, currentQty - 1)}
                                     className="text-slate-500 hover:text-brand-purple p-1 rounded hover:bg-white transition-all cursor-pointer"
                                   >
                                     <Minus className="w-3 h-3" />
@@ -711,7 +713,7 @@ export default function SearchSystem({
                                   />
                                   <button
                                     type="button"
-                                    onClick={() => handleQtyChange(p.id, currentQty + 5)}
+                                    onClick={() => handleQtyChange(p.id, currentQty + 1)}
                                     className="text-slate-500 hover:text-brand-purple p-1 rounded hover:bg-white transition-all cursor-pointer"
                                   >
                                     <Plus className="w-3 h-3" />
@@ -721,7 +723,7 @@ export default function SearchSystem({
                                 <button
                                   type="button"
                                   onClick={(e) => handleAddToCartClick(p.id, p.availableStock, e, p.imageUrl || p.image_url)}
-                                  disabled={cartAdding[p.id] || (isLowStock && p.availableStock <= 0)}
+                                  disabled={cartAdding[p.id]}
                                   className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                                     addedSuccess[p.id]
                                       ? "bg-emerald-600 text-white shadow-md scale-102"
@@ -736,7 +738,7 @@ export default function SearchSystem({
                                   ) : (
                                     <>
                                       <ShoppingCart className="w-3.5 h-3.5" />
-                                      Cart (৳{(currentQty * p.sellingPrice).toLocaleString()})
+                                      Buy (৳{(currentQty * p.sellingPrice).toLocaleString()})
                                     </>
                                   )}
                                 </button>

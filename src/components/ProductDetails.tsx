@@ -130,27 +130,27 @@ export default function ProductDetails({ product, onClose, onAddToCart }: Produc
           </span>
           <div className="grid grid-cols-3 gap-2">
             <button
+              onClick={(e) => handleQuickAdd(1, e)}
+              className="bg-white hover:bg-slate-50 border border-slate-100 hover:border-brand-purple p-3 rounded-xl text-xs font-bold text-slate-700 flex flex-col items-center gap-0.5 cursor-pointer"
+            >
+              <span className="text-xs font-black">1 Box</span>
+              <span className="text-[9px] text-slate-400 font-mono">৳{(1 * product.sellingPrice).toLocaleString()}</span>
+            </button>
+
+            <button
+              onClick={(e) => handleQuickAdd(5, e)}
+              className="bg-white hover:bg-slate-50 border border-slate-100 hover:border-brand-purple p-3 rounded-xl text-xs font-bold text-slate-700 flex flex-col items-center gap-0.5 cursor-pointer"
+            >
+              <span className="text-xs font-black">5 Boxes</span>
+              <span className="text-[9px] text-slate-400 font-mono">৳{(5 * product.sellingPrice).toLocaleString()}</span>
+            </button>
+
+            <button
               onClick={(e) => handleQuickAdd(10, e)}
-              className="bg-white hover:bg-slate-50 border border-slate-100 hover:border-brand-purple p-3 rounded-xl text-xs font-bold text-slate-700 flex flex-col items-center gap-0.5 cursor-pointer"
-            >
-              <span className="text-xs font-black">10 Boxes</span>
-              <span className="text-[9px] text-slate-400 font-mono">৳{(10 * product.sellingPrice).toLocaleString()}</span>
-            </button>
-
-            <button
-              onClick={(e) => handleQuickAdd(25, e)}
-              className="bg-white hover:bg-slate-50 border border-slate-100 hover:border-brand-purple p-3 rounded-xl text-xs font-bold text-slate-700 flex flex-col items-center gap-0.5 cursor-pointer"
-            >
-              <span className="text-xs font-black">25 Boxes</span>
-              <span className="text-[9px] text-slate-400 font-mono">৳{(25 * product.sellingPrice).toLocaleString()}</span>
-            </button>
-
-            <button
-              onClick={(e) => handleQuickAdd(50, e)}
               className="bg-brand-purple text-white hover:bg-brand-purple-dark p-3 rounded-xl text-xs font-bold flex flex-col items-center gap-0.5 cursor-pointer"
             >
-              <span className="text-xs font-black">50 Boxes</span>
-              <span className="text-[9px] text-white/80 font-mono">৳{(50 * product.sellingPrice).toLocaleString()}</span>
+              <span className="text-xs font-black">10 Boxes</span>
+              <span className="text-[9px] text-white/80 font-mono">৳{(10 * product.sellingPrice).toLocaleString()}</span>
             </button>
           </div>
         </div>

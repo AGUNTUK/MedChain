@@ -50,7 +50,7 @@ export default function Account({
   }, [favouriteIds, currentUser]);
 
   const handleQuickReorder = async (productId: string) => {
-    const success = await onAddToCart(productId, 10); // Standard quick reorder (10 boxes)
+    const success = await onAddToCart(productId, 1); // Standard quick reorder (1 box)
     if (success) {
       setSuccessId(productId);
       setTimeout(() => setSuccessId(null), 1500);
@@ -287,7 +287,7 @@ export default function Account({
                   ) : (
                     <>
                       <ShoppingCart className="w-3 h-3" />
-                      Quick 10 Box
+                      Quick 1 Box
                     </>
                   )}
                 </button>
