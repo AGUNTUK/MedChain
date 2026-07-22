@@ -51,6 +51,7 @@ import {
 import * as XLSX from "xlsx";
 import { Product, Order, Pharmacy, Notification, User, OrderStatus } from "../types";
 import { productService, orderService, notificationService } from "../services";
+import { storageService } from "../services/storage";
 import NotificationBell from "./NotificationBell";
 
 interface AdminPanelProps {
@@ -356,6 +357,23 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
   const [formBatch, setFormBatch] = useState("");
   const [formExpiry, setFormExpiry] = useState("");
   const [formImageUrl, setFormImageUrl] = useState("");
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploadingImage(true);
+      const { url } = await storageService.uploadProductImage(file);
+      setFormImageUrl(url);
+      setSuccessMsg("Product image uploaded successfully");
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to upload image");
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
 
   const handleOpenAddProduct = () => {
     setSelectedProductForEdit(null);
@@ -3067,14 +3085,47 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-500 font-bold block uppercase text-[9px]">Medicine Image URL</label>
-                <input
-                  type="url"
-                  placeholder="e.g., https://example.com/images/napa.png"
-                  value={formImageUrl}
-                  onChange={(e) => setFormImageUrl(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500"
-                />
+                <label className="text-slate-500 font-bold block uppercase text-[9px]">Medicine Image</label>
+                <div className="flex gap-2 items-center">
+                  <div className="relative flex-1">
+                    <input
+                      type="url"
+                      placeholder="e.g., https://example.com/images/napa.png"
+                      value={formImageUrl}
+                      onChange={(e) => setFormImageUrl(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div className="relative">
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      disabled={isUploadingImage}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                    />
+                    <button 
+                      type="button"
+                      disabled={isUploadingImage}
+                      className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-700 text-white rounded-xl py-2 px-4 text-xs font-semibold flex items-center gap-2 transition-colors whitespace-nowrap"
+                    >
+                      {isUploadingImage ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" /> Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4" /> Upload Picture
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+                {formImageUrl && (
+                  <div className="mt-2 rounded-xl overflow-hidden border border-slate-800 bg-slate-950 w-24 h-24 flex items-center justify-center">
+                    <img src={formImageUrl} alt="Preview" className="max-w-full max-h-full object-contain" />
+                  </div>
+                )}
               </div>
 
               {selectedProductForEdit && (

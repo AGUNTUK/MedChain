@@ -282,6 +282,11 @@ export default function Home({
                       </span>
                     )}
                     <div>
+                      {p.imageUrl && (
+                        <div className="w-full h-14 rounded-xl overflow-hidden bg-slate-50 border border-slate-100 mb-2">
+                          <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                        </div>
+                      )}
                       <div className="flex justify-between items-start mb-1.5">
                         <span className="bg-slate-100 text-slate-500 text-[8px] font-black px-1.5 py-0.5 rounded">
                           {p.category}
@@ -484,6 +489,11 @@ export default function Home({
                     </span>
                   )}
                   <div>
+                    {p.imageUrl && (
+                      <div className="w-full h-14 rounded-xl overflow-hidden bg-slate-50 border border-slate-100 mb-2">
+                        <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                      </div>
+                    )}
                     <div className="flex justify-between items-start mb-1.5">
                       <span className="bg-brand-purple/10 text-brand-purple text-[8px] font-black px-1.5 py-0.5 rounded">
                         {p.discountPercentage}% OFF
