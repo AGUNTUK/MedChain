@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "./supabaseAdmin.js";
+export { supabaseAdmin };
 import { Product, Pharmacy, Order, OrderItem } from "../types";
 
 // ==========================================

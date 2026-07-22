@@ -13,7 +13,6 @@ export interface StructuredOCRResponse {
 }
 
 export class OpenRouterService {
-  private static apiKey = process.env.OPENROUTER_API_KEY;
   private static model = "qwen/qwen-2.5-7b-instruct";
   private static apiUrl = "https://openrouter.ai/api/v1/chat/completions";
 
@@ -22,7 +21,8 @@ export class OpenRouterService {
    * @param rawText OCR-extracted text blocks.
    */
   public static async structureText(rawText: string): Promise<StructuredOCRResponse> {
-    if (!this.apiKey) {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
       throw new Error("OPENROUTER_API_KEY environment variable is not configured on the server.");
     }
 
@@ -66,7 +66,7 @@ Guidelines:
         },
         {
           headers: {
-            "Authorization": `Bearer ${this.apiKey}`,
+            "Authorization": `Bearer ${apiKey}`,
             "Content-Type": "application/json",
             "HTTP-Referer": "https://medichain.com",
             "X-Title": "MediChain B2B platform"

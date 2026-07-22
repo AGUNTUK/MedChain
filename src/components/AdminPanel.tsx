@@ -31,7 +31,8 @@ import {
   Building,
   History,
   CircleDollarSign,
-  ClipboardList
+  ClipboardList,
+  Menu
 } from "lucide-react";
 import {
   AreaChart,
@@ -53,6 +54,9 @@ import { Product, Order, Pharmacy, Notification, User, OrderStatus } from "../ty
 import { productService, orderService, notificationService } from "../services";
 import { storageService } from "../services/storage";
 import NotificationBell from "./NotificationBell";
+import PharmacyVerificationPanel from "./PharmacyVerificationPanel";
+import AdminNotificationCenter from "./AdminNotificationCenter";
+import AuditLogPanel from "./AuditLogPanel";
 
 interface AdminPanelProps {
   currentUser: User;
@@ -94,9 +98,12 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
     }
   }, []);
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   const navigateTo = (route: typeof activeRoute) => {
     window.history.pushState(null, "", route);
     setActiveRoute(route);
+    setMobileMenuOpen(false);
   };
 
   // Listen to browser Back/Forward buttons
@@ -1053,8 +1060,8 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
   // --- RENDERING VIEWS ---
 
   return (
-    <div className="flex h-screen w-screen bg-slate-900 text-slate-100 font-sans overflow-hidden">
-      {/* 1. Global Alert Toast HUD */}
+    <div className="flex flex-col lg:flex-row h-screen w-screen bg-slate-900 text-slate-100 font-sans overflow-hidden">
+      {/* Global Alert Toast HUD */}
       {successMsg && (
         <div className="fixed top-6 right-6 bg-emerald-500 text-slate-950 px-5 py-3.5 rounded-xl shadow-2xl z-50 flex items-center gap-3 font-semibold text-sm border border-emerald-400 animate-slide-in">
           <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
@@ -1068,17 +1075,77 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
         </div>
       )}
 
-      {/* 2. Admin Sidebar HUD */}
-      <aside className="w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between">
-        <div className="p-6">
-          <div className="flex items-center gap-2 mb-8 select-none">
-            <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center font-black text-slate-950">
+      {/* Mobile Top App Header Bar */}
+      <div className="lg:hidden bg-slate-950 border-b border-slate-800 px-4 py-3 flex items-center justify-between z-30 flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white transition-all cursor-pointer"
+            aria-label="Toggle Navigation Menu"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+          <div className="flex items-center gap-2 select-none">
+            <div className="w-7 h-7 rounded-lg bg-indigo-500 flex items-center justify-center font-black text-slate-950 text-xs">
               MC
             </div>
             <div>
-              <h1 className="text-sm font-black tracking-wider text-white">MEDICHAIN</h1>
-              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Admin Console</p>
+              <span className="text-xs font-black tracking-wider text-white">MEDICHAIN</span>
+              <span className="text-[8px] text-indigo-400 font-extrabold uppercase block tracking-wider">Admin</span>
             </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <NotificationBell />
+          <button
+            onClick={refreshAllData}
+            className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white transition-all cursor-pointer"
+            title="Refresh Sync"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </button>
+          <button 
+            onClick={onLogout}
+            title="Sign Out"
+            className="p-2 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer transition-all"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Sidebar Backdrop */}
+      {mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-40 lg:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Admin Sidebar HUD (responsive drawer on mobile, static on desktop) */}
+      <aside className={`
+        fixed lg:static inset-y-0 left-0 z-50 w-72 lg:w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between
+        transform transition-transform duration-200 ease-in-out
+        ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+      `}>
+        <div className="p-6 overflow-y-auto">
+          <div className="flex items-center justify-between mb-8 select-none">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center font-black text-slate-950">
+                MC
+              </div>
+              <div>
+                <h1 className="text-sm font-black tracking-wider text-white">MEDICHAIN</h1>
+                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Admin Console</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="lg:hidden p-1.5 rounded-lg bg-slate-900 text-slate-400 hover:text-white cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
 
           <nav className="space-y-1">
@@ -1180,7 +1247,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
         </div>
 
         {/* User profile logout */}
-        <div className="p-6 border-t border-slate-900 bg-slate-950/60 flex items-center justify-between">
+        <div className="p-6 border-t border-slate-900 bg-slate-950/60 flex items-center justify-between flex-shrink-0">
           <div className="truncate pr-2">
             <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Super Administrator</p>
@@ -1195,12 +1262,12 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
         </div>
       </aside>
 
-      {/* 3. Main Workspace Area */}
-      <main className="flex-1 flex flex-col min-w-0 bg-slate-900 overflow-y-auto">
+      {/* Main Workspace Area */}
+      <main className="flex-1 flex flex-col min-w-0 bg-slate-900 overflow-y-auto min-h-0">
         {/* Top Header Panel */}
-        <header className="h-16 border-b border-slate-800 bg-slate-950/40 px-8 flex items-center justify-between flex-shrink-0">
+        <header className="min-h-14 border-b border-slate-800 bg-slate-950/40 px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-shrink-0">
           <div>
-            <h2 className="text-sm font-bold text-white tracking-wider uppercase">
+            <h2 className="text-xs sm:text-sm font-bold text-white tracking-wider uppercase">
               {activeRoute === "/admin/dashboard" && "OPERATIONS CONTROL CENTER"}
               {activeRoute === "/admin/products" && "MEDICINE MASTER REGISTRY"}
               {activeRoute === "/admin/inventory" && "STOCK LOGISTICS DISPATCH"}
@@ -1212,7 +1279,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
               {activeRoute === "/admin/settings" && "SYSTEM PLATFORM SCHEMAS"}
             </h2>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end">
             <NotificationBell />
             <button 
               onClick={refreshAllData}
@@ -1220,16 +1287,17 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
               title="Refresh Global Sync"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-              <span>Synchronize Ledger</span>
+              <span className="hidden sm:inline">Synchronize Ledger</span>
+              <span className="sm:hidden">Sync</span>
             </button>
-            <div className="text-[11px] font-mono text-slate-500 tracking-wider bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
+            <div className="text-[10px] sm:text-[11px] font-mono text-slate-500 tracking-wider bg-slate-950 px-2.5 sm:px-3 py-1.5 rounded-lg border border-slate-800">
               GMT 2026-07-14 03:00
             </div>
           </div>
         </header>
 
         {/* Content Screens Router */}
-        <div className="p-8 flex-1">
+        <div className="p-4 sm:p-6 lg:p-8 flex-1">
           {loading && products.length === 0 ? (
             <div className="h-full flex flex-col justify-center items-center gap-3">
               <RefreshCw className="w-8 h-8 text-indigo-500 animate-spin" />
@@ -1263,7 +1331,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                   {dashboardSubTab === "hud" ? (
                     <>
                       {/* Stats Grid */}
-                      <div className="grid grid-cols-5 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
                         <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
                           <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Catalog Medicines</span>
                           <span className="text-2xl font-black text-white">{totalProducts}</span>
@@ -1296,7 +1364,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                           </p>
                         </div>
 
-                        <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+                        <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden sm:col-span-2 md:col-span-1">
                           <span className="text-[9px] uppercase font-bold text-rose-400 tracking-widest block mb-1">Warnings Checklist</span>
                           <div className="flex gap-4 mt-1">
                             <div>
@@ -1312,32 +1380,32 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                       </div>
 
                       {/* Order pipeline states breakdown */}
-                      <div className="bg-slate-950/40 border border-slate-800/80 rounded-2xl p-6">
+                      <div className="bg-slate-950/40 border border-slate-800/80 rounded-2xl p-4 sm:p-6">
                         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Orders Pipeline Progress</h3>
-                        <div className="grid grid-cols-4 gap-4 text-center">
-                          <div className="bg-slate-950/80 p-4 rounded-xl border border-slate-900">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                          <div className="bg-slate-950/80 p-3 sm:p-4 rounded-xl border border-slate-900">
                             <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Unprocessed</span>
-                            <span className="text-xl font-black text-slate-300">{ordersPending}</span>
+                            <span className="text-lg sm:text-xl font-black text-slate-300">{ordersPending}</span>
                           </div>
-                          <div className="bg-slate-950/80 p-4 rounded-xl border border-slate-900">
+                          <div className="bg-slate-950/80 p-3 sm:p-4 rounded-xl border border-slate-900">
                             <span className="text-[9px] font-bold text-amber-500 uppercase tracking-widest block mb-1">Active Assembly</span>
-                            <span className="text-xl font-black text-amber-400">{ordersProcessing}</span>
+                            <span className="text-lg sm:text-xl font-black text-amber-400">{ordersProcessing}</span>
                           </div>
-                          <div className="bg-slate-950/80 p-4 rounded-xl border border-slate-900">
+                          <div className="bg-slate-950/80 p-3 sm:p-4 rounded-xl border border-slate-900">
                             <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest block mb-1">Dispatched & Complete</span>
-                            <span className="text-xl font-black text-emerald-400">{ordersCompleted}</span>
+                            <span className="text-lg sm:text-xl font-black text-emerald-400">{ordersCompleted}</span>
                           </div>
-                          <div className="bg-slate-950/80 p-4 rounded-xl border border-slate-900">
+                          <div className="bg-slate-950/80 p-3 sm:p-4 rounded-xl border border-slate-900">
                             <span className="text-[9px] font-bold text-rose-500 uppercase tracking-widest block mb-1">Cancelled</span>
-                            <span className="text-xl font-black text-rose-400">{ordersCancelled}</span>
+                            <span className="text-lg sm:text-xl font-black text-rose-400">{ordersCancelled}</span>
                           </div>
                         </div>
                       </div>
 
                       {/* Quick Actions & Recent Tables */}
-                      <div className="grid grid-cols-3 gap-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Column 1: Quick Actions panel */}
-                        <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-6 space-y-4">
+                        <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 sm:p-6 space-y-4">
                           <h3 className="text-xs font-black text-white uppercase tracking-wider mb-2">Platform Quick Controls</h3>
                           
                           <button
@@ -1382,7 +1450,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                         </div>
 
                         {/* Column 2 & 3: Recent Activity Lists */}
-                        <div className="col-span-2 bg-slate-950/60 border border-slate-800 rounded-2xl p-6 space-y-6">
+                        <div className="lg:col-span-2 bg-slate-950/60 border border-slate-800 rounded-2xl p-4 sm:p-6 space-y-6">
                           <div>
                             <h3 className="text-xs font-black text-white uppercase tracking-wider mb-3 flex items-center justify-between">
                               <span>Active B2B Pipeline Transactions</span>
@@ -1450,9 +1518,9 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                   ) : (
                     <div className="space-y-6 animate-fade-in">
                       {/* B2B Analytics Dashboard */}
-                      <div className="grid grid-cols-3 gap-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Revenue Over Time Chart */}
-                        <div className="col-span-2 bg-slate-950/60 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-lg">
+                        <div className="lg:col-span-2 bg-slate-950/60 border border-slate-800 rounded-2xl p-4 sm:p-6 space-y-4 shadow-lg">
                           <div>
                             <span className="text-[9px] uppercase font-bold text-indigo-400 tracking-wider">Historical Sales Revenue Stream</span>
                             <h3 className="text-sm font-black text-white mt-1">B2B Sales Trends (BDT ৳)</h3>
@@ -1486,7 +1554,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                         </div>
 
                         {/* Order status allocation */}
-                        <div className="col-span-1 bg-slate-950/60 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-lg">
+                        <div className="lg:col-span-1 bg-slate-950/60 border border-slate-800 rounded-2xl p-4 sm:p-6 space-y-4 shadow-lg">
                           <div>
                             <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Status Allocation</span>
                             <h3 className="text-sm font-black text-white">Pipeline Distribution</h3>
@@ -1576,9 +1644,9 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
               {activeRoute === "/admin/products" && (
                 <div className="space-y-6 animate-fade-in">
                   {/* Action Filters Panel */}
-                  <div className="bg-slate-950/60 border border-slate-800 p-5 rounded-2xl flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className="relative flex-1 max-w-xs">
+                  <div className="bg-slate-950/60 border border-slate-800 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
+                      <div className="relative flex-1 sm:max-w-xs">
                         <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                         <input
                           type="text"
@@ -1608,35 +1676,35 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                         placeholder="Filter Company..."
                         value={prodCompanyFilter}
                         onChange={(e) => setProdCompanyFilter(e.target.value)}
-                        className="bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs font-semibold text-slate-300 focus:outline-none focus:border-indigo-500 max-w-[150px]"
+                        className="bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs font-semibold text-slate-300 focus:outline-none focus:border-indigo-500 w-full sm:w-auto sm:max-w-[150px]"
                       />
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2 justify-end">
                       <button
                         onClick={handleExportProductsCSV}
-                        className="bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 text-xs font-semibold py-2 px-4 rounded-xl transition-all cursor-pointer flex items-center gap-2"
+                        className="flex-1 sm:flex-initial justify-center bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 text-xs font-semibold py-2 px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
                       >
-                        <FileText className="w-4 h-4" /> Export CSV
+                        <FileText className="w-4 h-4" /> CSV
                       </button>
                       <button
                         onClick={handleExportProductsExcel}
-                        className="bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 text-xs font-semibold py-2 px-4 rounded-xl transition-all cursor-pointer flex items-center gap-2"
+                        className="flex-1 sm:flex-initial justify-center bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 text-xs font-semibold py-2 px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
                       >
-                        <FileText className="w-4 h-4" /> Export XLSX
+                        <FileText className="w-4 h-4" /> XLSX
                       </button>
                       <button
                         onClick={handleOpenAddProduct}
-                        className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold py-2 px-4 rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-lg"
+                        className="w-full sm:w-auto justify-center bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold py-2 px-4 rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-lg"
                       >
-                        <Plus className="w-4 h-4" /> Add Manual Medicine
+                        <Plus className="w-4 h-4" /> Add Medicine
                       </button>
                     </div>
                   </div>
 
                   {/* Bulk Import Section */}
-                  <div className="bg-slate-950/40 border border-slate-800 rounded-2xl p-6">
-                    <div className="flex items-center justify-between mb-4">
+                  <div className="bg-slate-950/40 border border-slate-800 rounded-2xl p-4 sm:p-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
                       <div>
                         <h3 className="text-xs font-black text-white uppercase tracking-wider">Bulk Medicine Catalog Import</h3>
                         <p className="text-[10px] text-slate-500 mt-0.5">Upload wholesale medicine files supporting both .csv and .xlsx spreadsheets.</p>
@@ -1693,7 +1761,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                           <h4 className="text-xs font-extrabold text-white mt-0.5">We auto-detected columns in your spreadsheet. Review and align headers with MediChain models:</h4>
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                           {[
                             { key: "name", label: "Product Name (Required)", required: true },
                             { key: "genericName", label: "Generic Formula Name (Required)", required: true },
@@ -1708,14 +1776,14 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                             { key: "expiryDate", label: "Expiry Date (YYYY-MM-DD)", required: false },
                             { key: "imageUrl", label: "Product Image URL", required: false }
                           ].map(field => (
-                            <div key={field.key} className="flex items-center justify-between bg-slate-900/60 p-3 rounded-lg border border-slate-900 text-xs">
+                            <div key={field.key} className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-900/60 p-3 rounded-lg border border-slate-900 text-xs gap-2">
                               <span className="font-semibold text-slate-300">
                                 {field.label} {field.required && <span className="text-rose-500">*</span>}
                               </span>
                               <select
                                 value={columnMapping[field.key] || ""}
                                 onChange={(e) => setColumnMapping(prev => ({ ...prev, [field.key]: e.target.value }))}
-                                className="bg-slate-950 border border-slate-800 rounded-md px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer min-w-[140px]"
+                                className="bg-slate-950 border border-slate-800 rounded-md px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer w-full sm:w-auto sm:min-w-[140px]"
                               >
                                 <option value="">-- Ignore / Unmapped --</option>
                                 {uploadedHeaders.map((header, idx) => (
@@ -2139,9 +2207,9 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
               {/* SCREEN 4: B2B WHOLESALE PROCUREMENTS */}
               {activeRoute === "/admin/orders" && (
                 <div className="space-y-6 animate-fade-in">
-                  <div className="grid grid-cols-3 gap-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
                     {/* Orders List Pane */}
-                    <div className="col-span-2 space-y-4">
+                    <div className="lg:col-span-2 space-y-4">
                       {/* Search */}
                       <div className="bg-slate-950/60 border border-slate-800 p-4 rounded-2xl">
                         <div className="relative">
@@ -2215,7 +2283,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                     </div>
 
                     {/* Order Details Pane */}
-                    <div className="col-span-1">
+                    <div className="lg:col-span-1">
                       {selectedOrderDetails ? (
                         <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-6 space-y-6 animate-fade-in">
                           <div className="flex items-center justify-between border-b border-slate-850 pb-4">
@@ -2300,354 +2368,58 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                 </div>
               )}
 
-              {/* SCREEN 5: B2B PHARMACY REGISTRY */}
+              {/* SCREEN 5: B2B PHARMACY REGISTRY & VERIFICATION PANEL */}
               {activeRoute === "/admin/pharmacies" && (
-                <div className="space-y-6 animate-fade-in">
-                  <div className="grid grid-cols-3 gap-8">
-                    {/* Pharmacies list */}
-                    <div className="col-span-2 space-y-4">
-                      {/* Search */}
-                      <div className="bg-slate-950/60 border border-slate-800 p-4 rounded-2xl space-y-3">
-                        <div className="relative">
-                          <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                          <input
-                            type="text"
-                            placeholder="Search registered pharmacies by name, license, or address..."
-                            value={pharmacySearch}
-                            onChange={(e) => setPharmacySearch(e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 pl-9 pr-4 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500 transition-all"
-                          />
-                        </div>
-                        <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                          <span className="text-[10px] text-slate-500 font-extrabold uppercase mr-1 tracking-wider">Verification Filter:</span>
-                          {(["All", "Pending", "Verified", "Suspended"] as const).map((status) => (
-                            <button
-                              key={status}
-                              onClick={() => setPharmacySearchStatus(status)}
-                              className={`text-[9px] font-extrabold uppercase px-2 py-1 rounded-md border transition-all cursor-pointer ${
-                                pharmacySearchStatus === status
-                                  ? "bg-indigo-600 text-white border-indigo-500 shadow-md"
-                                  : "bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-200"
-                              }`}
-                            >
-                              {status}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Registry cards */}
-                      <div className="grid grid-cols-2 gap-4">
-                        {pharmacies
-                          .filter(ph => 
-                            ph.pharmacyName.toLowerCase().includes(pharmacySearch.toLowerCase()) || 
-                            ph.licenseNo.toLowerCase().includes(pharmacySearch.toLowerCase()) ||
-                            ph.city.toLowerCase().includes(pharmacySearch.toLowerCase())
-                          )
-                          .filter(ph => pharmacySearchStatus === "All" || (ph.status || "Pending") === pharmacySearchStatus)
-                          .map(ph => {
-                            const isSelected = selectedPharmacyProfile?.id === ph.id;
-                            return (
-                              <div
-                                key={ph.id}
-                                onClick={() => setSelectedPharmacyProfile(ph)}
-                                className={`p-5 rounded-2xl border transition-all cursor-pointer space-y-3 ${
-                                  isSelected ? "border-indigo-500 bg-indigo-500/5 shadow-lg" : "border-slate-800 bg-slate-950 hover:border-slate-700"
-                                }`}
-                              >
-                                <div className="flex items-center gap-3">
-                                  <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400">
-                                    <Store className="w-4 h-4" />
-                                  </div>
-                                  <div>
-                                    <div className="flex items-center gap-2">
-                                      <h4 className="text-xs font-black text-white">{ph.pharmacyName}</h4>
-                                      <span className={`text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-full ${
-                                        ph.status === "Verified" ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" :
-                                        ph.status === "Suspended" ? "bg-rose-500/15 text-rose-400 border border-rose-500/20" :
-                                        "bg-amber-500/15 text-amber-400 border border-amber-500/20"
-                                      }`}>
-                                        {ph.status || "Pending"}
-                                      </span>
-                                    </div>
-                                    <p className="text-[10px] text-slate-500 font-bold">{ph.city}</p>
-                                  </div>
-                                </div>
-
-                                <div className="text-[11px] text-slate-400 space-y-1">
-                                  <p className="truncate"><span className="text-slate-500 font-bold">Address:</span> {ph.address}</p>
-                                  <p><span className="text-slate-500 font-bold">License:</span> {ph.licenseNo}</p>
-                                </div>
-
-                                <div className="border-t border-slate-900 pt-3 flex items-center justify-between">
-                                  <span className="text-[9px] uppercase font-extrabold text-indigo-400 tracking-wider">Credit Account Limit:</span>
-                                  <span className="text-xs font-black text-white">৳{ph.creditLimit.toLocaleString()}</span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                      </div>
-                    </div>
-
-                    {/* Pharmacy profile drill down */}
-                    <div className="col-span-1">
-                      {selectedPharmacyProfile ? (
-                        <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-6 space-y-6 animate-fade-in">
-                          <div className="flex items-center justify-between border-b border-slate-850 pb-4">
-                            <div>
-                              <span className="text-[9px] uppercase font-bold text-indigo-400 tracking-wider">Licensed Registry Profile</span>
-                              <h4 className="text-xs font-black text-white mt-0.5">{selectedPharmacyProfile.pharmacyName}</h4>
-                            </div>
-                            <button
-                              onClick={() => setSelectedPharmacyProfile(null)}
-                              className="p-1 rounded hover:bg-slate-850 text-slate-400"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-
-                          {/* Verification Workflow */}
-                          <div className="space-y-2 text-xs text-slate-300">
-                            <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest block">Account Verification Status</span>
-                            <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-900 flex flex-col gap-3">
-                              <div className="flex items-center justify-between">
-                                <span className="text-slate-400 font-semibold">Verification Badge:</span>
-                                <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
-                                  selectedPharmacyProfile.status === "Verified" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
-                                  selectedPharmacyProfile.status === "Suspended" ? "bg-rose-500/10 text-rose-400 border border-rose-500/20" :
-                                  "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                                }`}>
-                                  {selectedPharmacyProfile.status || "Pending"}
-                                </span>
-                              </div>
-                              <div className="flex gap-2">
-                                {selectedPharmacyProfile.status !== "Verified" && (
-                                  <button
-                                    onClick={() => handleUpdatePharmacyStatus(selectedPharmacyProfile.id, "Verified")}
-                                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1.5 px-3 rounded-lg text-[10px] uppercase tracking-wide transition-all cursor-pointer shadow"
-                                  >
-                                    Approve & Verify
-                                  </button>
-                                )}
-                                {selectedPharmacyProfile.status !== "Suspended" && (
-                                  <button
-                                    onClick={() => handleUpdatePharmacyStatus(selectedPharmacyProfile.id, "Suspended")}
-                                    className="flex-1 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 font-bold py-1.5 px-3 rounded-lg text-[10px] uppercase tracking-wide transition-all border border-rose-500/20 cursor-pointer"
-                                  >
-                                    Suspend Acc.
-                                  </button>
-                                )}
-                                {selectedPharmacyProfile.status === "Suspended" && (
-                                  <button
-                                    onClick={() => handleUpdatePharmacyStatus(selectedPharmacyProfile.id, "Pending")}
-                                    className="flex-1 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold py-1.5 px-3 rounded-lg text-[10px] uppercase tracking-wide transition-all cursor-pointer"
-                                  >
-                                    Set Pending
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Owners info */}
-                          <div className="space-y-2 text-xs text-slate-300">
-                            <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest block">Account Owners Details</span>
-                            <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-900 space-y-1.5">
-                              <p><span className="text-slate-500 font-bold">Authorized Owner Name:</span> {selectedPharmacyProfile.ownerName}</p>
-                              <p><span className="text-slate-500 font-bold">Registered Mobile No:</span> {selectedPharmacyProfile.phone}</p>
-                              <p><span className="text-slate-500 font-bold">Geographic Sector:</span> {selectedPharmacyProfile.city}</p>
-                              <p><span className="text-slate-500 font-bold">Drug Administration License:</span> {selectedPharmacyProfile.licenseNo}</p>
-                            </div>
-                          </div>
-
-                          {/* Credit Account Ledger */}
-                          <div className="space-y-2 text-xs text-slate-300">
-                            <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest block">Credit Ledger Status</span>
-                            <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-900 space-y-2">
-                              <div className="flex justify-between">
-                                <span className="text-slate-500 font-semibold">Total Credit bounds:</span>
-                                <span className="font-bold text-white">৳{selectedPharmacyProfile.creditLimit.toLocaleString()}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-slate-500 font-semibold">Used Accounts Balance:</span>
-                                <span className="font-bold text-rose-400">৳{selectedPharmacyProfile.usedCredit.toLocaleString()}</span>
-                              </div>
-                              <div className="flex justify-between border-t border-slate-850 pt-2 font-bold">
-                                <span className="text-slate-500">Unused Credit availability:</span>
-                                <span className="text-emerald-400">৳{selectedPharmacyProfile.availableCredit.toLocaleString()}</span>
-                              </div>
-                              
-                              <div className="border-t border-slate-800 pt-3 mt-1.5 space-y-2">
-                                <span className="text-[10px] text-slate-400 font-extrabold uppercase block tracking-wider">Adjust Credit Limit</span>
-                                <div className="flex gap-2">
-                                  <input
-                                    type="number"
-                                    placeholder="Enter new limit in ৳"
-                                    value={creditAdjustmentLimit}
-                                    onChange={(e) => setCreditAdjustmentLimit(e.target.value)}
-                                    className="flex-1 bg-slate-950 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-semibold"
-                                  />
-                                  <button
-                                    onClick={() => handleAdjustPharmacyCredit(selectedPharmacyProfile.id, creditAdjustmentLimit)}
-                                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shadow-md uppercase tracking-wide"
-                                  >
-                                    Apply
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Historical Orders list */}
-                          <div className="space-y-2">
-                            <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest block">Pharmacy Procurement Transactions ({
-                              orders.filter(o => o.pharmacyId === selectedPharmacyProfile.id).length
-                            })</span>
-                            <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
-                              {orders
-                                .filter(o => o.pharmacyId === selectedPharmacyProfile.id)
-                                .map(o => (
-                                  <div key={o.id} className="bg-slate-900/40 p-2.5 rounded-lg border border-slate-900 text-[11px] flex justify-between items-center">
-                                    <div>
-                                      <p className="font-bold text-white">{o.id}</p>
-                                      <p className="text-[9px] text-slate-500">{new Date(o.createdAt).toLocaleDateString()}</p>
-                                    </div>
-                                    <div className="text-right">
-                                      <p className="font-extrabold text-white">৳{o.totalAmount.toLocaleString()}</p>
-                                      <span className="text-[8px] text-indigo-400 font-bold">{o.status}</span>
-                                    </div>
-                                  </div>
-                                ))}
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="bg-slate-950/20 border border-slate-850 border-dashed rounded-2xl p-8 text-center text-slate-500 text-xs">
-                          Select a pharmacy from the registry grid to audit drug authorization credentials, credit accounts ledger, and purchase logs.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                <PharmacyVerificationPanel
+                  pharmacies={pharmacies}
+                  onPharmacyUpdated={refreshAllData}
+                />
               )}
 
               {/* SCREEN 6: ALERTS BROADCAST RADAR */}
               {activeRoute === "/admin/notifications" && (
-                <div className="space-y-6 animate-fade-in">
-                  <div className="grid grid-cols-3 gap-8">
-                    {/* Left: Compose Form */}
-                    <div className="col-span-1 bg-slate-950/60 border border-slate-800 rounded-2xl p-6">
-                      <h3 className="text-xs font-black text-white uppercase tracking-wider mb-4">Compose Broadcast System Alert</h3>
-                      <form onSubmit={handleBroadcastAlert} className="space-y-4 text-xs">
-                        <div className="space-y-1">
-                          <label className="text-slate-500 font-bold block uppercase tracking-wider text-[9px]">Notification Title</label>
-                          <input
-                            type="text"
-                            placeholder="e.g., Incepta Stock Restock Alert"
-                            value={broadcastTitle}
-                            onChange={(e) => setBroadcastTitle(e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500"
-                            required
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="text-slate-500 font-bold block uppercase tracking-wider text-[9px]">Notification Channel Category</label>
-                          <select
-                            value={broadcastType}
-                            onChange={(e) => setBroadcastType(e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
-                          >
-                            <option value="system">Standard System Update</option>
-                            <option value="offer">Special Flash Wholesale Offer</option>
-                            <option value="price_drop">Platform Price Cut Enactment</option>
-                          </select>
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="text-slate-500 font-bold block uppercase tracking-wider text-[9px]">Broadcasting Alert Message Content</label>
-                          <textarea
-                            placeholder="Provide details about the catalog restocks, pricing, or system events..."
-                            value={broadcastMsg}
-                            onChange={(e) => setBroadcastMsg(e.target.value)}
-                            rows={5}
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500 resize-none"
-                            required
-                          />
-                        </div>
-
-                        <button
-                          type="submit"
-                          className="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold py-2.5 rounded-xl transition-all cursor-pointer shadow-lg flex items-center justify-center gap-2"
-                        >
-                          <Bell className="w-4 h-4" /> Dispatch System Broadcast
-                        </button>
-                      </form>
-                    </div>
-
-                    {/* Right: Broadcast Logs */}
-                    <div className="col-span-2 bg-slate-950/60 border border-slate-800 rounded-2xl p-6 space-y-4">
-                      <h3 className="text-xs font-black text-white uppercase tracking-wider">System Alerts Dispatch Logs</h3>
-                      
-                      <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
-                        {notifications.map(notif => (
-                          <div key={notif.id} className="bg-slate-900/60 border border-slate-900 p-4 rounded-xl text-xs space-y-2">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <span className={`text-[8px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-full ${
-                                  notif.type === "offer" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
-                                  notif.type === "price_drop" ? "bg-rose-500/10 text-rose-500 border border-rose-500/20" :
-                                  "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
-                                }`}>
-                                  {notif.type}
-                                </span>
-                                <h4 className="font-extrabold text-white text-xs">{notif.title}</h4>
-                              </div>
-                              <span className="text-[10px] text-slate-500 font-bold">{new Date(notif.date || Date.now()).toLocaleDateString()}</span>
-                            </div>
-                            <p className="text-slate-400 text-xs leading-relaxed">{notif.message}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <AdminNotificationCenter
+                  notifications={notifications}
+                  pharmacies={pharmacies}
+                  onNavigateToTab={(tab) => navigateTo(tab as any)}
+                  onRefreshNotifications={refreshAllData}
+                />
               )}
 
               {/* SCREEN: FINANCE & CREDIT ACCOUNTING */}
               {activeRoute === "/admin/finance" && (
                 <div className="space-y-6 animate-fade-in text-slate-200">
                   {/* Summary Cards */}
-                  <div className="grid grid-cols-4 gap-6">
-                    <div className="bg-slate-950/60 border border-slate-800 p-5 rounded-2xl space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-slate-950/60 border border-slate-800 p-4 sm:p-5 rounded-2xl space-y-2">
                       <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Total Credit Limits Authorized</p>
                       <h3 className="text-xl font-black text-white">৳{financeSummary?.totalCreditLimit?.toLocaleString() || "0"}</h3>
                       <p className="text-[9px] text-slate-400">Aggregated credit caps across registry</p>
                     </div>
-                    <div className="bg-slate-950/60 border border-slate-800 p-5 rounded-2xl space-y-2">
+                    <div className="bg-slate-950/60 border border-slate-800 p-4 sm:p-5 rounded-2xl space-y-2">
                       <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Outstanding Balances (Receivables)</p>
                       <h3 className="text-xl font-black text-rose-400">৳{financeSummary?.totalOutstanding?.toLocaleString() || "0"}</h3>
                       <p className="text-[9px] text-slate-400">Aggregated credit balances currently utilized</p>
                     </div>
-                    <div className="bg-slate-950/60 border border-slate-800 p-5 rounded-2xl space-y-2">
+                    <div className="bg-slate-950/60 border border-slate-800 p-4 sm:p-5 rounded-2xl space-y-2">
                       <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Aggregated Available Credit</p>
                       <h3 className="text-xl font-black text-emerald-400">৳{financeSummary?.totalAvailableCredit?.toLocaleString() || "0"}</h3>
                       <p className="text-[9px] text-slate-400 font-medium text-emerald-500/80">Liquidity safety headroom buffer</p>
                     </div>
-                    <div className="bg-slate-950/60 border border-slate-800 p-5 rounded-2xl space-y-2">
+                    <div className="bg-slate-950/60 border border-slate-800 p-4 sm:p-5 rounded-2xl space-y-2">
                       <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Total Revenue Paid</p>
                       <h3 className="text-xl font-black text-indigo-400">৳{financeSummary?.totalPaidAmount?.toLocaleString() || "0"}</h3>
                       <p className="text-[9px] text-slate-400">Aggregated invoice payouts recorded</p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
                     {/* Left 2 cols: Pharmacy Credit Accounts */}
-                    <div className="col-span-2 space-y-4">
-                      <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-6 space-y-4">
-                        <div className="flex items-center justify-between">
+                    <div className="lg:col-span-2 space-y-4">
+                      <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 sm:p-6 space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <h3 className="text-xs font-black text-white uppercase tracking-wider">B2B Pharmacy Credit Registers</h3>
-                          <div className="relative w-64">
+                          <div className="relative w-full sm:w-64">
                             <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                             <input
                               type="text"
@@ -2706,7 +2478,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                     </div>
 
                     {/* Right col: Payment Ledger Log */}
-                    <div className="col-span-1 bg-slate-950/60 border border-slate-800 rounded-2xl p-6 space-y-4">
+                    <div className="lg:col-span-1 bg-slate-950/60 border border-slate-800 rounded-2xl p-4 sm:p-6 space-y-4">
                       <h3 className="text-xs font-black text-white uppercase tracking-wider">Payment Transaction History</h3>
                       <div className="space-y-3 max-h-[450px] overflow-y-auto pr-1">
                         {paymentLedger.length === 0 ? (
@@ -2737,104 +2509,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                 </div>
               )}
 
-              {/* SCREEN: AUDIT TRANSACTION LOGS */}
-              {activeRoute === "/admin/audit-logs" && (
-                <div className="space-y-6 animate-fade-in text-slate-200">
-                  <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-6 space-y-6">
-                    {/* Filters bar */}
-                    <div className="flex items-center justify-between flex-wrap gap-4">
-                      <div className="space-y-1">
-                        <h3 className="text-xs font-black text-white uppercase tracking-wider">Security & Transaction Audit Ledger</h3>
-                        <p className="text-[10px] text-slate-500 font-bold">Real-time trails tracking administrative & catalog changes</p>
-                      </div>
 
-                      <div className="flex items-center gap-3">
-                        <select
-                          value={auditFilterModule}
-                          onChange={(e) => setAuditFilterModule(e.target.value)}
-                          className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
-                        >
-                          <option value="">All Modules</option>
-                          <option value="Products">Products Catalog</option>
-                          <option value="Pharmacies">Pharmacies Registry</option>
-                          <option value="Orders">Orders Log</option>
-                          <option value="Finance">Finance & Credit</option>
-                        </select>
-
-                        <div className="relative w-64">
-                          <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                          <input
-                            type="text"
-                            placeholder="Search by action, user..."
-                            value={auditSearch}
-                            onChange={(e) => setAuditSearch(e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl py-1.5 pl-8 pr-3 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500 transition-all"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Table */}
-                    <div className="overflow-x-auto border border-slate-900 rounded-xl">
-                      <table className="w-full text-left text-xs border-collapse">
-                        <thead>
-                          <tr className="bg-slate-900 text-slate-400 uppercase text-[9px] font-extrabold tracking-wider border-b border-slate-850">
-                            <th className="px-4 py-3">Timestamp</th>
-                            <th className="px-4 py-3">User</th>
-                            <th className="px-4 py-3">Role</th>
-                            <th className="px-4 py-3">Affected Module</th>
-                            <th className="px-4 py-3">Action Completed</th>
-                            <th className="px-4 py-3 text-right">Record ID</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-850 bg-slate-950/40">
-                          {auditLogs.length === 0 ? (
-                            <tr>
-                              <td colSpan={6} className="text-center p-8 text-slate-500 text-xs">
-                                No security audit logs or events captured on platform yet.
-                              </td>
-                            </tr>
-                          ) : (
-                            auditLogs
-                              .filter(log => {
-                                const matchSearch = (log.user || "").toLowerCase().includes(auditSearch.toLowerCase()) || 
-                                                    (log.action || "").toLowerCase().includes(auditSearch.toLowerCase());
-                                const matchModule = !auditFilterModule || log.affectedModule === auditFilterModule;
-                                return matchSearch && matchModule;
-                              })
-                              .map(log => (
-                                <tr key={log.id} className="hover:bg-slate-900/40 transition-colors">
-                                  <td className="px-4 py-3 font-mono text-[10px] text-indigo-400 whitespace-nowrap">
-                                    {new Date(log.timestamp).toLocaleString()}
-                                  </td>
-                                  <td className="px-4 py-3 font-extrabold text-white">
-                                    {log.user}
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
-                                      {log.role}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-indigo-950/40 text-indigo-400 border border-indigo-900/30">
-                                      {log.affectedModule}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-3 text-slate-300 font-semibold leading-relaxed">
-                                    {log.action}
-                                  </td>
-                                  <td className="px-4 py-3 text-right font-mono text-[10px] text-slate-500">
-                                    {log.recordId}
-                                  </td>
-                                </tr>
-                              ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* SCREEN 7: SYSTEM PLATFORM SCHEMAS */}
               {activeRoute === "/admin/settings" && (
@@ -2874,7 +2549,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                       Generate high-fidelity snapshots of the MediChain wholesale ledger. Download compiled lists of verified catalog products in high-precision Excel format or structural JSON database dumps.
                     </p>
 
-                    <div className="flex gap-3">
+                    <div className="flex flex-col sm:flex-row gap-3">
                       <button
                         onClick={() => handleExportData("excel")}
                         className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg"
@@ -2914,6 +2589,14 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                   </div>
                 </div>
               )}
+
+              {/* SCREEN 8: AUDIT LOGS TRAIL */}
+              {activeRoute === "/admin/audit-logs" && (
+                <AuditLogPanel
+                  auditLogs={auditLogs}
+                  onRefresh={refreshAllData}
+                />
+              )}
             </>
           )}
         </div>
@@ -2935,8 +2618,8 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
               </button>
             </div>
 
-            <form onSubmit={handleSaveProduct} className="p-6 overflow-y-auto space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleSaveProduct} className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-1">
                   <label className="text-slate-500 font-bold block uppercase text-[9px]">Product Name *</label>
                   <input
@@ -2962,7 +2645,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-1">
                   <label className="text-slate-500 font-bold block uppercase text-[9px]">Supplier Manufacturer Company *</label>
                   <input
@@ -2993,7 +2676,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-1">
                   <label className="text-slate-500 font-bold block uppercase text-[9px]">Strength (e.g. 500mg) *</label>
                   <input
@@ -3019,7 +2702,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 <div className="space-y-1">
                   <label className="text-slate-500 font-bold block uppercase text-[9px]">Wholesale MRP (৳) *</label>
                   <input
@@ -3059,7 +2742,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-1">
                   <label className="text-slate-500 font-bold block uppercase text-[9px]">Batch Code Reference *</label>
                   <input

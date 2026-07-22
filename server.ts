@@ -4,6 +4,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import cookieSession from "cookie-session";
 import bcrypt from "bcryptjs";
+import PDFDocument from "pdfkit";
 
 declare global {
   namespace Express {
@@ -32,13 +33,14 @@ app.use(express.urlencoded({ limit: "20mb", extended: true }));
 
 // Stateless concurrent cookie session with strict security guidelines
 const sessionSecret = process.env.SESSION_SECRET;
-if (process.env.NODE_ENV === "production" && !sessionSecret) {
-  console.warn("WARNING: SESSION_SECRET environment variable is missing in production mode. Falling back to default stateless session key.");
+if (!sessionSecret) {
+  console.error("CRITICAL: SESSION_SECRET environment variable is missing!");
+  throw new Error("CRITICAL: SESSION_SECRET environment variable is missing! Configure SESSION_SECRET in your environment.");
 }
 
 app.use(cookieSession({
   name: "session",
-  keys: [sessionSecret || "medichain-production-stateless-key-12345"],
+  keys: [sessionSecret],
   maxAge: 24 * 60 * 60 * 1000, // 24 hours
   httpOnly: true,
   secure: true,
@@ -715,6 +717,89 @@ app.get("/api/orders/:id", requireAuth, async (req, res) => {
   }
 });
 
+function generateInvoicePdf(res: express.Response, order: any, pharmacy: any, invoiceNumber: string) {
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="invoice-${order.id}.pdf"`);
+
+  const doc = new PDFDocument({ margin: 40 });
+  doc.pipe(res);
+
+  // Header
+  doc.fillColor("#0f172a").fontSize(20).text("MediChain B2B Medicine Wholesale", { align: "left" });
+  doc.fontSize(10).fillColor("#64748b").text("Dhaka, Bangladesh | Support: +880 1700-000000 | ops@medichain.bd");
+  doc.moveDown(1.5);
+
+  // Invoice & Order Meta
+  const createdDate = order.createdAt ? new Date(order.createdAt).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB");
+
+  doc.fillColor("#1e293b").fontSize(14).text(`TAX INVOICE: ${invoiceNumber}`, { align: "right" });
+  doc.fontSize(9).fillColor("#64748b").text(`Order Ref: ${order.readableId || order.id}`, { align: "right" });
+  doc.text(`Invoice Date: ${createdDate}`, { align: "right" });
+  doc.text(`Payment Status: ${order.paymentStatus || "Pending"} (${order.paymentMethod || "Credit"})`, { align: "right" });
+  doc.moveDown(1);
+
+  // Customer / Pharmacy Info
+  doc.fontSize(11).fillColor("#0f172a").text("BILLED TO:");
+  doc.fontSize(10).fillColor("#334155").text(pharmacy?.pharmacyName || "Registered Pharmacy Partner");
+  if (pharmacy?.ownerName) doc.text(`Proprietor: ${pharmacy.ownerName}`);
+  if (pharmacy?.phone) doc.text(`Contact Phone: ${pharmacy.phone}`);
+  if (pharmacy?.address) doc.text(`Address: ${pharmacy.address}`);
+  if (pharmacy?.licenseNo) doc.text(`Drug License: ${pharmacy.licenseNo}`);
+  doc.moveDown(1.5);
+
+  // Table Headers
+  const tableTop = doc.y;
+  doc.fontSize(9).fillColor("#0f172a");
+  doc.text("Item Name", 40, tableTop, { width: 180 });
+  doc.text("Strength", 220, tableTop, { width: 80 });
+  doc.text("Qty (Box)", 300, tableTop, { width: 60, align: "right" });
+  doc.text("Unit Price", 370, tableTop, { width: 80, align: "right" });
+  doc.text("Subtotal", 460, tableTop, { width: 90, align: "right" });
+
+  doc.moveTo(40, tableTop + 15).lineTo(550, tableTop + 15).strokeColor("#cbd5e1").stroke();
+
+  let position = tableTop + 22;
+  doc.fontSize(9).fillColor("#334155");
+
+  const items = order.items || [];
+  for (const item of items) {
+    if (position > 700) {
+      doc.addPage();
+      position = 40;
+    }
+    doc.text(item.name || "Medicine Product", 40, position, { width: 180 });
+    doc.text(item.strength || "-", 220, position, { width: 80 });
+    doc.text((item.quantity || 0).toString(), 300, position, { width: 60, align: "right" });
+    doc.text(`BDT ${item.sellingPrice ? item.sellingPrice.toLocaleString() : "0"}`, 370, position, { width: 80, align: "right" });
+    doc.text(`BDT ${item.subtotal ? item.subtotal.toLocaleString() : "0"}`, 460, position, { width: 90, align: "right" });
+    position += 18;
+  }
+
+  doc.moveTo(40, position + 5).lineTo(550, position + 5).strokeColor("#cbd5e1").stroke();
+  position += 15;
+
+  // Breakdown costs & totals
+  const totalMrp = order.totalMrp || order.totalAmount || 0;
+  const totalAmount = order.totalAmount || 0;
+  const totalSavings = order.totalSavings || (totalMrp - totalAmount);
+
+  doc.fontSize(10).fillColor("#0f172a");
+  doc.text(`Gross Catalog MRP: BDT ${totalMrp.toLocaleString()}`, 300, position, { width: 250, align: "right" });
+  position += 15;
+
+  if (totalSavings > 0) {
+    doc.fillColor("#16a34a").text(`Wholesale Partner Savings: - BDT ${totalSavings.toLocaleString()}`, 300, position, { width: 250, align: "right" });
+    position += 15;
+  }
+
+  doc.fontSize(12).fillColor("#0f172a").text(`NET PAYABLE TOTAL: BDT ${totalAmount.toLocaleString()}`, 300, position, { width: 250, align: "right" });
+
+  doc.moveDown(3);
+  doc.fontSize(8).fillColor("#94a3b8").text("Thank you for procuring with MediChain BD. Computer-generated tax invoice — no signature required.", { align: "center" });
+
+  doc.end();
+}
+
 app.get("/api/orders/:id/invoice", requireAuth, async (req, res) => {
   try {
     const order = await dbService.getOrderById(req.params.id);
@@ -722,11 +807,26 @@ app.get("/api/orders/:id/invoice", requireAuth, async (req, res) => {
       return res.status(404).json({ error: "Order not found." });
     }
 
-    res.json({
-      success: true,
-      invoiceUrl: `/invoices/${order.id}.pdf`,
-      orderDetails: order
-    });
+    let pharmacy = null;
+    if (order.pharmacyId) {
+      pharmacy = await dbService.getPharmacyById(order.pharmacyId);
+    }
+
+    let invoiceNumber = `INV-${order.readableId ? order.readableId.replace("MCH-", "") : order.id.substring(0, 8).toUpperCase()}`;
+    try {
+      const { data: inv } = await dbService.supabaseAdmin
+        .from("invoices")
+        .select("invoice_number")
+        .eq("order_id", order.id)
+        .maybeSingle();
+      if (inv?.invoice_number) {
+        invoiceNumber = inv.invoice_number;
+      }
+    } catch (e) {
+      // Fall back to default invoiceNumber
+    }
+
+    generateInvoicePdf(res, order, pharmacy, invoiceNumber);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1406,6 +1506,78 @@ app.get("/api/admin/analytics", requireRole(["Admin"]), async (req, res) => {
       .sort((a, b) => b.quantity - a.quantity)
       .slice(0, 5);
 
+    // a. last7DaysTrend: Aggregate order totals and counts grouped day-by-day for the last 7 calendar days
+    const today = new Date();
+    const daysMap: Record<string, { date: string; dateStr: string; amount: number; count: number }> = {};
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const isoDateStr = d.toISOString().split("T")[0]; // "YYYY-MM-DD"
+      const dateLabel = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      daysMap[isoDateStr] = {
+        date: dateLabel,
+        dateStr: isoDateStr,
+        amount: 0,
+        count: 0
+      };
+    }
+
+    activeOrders.forEach(o => {
+      if (o.createdAt) {
+        const orderDateStr = new Date(o.createdAt).toISOString().split("T")[0];
+        if (daysMap[orderDateStr]) {
+          daysMap[orderDateStr].amount += o.totalAmount;
+          daysMap[orderDateStr].count += 1;
+        }
+      }
+    });
+
+    const last7DaysTrend = Object.values(daysMap);
+
+    // b. topPharmacies: Aggregate and rank top ordering pharmacies by total spend/order volume
+    const pharmaciesList = await dbService.getAllPharmacies();
+    const pharmacyMap = new Map(pharmaciesList.map(p => [p.id, p]));
+
+    const pharmacySpendMap: Record<string, {
+      pharmacyId: string;
+      pharmacyName: string;
+      ownerName: string;
+      city: string;
+      totalSpend: number;
+      orderCount: number;
+    }> = {};
+
+    activeOrders.forEach(o => {
+      const phId = o.pharmacyId;
+      const ph = pharmacyMap.get(phId);
+      const pharmacyName = ph ? ph.pharmacyName : "Unknown Pharmacy";
+      const ownerName = ph ? ph.ownerName : "";
+      const city = ph ? (ph.city || ph.area || "Dhaka") : "Dhaka";
+
+      if (!pharmacySpendMap[phId]) {
+        pharmacySpendMap[phId] = {
+          pharmacyId: phId,
+          pharmacyName,
+          ownerName,
+          city,
+          totalSpend: 0,
+          orderCount: 0
+        };
+      }
+      pharmacySpendMap[phId].totalSpend += o.totalAmount;
+      pharmacySpendMap[phId].orderCount += 1;
+    });
+
+    const topPharmacies = Object.values(pharmacySpendMap)
+      .sort((a, b) => b.totalSpend - a.totalSpend)
+      .slice(0, 10);
+
+    const revenueOverTime = last7DaysTrend.map(d => ({
+      date: d.date,
+      amount: d.amount
+    }));
+
     res.json({
       success: true,
       totalOrders,
@@ -1414,8 +1586,9 @@ app.get("/api/admin/analytics", requireRole(["Admin"]), async (req, res) => {
       pendingRevenue,
       statusDistribution,
       topMedicines,
-      topPharmacies: [],
-      last7DaysTrend: []
+      topPharmacies,
+      last7DaysTrend,
+      revenueOverTime
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -1432,7 +1605,35 @@ app.get("/api/admin/invoices", requireRole(["Admin"]), async (req, res) => {
 });
 
 app.post("/api/admin/invoices/:id/download", requireRole(["Admin"]), async (req, res) => {
-  res.json({ success: true });
+  try {
+    const order = await dbService.getOrderById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ error: "Order not found." });
+    }
+
+    let pharmacy = null;
+    if (order.pharmacyId) {
+      pharmacy = await dbService.getPharmacyById(order.pharmacyId);
+    }
+
+    let invoiceNumber = `INV-${order.readableId ? order.readableId.replace("MCH-", "") : order.id.substring(0, 8).toUpperCase()}`;
+    try {
+      const { data: inv } = await dbService.supabaseAdmin
+        .from("invoices")
+        .select("invoice_number")
+        .eq("order_id", order.id)
+        .maybeSingle();
+      if (inv?.invoice_number) {
+        invoiceNumber = inv.invoice_number;
+      }
+    } catch (e) {
+      // Fall back to default invoiceNumber
+    }
+
+    generateInvoicePdf(res, order, pharmacy, invoiceNumber);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get("/api/admin/export-history", requireRole(["Admin"]), async (req, res) => {
@@ -1482,6 +1683,24 @@ app.post("/api/admin/products", requireRole(["Admin"]), async (req, res) => {
     const existing = await dbService.getProductById(productData.id);
     if (existing && existing.mrp !== productData.mrp) {
       await dbService.logPriceHistory(productData.id, productData.name, existing.mrp, productData.mrp, existing.sellingPrice, productData.sellingPrice, req.user.name);
+    }
+    
+    // Check for significant price drop on frequently ordered items
+    if (existing && productData.sellingPrice < existing.sellingPrice) {
+      const dropAmount = existing.sellingPrice - productData.sellingPrice;
+      const dropPercentage = (dropAmount / existing.sellingPrice) * 100;
+      
+      // Determine if it's frequently ordered (e.g., soldStock > 10)
+      const isFrequentlyOrdered = (existing.soldStock || 0) > 10;
+
+      if (dropPercentage >= 5 && isFrequentlyOrdered) {
+        await dbService.sendNotification(
+          null, // Broadcast to all
+          `Price Drop Alert: ${productData.name}`,
+          `Good news! The wholesale price for ${productData.name}, one of our frequently ordered items, has dropped by ${dropPercentage.toFixed(1)}%. Stock up now!`,
+          "price_drop"
+        );
+      }
     }
 
     const saved = await dbService.addOrUpdateProduct(productData);

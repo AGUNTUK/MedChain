@@ -1,19 +1,34 @@
 import React, { useState, useEffect } from "react";
 import { Bell } from "lucide-react";
 import { notificationService } from "../services/notificationService";
-import { Notification } from "../types";
+import { Notification as AppNotification } from "../types";
 import { supabase } from "../lib/supabaseClient";
 
 export default function NotificationBell() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     notificationService.getNotifications().then(setNotifications).catch(console.error);
 
+    const channelId = `notifications-bell-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
-      .channel('notifications')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, (payload) => {
+      .channel(channelId)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
+        const newNotif = payload.new as AppNotification;
+        if ("Notification" in window && Notification.permission === "granted") {
+          try {
+            new window.Notification(newNotif.title, {
+              body: newNotif.message,
+              icon: "/logo.png"
+            });
+          } catch (e) {
+            console.warn("Could not show system notification", e);
+          }
+        }
+        setNotifications(prev => [newNotif, ...prev]);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'notifications' }, (payload) => {
         notificationService.getNotifications().then(setNotifications).catch(console.error);
       })
       .subscribe();
@@ -30,9 +45,16 @@ export default function NotificationBell() {
     setNotifications(notifications.map(n => n.id === id ? {...n, is_read: true} : n));
   };
 
+  const handleToggle = () => {
+    setIsOpen(!isOpen);
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  };
+
   return (
     <div className="relative">
-      <button onClick={() => setIsOpen(!isOpen)} className="p-2 relative hover:bg-slate-100 rounded-full">
+      <button onClick={handleToggle} className="p-2 relative hover:bg-slate-100 rounded-full">
         <Bell className="w-5 h-5 text-slate-600" />
         {unreadCount > 0 && (
           <span className="absolute top-1 right-1 w-4 h-4 bg-rose-500 rounded-full flex items-center justify-center text-[8px] text-white font-bold">
