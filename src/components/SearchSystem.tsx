@@ -18,7 +18,9 @@ import {
   Clock,
   ThumbsUp,
   AlertCircle,
-  Store
+  Store,
+  Mic,
+  Camera
 } from "lucide-react";
 import { Product, Order } from "../types";
 import { productService } from "../services";
@@ -53,6 +55,8 @@ export default function SearchSystem({
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedFilter, setSelectedFilter] = useState("all");
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isListening, setIsListening] = useState(false);
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -192,6 +196,57 @@ export default function SearchSystem({
     setRecentSearches([]);
   };
 
+  const handleVoiceSearch = async () => {
+    try {
+      // Prompt for microphone permissions if not already granted
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (err) {
+      console.error("Microphone access denied:", err);
+      alert("Microphone access is required for voice search. Please allow microphone access in your browser settings.");
+      return;
+    }
+
+    // @ts-ignore
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      alert("Voice search is not supported in this browser.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setSearch(transcript);
+      setIsListening(false);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error:", event.error);
+      setIsListening(false);
+      if (event.error === 'not-allowed') {
+        alert("Microphone access was blocked. Please enable it in your browser settings to use voice search.");
+      }
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    if (isListening) {
+      recognition.stop();
+    } else {
+      recognition.start();
+    }
+  };
+
   const handleQtyChange = (productId: string, val: number) => {
     const minVal = 1;
     setQuantities(prev => ({
@@ -252,79 +307,28 @@ export default function SearchSystem({
   return (
     <div className="w-full h-full flex flex-col bg-brand-bg select-none">
       {/* Search Header Area */}
-      <div className="p-4 bg-white border-b border-slate-100 flex-shrink-0 shadow-xs flex items-center gap-2">
-        <div className="flex-1 relative flex items-center bg-slate-100 rounded-2xl px-3.5 py-3 focus-within:ring-2 focus-within:ring-brand-purple/20 focus-within:bg-white transition-all border border-transparent focus-within:border-brand-purple/30">
-          <Search className="text-slate-400 w-4 h-4 mr-2" />
-          <input
-            type="text"
-            placeholder="Search brand, generic formula, company..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-transparent border-none outline-none text-xs font-semibold text-slate-800 placeholder-slate-400"
-          />
-          {search && (
+      <div className="p-4 bg-white border-b border-slate-100 flex-shrink-0 shadow-xs flex flex-col gap-3">
+        {/* Top Header Row */}
+        <div className="flex justify-between items-center">
+          <h1 className="text-lg font-black text-brand-charcoal tracking-tight">Products</h1>
+          {onOpenCart && (
             <button
-              onClick={() => {
-                setSearch("");
-                setDebouncedSearch("");
-              }}
-              className="p-1 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-all cursor-pointer"
+              type="button"
+              onClick={onOpenCart}
+              className="p-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 relative cursor-pointer flex items-center justify-center flex-shrink-0 border border-slate-200/40 transition-colors"
             >
-              <X className="w-3.5 h-3.5" />
+              <ShoppingCart className="w-4.5 h-4.5" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-brand-lime text-slate-900 font-extrabold text-[8px] px-1.5 py-0.5 rounded-full min-w-4 text-center">
+                  {cartCount}
+                </span>
+              )}
             </button>
           )}
         </div>
 
-        {onOpenCart && (
-          <button
-            type="button"
-            onClick={onOpenCart}
-            className="p-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 relative cursor-pointer flex items-center justify-center flex-shrink-0 border border-slate-200/40 transition-colors"
-          >
-            <ShoppingCart className="w-4.5 h-4.5" />
-            {cartCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 bg-brand-lime text-slate-900 font-extrabold text-[8px] px-1.5 py-0.5 rounded-full min-w-4 text-center">
-                {cartCount}
-              </span>
-            )}
-          </button>
-        )}
-
-        {/* Spelling Suggestions Bar */}
-        {correctedQuery && (
-          <div className="mt-2 text-[10.5px] text-slate-500 bg-brand-purple/5 border border-brand-purple/10 px-3 py-1.5 rounded-xl flex items-center justify-between">
-            <span className="font-semibold">
-              Showing corrected results for: <strong className="text-brand-purple font-black">{correctedQuery}</strong>
-            </span>
-            <button
-              onClick={() => {
-                setSearch(correctedQuery);
-                setCorrectedQuery(undefined);
-              }}
-              className="text-[9.5px] font-black text-brand-purple underline cursor-pointer"
-            >
-              Use this query
-            </button>
-          </div>
-        )}
-
-        {suggestions.length > 0 && !correctedQuery && (
-          <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Suggestions:</span>
-            {suggestions.map((s, i) => (
-              <button
-                key={i}
-                onClick={() => setSearch(s)}
-                className="bg-brand-purple/5 hover:bg-brand-purple/10 border border-brand-purple/10 text-brand-purple text-[10px] font-bold px-2 py-0.5 rounded-lg transition-all cursor-pointer"
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-        )}
-
         {/* Quick Horizontal Scroll Category Filters */}
-        <div className="flex gap-1.5 overflow-x-auto mt-3 pr-2 scrollbar-none">
+        <div className="flex gap-1.5 overflow-x-auto pr-2 scrollbar-none">
           {categories.map(cat => (
             <button
               key={cat}
@@ -344,7 +348,7 @@ export default function SearchSystem({
         </div>
 
         {/* Sort and Filters */}
-        <div className="flex justify-between items-center mt-3 pt-2.5 border-t border-slate-50">
+        <div className="flex justify-between items-center pt-2.5 border-t border-slate-50">
           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
             {debouncedSearch ? `Catalog Matches (${totalProducts})` : "Instant B2B Procurement"}
           </span>
@@ -367,7 +371,111 @@ export default function SearchSystem({
       </div>
 
       {/* Main Container Area */}
-      <div className="flex-1 overflow-y-auto p-4 pb-24 space-y-4">
+      <div className="flex-1 overflow-y-auto bg-slate-50 relative flex flex-col">
+        {/* Dedicated Full-Width Search Bar Section */}
+        <div className="px-4 pt-4 pb-2 sticky top-0 z-10 bg-slate-50">
+          <div className="relative">
+            <div className="flex items-center bg-white border border-slate-200 shadow-sm rounded-2xl px-4 py-3 min-h-[52px] focus-within:ring-2 focus-within:ring-brand-purple/20 focus-within:border-brand-purple/40 transition-all">
+              <Search className="text-slate-400 w-5 h-5 mr-3 flex-shrink-0" />
+              <input
+                type="text"
+                placeholder="Search by medicine name, generic, or brand..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+                className="w-full bg-transparent border-none outline-none text-sm font-semibold text-slate-800 placeholder-slate-400"
+              />
+              <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                {search && (
+                  <button
+                    onClick={() => {
+                      setSearch("");
+                      setDebouncedSearch("");
+                    }}
+                    className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer mr-1"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+                <button
+                  onClick={handleVoiceSearch}
+                  className={`p-1.5 rounded-full transition-colors cursor-pointer ${
+                    isListening 
+                      ? 'bg-rose-100 text-rose-500 animate-pulse' 
+                      : 'bg-slate-50 hover:bg-slate-100 text-slate-500'
+                  }`}
+                  title="Voice Search"
+                >
+                  <Mic className="w-4.5 h-4.5" />
+                </button>
+                <button className="p-1.5 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 transition-colors cursor-pointer">
+                  <Camera className="w-4.5 h-4.5" />
+                </button>
+              </div>
+            </div>
+            
+            {/* Recent Search Dropdown */}
+            {isSearchFocused && !search && recentSearches.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden z-20 animate-fade-in">
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Recent Searches</span>
+                  <button onMouseDown={(e) => { e.preventDefault(); clearRecentSearches(); }} className="text-[10px] font-bold text-slate-400 hover:text-rose-500 transition-colors uppercase cursor-pointer">Clear All</button>
+                </div>
+                <div>
+                  {recentSearches.map((q, i) => (
+                    <button
+                      key={i}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setSearch(q);
+                      }}
+                      className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-none cursor-pointer"
+                    >
+                      <History className="w-4 h-4 text-slate-300" />
+                      <span className="text-[13px] font-semibold text-slate-700">{q}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Spelling Suggestions Bar */}
+          {correctedQuery && (
+            <div className="mt-2 text-[10.5px] text-slate-500 bg-brand-purple/5 border border-brand-purple/10 px-3 py-1.5 rounded-xl flex items-center justify-between">
+              <span className="font-semibold">
+                Showing corrected results for: <strong className="text-brand-purple font-black">{correctedQuery}</strong>
+              </span>
+              <button
+                onClick={() => {
+                  setSearch(correctedQuery);
+                  setCorrectedQuery(undefined);
+                }}
+                className="text-[9.5px] font-black text-brand-purple underline cursor-pointer"
+              >
+                Use this query
+              </button>
+            </div>
+          )}
+
+          {suggestions.length > 0 && !correctedQuery && (
+            <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Suggestions:</span>
+              {suggestions.map((s, i) => (
+                <button
+                  key={i}
+                  onClick={() => setSearch(s)}
+                  className="bg-brand-purple/5 hover:bg-brand-purple/10 border border-brand-purple/10 text-brand-purple text-[10px] font-bold px-2 py-0.5 rounded-lg transition-all cursor-pointer"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="p-4 pb-24 space-y-4">
         {/* Loading Spinner */}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -380,34 +488,6 @@ export default function SearchSystem({
             {/* Quick Order Cockpit Hub - Shown only when there is no search query */}
             {!debouncedSearch && (
               <div className="space-y-4 mb-5 animate-fade-in">
-                {/* Recent Searches Row */}
-                {recentSearches.length > 0 && (
-                  <div className="bg-white rounded-2xl p-3.5 border border-slate-100/80 shadow-3xs">
-                    <div className="flex justify-between items-center mb-2.5">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-slate-400" /> Recent Searches
-                      </span>
-                      <button
-                        onClick={clearRecentSearches}
-                        className="text-[9px] text-slate-400 hover:text-rose-500 font-bold uppercase transition-colors cursor-pointer"
-                      >
-                        Clear All
-                      </button>
-                    </div>
-                    <div className="flex gap-1.5 flex-wrap">
-                      {recentSearches.map((q, i) => (
-                        <button
-                          key={i}
-                          onClick={() => setSearch(q)}
-                          className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1"
-                        >
-                          <Search className="w-2.5 h-2.5 text-slate-400" /> {q}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 {/* Quick Procurement (Frequently Ordered) */}
                 {frequentProducts.length > 0 && (
                   <div className="space-y-2">
@@ -761,6 +841,7 @@ export default function SearchSystem({
             )}
           </>
         ) : null}
+      </div>
       </div>
     </div>
   );
