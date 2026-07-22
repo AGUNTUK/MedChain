@@ -190,14 +190,14 @@ export default function PharmacyVerificationPanel({
             <p className="text-xs text-slate-400 mt-1">Try adjusting your search query or status filter.</p>
           </div>
         ) : (
-          filteredPharmacies.map((pharm) => {
+          filteredPharmacies.map((pharm, idx) => {
             const isVerified = pharm.verificationStatus === "Approved" || (pharm as any).status === "Verified" || (pharm as any).isVerified;
             const isSuspended = pharm.verificationStatus === "Suspended" || (pharm as any).status === "Suspended";
             const isPending = !isVerified && !isSuspended;
 
             return (
               <div
-                key={pharm.id}
+                key={pharm.id || `pharm-${idx}`}
                 className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between"
               >
                 <div>

@@ -188,8 +188,8 @@ export default function AuditLogPanel({
                   </td>
                 </tr>
               ) : (
-                filteredLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
+                filteredLogs.map((log, idx) => (
+                  <tr key={log.id || `audit-${idx}`} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3.5 px-4">
                       <div className="font-mono font-bold text-slate-800">{log.referenceId || log.id}</div>
                       <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">

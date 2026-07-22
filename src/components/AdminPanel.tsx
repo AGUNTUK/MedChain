@@ -1460,10 +1460,10 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                               <p className="text-xs text-slate-500">No recent wholesale orders detected.</p>
                             ) : (
                               <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
-                                {orders.slice(0, 3).map(o => {
+                                {orders.slice(0, 3).map((o, idx) => {
                                   const orderPharmacy = pharmacies.find(ph => ph.id === o.pharmacyId);
                                   return (
-                                    <div key={o.id} className="bg-slate-900/60 border border-slate-900 p-3 rounded-xl flex items-center justify-between text-xs hover:border-slate-850 transition-all">
+                                    <div key={o.id || `order-${idx}`} className="bg-slate-900/60 border border-slate-900 p-3 rounded-xl flex items-center justify-between text-xs hover:border-slate-850 transition-all">
                                       <div className="flex items-center gap-3">
                                         <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
                                           <ShoppingCart className="w-3.5 h-3.5" />
@@ -1493,8 +1493,8 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                           <div>
                             <h3 className="text-xs font-black text-white uppercase tracking-wider mb-3">Recent Pharmacy Enlistments</h3>
                             <div className="space-y-2">
-                              {pharmacies.slice(0, 3).map(ph => (
-                                <div key={ph.id} className="bg-slate-900/60 border border-slate-900 p-3 rounded-xl flex items-center justify-between text-xs">
+                              {pharmacies.slice(0, 3).map((ph, idx) => (
+                                <div key={ph.id || `ph-${idx}`} className="bg-slate-900/60 border border-slate-900 p-3 rounded-xl flex items-center justify-between text-xs">
                                   <div className="flex items-center gap-3">
                                     <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
                                       <Store className="w-3.5 h-3.5" />
@@ -1576,10 +1576,10 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                                   paddingAngle={4}
                                   dataKey="value"
                                 >
-                                  <Cell fill="#f59e0b" />
-                                  <Cell fill="#6366f1" />
-                                  <Cell fill="#10b981" />
-                                  <Cell fill="#f43f5e" />
+                                  <Cell key="pie-cell-0" fill="#f59e0b" />
+                                  <Cell key="pie-cell-1" fill="#6366f1" />
+                                  <Cell key="pie-cell-2" fill="#10b981" />
+                                  <Cell key="pie-cell-3" fill="#f43f5e" />
                                 </Pie>
                                 <Tooltip contentStyle={{ backgroundColor: "#020617", borderColor: "#1e293b", fontSize: "10px" }} />
                               </PieChart>
@@ -1625,11 +1625,11 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                                 cursor={{ fill: "#1e293b", opacity: 0.2 }}
                               />
                               <Bar dataKey="stock" fill="#10b981" radius={[4, 4, 0, 0]}>
-                                <Cell fill="#10b981" />
-                                <Cell fill="#06b6d4" />
-                                <Cell fill="#6366f1" />
-                                <Cell fill="#3b82f6" />
-                                <Cell fill="#f59e0b" />
+                                <Cell key="bar-cell-0" fill="#10b981" />
+                                <Cell key="bar-cell-1" fill="#06b6d4" />
+                                <Cell key="bar-cell-2" fill="#6366f1" />
+                                <Cell key="bar-cell-3" fill="#3b82f6" />
+                                <Cell key="bar-cell-4" fill="#f59e0b" />
                               </Bar>
                             </BarChart>
                           </ResponsiveContainer>
@@ -1922,8 +1922,8 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                         {importHistory.length === 0 ? (
                           <p className="text-[10px] text-slate-600 italic">No historical catalog uploads logged yet.</p>
                         ) : (
-                          importHistory.map(hist => (
-                            <div key={hist.id} className="bg-slate-900/40 border border-slate-900 p-2.5 rounded-lg flex items-center justify-between text-[11px]">
+                          importHistory.map((hist, idx) => (
+                            <div key={hist.id || `hist-${idx}`} className="bg-slate-900/40 border border-slate-900 p-2.5 rounded-lg flex items-center justify-between text-[11px]">
                               <div className="space-y-0.5 text-left">
                                 <p className="font-extrabold text-slate-300 truncate max-w-[200px]">{hist.fileName}</p>
                                 <p className="text-[9px] text-slate-500 font-bold">{new Date(hist.date).toLocaleString()} • by {hist.importedBy}</p>
@@ -1969,8 +1969,8 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                               const matchesCompany = !prodCompanyFilter || p.company.toLowerCase().includes(prodCompanyFilter.toLowerCase());
                               return matchesSearch && matchesCategory && matchesCompany;
                             })
-                            .map(p => (
-                              <tr key={p.id} className="hover:bg-slate-900/40 group">
+                            .map((p, idx) => (
+                              <tr key={p.id || `prod-${idx}`} className="hover:bg-slate-900/40 group">
                                 <td className="p-4">
                                   <div className="flex items-center gap-3">
                                     <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[10px] text-indigo-400 font-extrabold uppercase overflow-hidden">
@@ -2103,13 +2103,13 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                               }
                               return matchesSearch && matchesLowStock && matchesExpiry;
                             })
-                            .map(p => {
+                            .map((p, idx) => {
                               const daysToExpiry = getDaysToExpiry(p.expiryDate);
                               const isEditing = editingInvId === p.id;
                               const isLow = p.availableStock < lowStockThreshold;
 
                               return (
-                                <tr key={p.id} className="hover:bg-slate-900/40">
+                                <tr key={p.id || `inv-${idx}`} className="hover:bg-slate-900/40">
                                   <td className="p-4">
                                     <p className="font-bold text-white text-xs">{p.name}</p>
                                     <p className="text-[10px] text-slate-500">{p.company} • {p.strength}</p>
@@ -2234,12 +2234,12 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                           <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
                             {orders
                               .filter(o => o.id.toLowerCase().includes(orderSearch.toLowerCase()) || o.pharmacyId.toLowerCase().includes(orderSearch.toLowerCase()))
-                              .map(o => {
+                              .map((o, idx) => {
                                 const isSelected = selectedOrderDetails?.id === o.id;
                                 const orderPharmacy = pharmacies.find(ph => ph.id === o.pharmacyId);
                                 return (
                                   <div
-                                    key={o.id}
+                                    key={o.id || `order-${idx}`}
                                     onClick={() => setSelectedOrderDetails(o)}
                                     className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between text-xs ${
                                       isSelected ? "border-indigo-500 bg-indigo-500/5 shadow" : "border-slate-900 bg-slate-950 hover:border-slate-850"
@@ -2445,8 +2445,8 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                             <tbody className="divide-y divide-slate-850 bg-slate-950/40">
                               {pharmacies
                                 .filter(ph => ph.pharmacyName.toLowerCase().includes(financeSearch.toLowerCase()))
-                                .map(ph => (
-                                  <tr key={ph.id} className="hover:bg-slate-900/40 transition-colors">
+                                .map((ph, idx) => (
+                                  <tr key={ph.id || `ph-${idx}`} className="hover:bg-slate-900/40 transition-colors">
                                     <td className="px-4 py-3">
                                       <p className="font-extrabold text-white">{ph.pharmacyName}</p>
                                       <p className="text-[10px] text-slate-500 font-bold">{ph.city}</p>

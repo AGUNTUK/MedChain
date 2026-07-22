@@ -238,9 +238,9 @@ export default function AdminNotificationCenter({
               </div>
             ) : (
               /* NOTIFICATION LIST */
-              filteredNotifications.map((notif) => (
+              filteredNotifications.map((notif, idx) => (
                 <div
-                  key={notif.id}
+                  key={notif.id || `notif-${idx}`}
                   className={`p-3 rounded-xl border transition-all text-xs flex items-start gap-3 ${
                     (notif.is_read || (notif as any).isRead)
                       ? "bg-slate-50 border-slate-200 text-slate-600 opacity-80"
