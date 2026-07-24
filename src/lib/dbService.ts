@@ -636,7 +636,7 @@ const mapProduct = (p: any): Product => {
   };
 };
 
-export async function getProductsRaw(): Promise<Product[]> {
+export async function getProductsRaw(limit = 1000): Promise<Product[]> {
   try {
     let { data, error } = await supabaseAdmin
       .from("products")
@@ -649,11 +649,12 @@ export async function getProductsRaw(): Promise<Product[]> {
           batch_number,
           expiry_date
         )
-      `);
+      `)
+      .limit(limit);
 
     if (error || !data) {
       console.warn("Products query with inventory join failed, falling back to products table:", error?.message);
-      const fallback = await supabaseAdmin.from("products").select("*");
+      const fallback = await supabaseAdmin.from("products").select("*").limit(limit);
       if (fallback.error || !fallback.data) {
         console.error("Products fallback query failed:", fallback.error?.message);
         return [];

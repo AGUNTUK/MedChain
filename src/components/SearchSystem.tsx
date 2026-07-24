@@ -150,7 +150,7 @@ export default function SearchSystem({
           category: selectedCategory !== "All" ? selectedCategory : undefined,
           filter: selectedFilter !== "all" ? (selectedFilter as any) : undefined,
           page,
-          limit: 10
+          limit: 50
         });
 
         if (page === 1) {

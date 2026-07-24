@@ -33,31 +33,10 @@ export async function processPrescriptionOCR(req: Request, res: Response) {
     let rawText = "";
     let structuredResult = { medicines: [] as any[] };
 
-    const isSample1 = originalname === "sample_daily_bulk_list.png" || originalname.includes("daily_bulk_list");
-    const isSample2 = originalname === "sample_beximco_square_restock.png" || originalname.includes("beximco_square_restock");
-
-    if (isSample1 || isSample2) {
-      console.log(`[OCR Orchestrator] Intercepted simulation preset: ${originalname}`);
-      if (isSample1) {
-        rawText = "NAPA EXTRA TABLET 500mg - 10 boxes\nSECLO 20mg CAPSULE - 15 boxes\nORSALINE SACHET - 20 sachet";
-        structuredResult.medicines = [
-          { brand_name: "Napa Extra", generic_name: "Paracetamol", strength: "500mg", quantity: 10, dosage_form: "Tablet" },
-          { brand_name: "Seclo", generic_name: "Omeprazole", strength: "20mg", quantity: 15, dosage_form: "Capsule" },
-          { brand_name: "Orsaline", generic_name: "Oral Rehydration Salts", strength: "Generic", quantity: 20, dosage_form: "Sachet" }
-        ];
-      } else {
-        rawText = "NAPA EXTEND 665mg - 20 boxes\nALATROL 10mg - 12 boxes\nCORAL-D TABLET - 10 boxes";
-        structuredResult.medicines = [
-          { brand_name: "Napa Extend", generic_name: "Paracetamol", strength: "665mg", quantity: 20, dosage_form: "Tablet" },
-          { brand_name: "Alatrol", generic_name: "Cetirizine Hydrochloride", strength: "10mg", quantity: 12, dosage_form: "Tablet" },
-          { brand_name: "Coral-D", generic_name: "Calcium + Vitamin D3", strength: "500mg + 200IU", quantity: 10, dosage_form: "Tablet" }
-        ];
-      }
-    } else {
-      // --- STAGE 1: Raw Text Extraction via Local Tesseract OCR with Gemini Fallback ---
-      try {
-        const ocrResult = await OcrExtractionService.extractText(buffer, originalname, mimetype);
-        rawText = ocrResult.raw_text;
+    // --- STAGE 1: Raw Text Extraction via Local Tesseract OCR with Gemini Fallback ---
+    try {
+      const ocrResult = await OcrExtractionService.extractText(buffer, originalname, mimetype);
+      rawText = ocrResult.raw_text;
       } catch (ocrErr: any) {
         console.warn("[OCR Orchestrator] Stage 1 (Local Tesseract) failed, trying Gemini API fallback:", ocrErr.message || ocrErr);
         if (process.env.GEMINI_API_KEY) {
@@ -161,7 +140,6 @@ export async function processPrescriptionOCR(req: Request, res: Response) {
           });
         }
       }
-    }
 
     if (!structuredResult.medicines || structuredResult.medicines.length === 0) {
       return res.json({
@@ -175,56 +153,34 @@ export async function processPrescriptionOCR(req: Request, res: Response) {
     console.log(`[OCR Orchestrator] Stage 2 success. Extracted ${structuredResult.medicines.length} medicines.`);
 
     // --- STAGE 3: Real Catalog B2B Database Matching ---
-    let allProducts = [];
-    try {
-      allProducts = await dbService.getProductsRaw();
-    } catch (dbErr: any) {
-      console.warn("[OCR Orchestrator Warning] Could not fetch products from wholesale catalog database, skipping matching:", dbErr.message);
-    }
-
-    const matchedMedicines = structuredResult.medicines.map((med) => {
+    const matchedMedicines = [];
+    
+    for (const med of structuredResult.medicines) {
       let matchedProduct = null;
-      let highestScore = 0;
+      let matchConfidence = 0.0;
 
-      if (allProducts.length > 0) {
-        // Normalize strings for robust matching
-        const normBrand = (med.brand_name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-        const normGeneric = (med.generic_name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-        const normStrength = (med.strength || "").toLowerCase().replace(/\s/g, "");
+      if (med.brand_name || med.generic_name) {
+        const queryTerm = med.brand_name || med.generic_name;
+        try {
+          const { data: matchedProds } = await dbService.supabaseAdmin.from("products")
+            .select("*")
+            .or(`name.ilike.%${queryTerm}%,generic_name.ilike.%${queryTerm}%`)
+            .limit(1);
 
-        for (const product of allProducts) {
-          const prodName = product.name.toLowerCase().replace(/[^a-z0-9]/g, "");
-          const prodGeneric = product.genericName.toLowerCase().replace(/[^a-z0-9]/g, "");
-          const prodStrength = product.strength.toLowerCase().replace(/\s/g, "");
-
-          let currentScore = 0;
-
-          // 1. Brand name similarity
-          if (normBrand && (prodName.includes(normBrand) || normBrand.includes(prodName))) {
-            currentScore += 50;
-            if (prodName === normBrand) currentScore += 30; // exact match bonus
+          if (matchedProds && matchedProds.length > 0) {
+            const rawProd = matchedProds[0];
+            const fullProd = await dbService.getProductById(rawProd.id);
+            if (fullProd) {
+              matchedProduct = fullProd;
+              matchConfidence = 0.95;
+            }
           }
-
-          // 2. Generic name similarity
-          if (normGeneric && (prodGeneric.includes(normGeneric) || normGeneric.includes(prodGeneric))) {
-            currentScore += 30;
-            if (prodGeneric === normGeneric) currentScore += 20; // exact match bonus
-          }
-
-          // 3. Strength match
-          if (normStrength && (prodStrength.includes(normStrength) || normStrength.includes(prodStrength))) {
-            currentScore += 20;
-          }
-
-          // Strict threshold to prevent false positives
-          if (currentScore > highestScore && currentScore >= 40) {
-            highestScore = currentScore;
-            matchedProduct = product;
-          }
+        } catch (dbErr) {
+          console.warn("[OCR Orchestrator Warning] DB lookup failed for", queryTerm, dbErr);
         }
       }
 
-      return {
+      matchedMedicines.push({
         brand_name: med.brand_name,
         generic_name: med.generic_name,
         strength: med.strength,
@@ -241,9 +197,9 @@ export async function processPrescriptionOCR(req: Request, res: Response) {
           category: matchedProduct.category,
           imageUrl: matchedProduct.imageUrl || matchedProduct.image_url
         } : null,
-        matchConfidence: highestScore > 0 ? parseFloat((highestScore / 100).toFixed(2)) : 0.0
-      };
-    });
+        matchConfidence: matchConfidence
+      });
+    }
 
     // 4. Return integrated multi-stage results
     return res.json({

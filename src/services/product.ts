@@ -9,18 +9,25 @@ export const productService = {
   /**
    * Fetches the B2B wholesale product catalog with optional query, category, or deals filter parameters.
    */
-  async getProducts(params?: { search?: string; category?: string; filter?: "deals" | "frequent" | "low_stock" }): Promise<Product[]> {
+  async getProducts(params?: { search?: string; category?: string; filter?: "deals" | "frequent" | "low_stock"; page?: number; limit?: number }): Promise<Product[]> {
     const q = new URLSearchParams();
     if (params?.search) q.append("search", params.search);
     if (params?.category) q.append("category", params.category);
     if (params?.filter) q.append("filter", params.filter);
+    
+    // Always enforce pagination limits to prevent payload overflow
+    q.append("page", (params?.page || 1).toString());
+    q.append("limit", (params?.limit || 50).toString());
 
     const queryStr = q.toString() ? `?${q.toString()}` : "";
     const res = await fetch(`/api/products${queryStr}`);
     if (!res.ok) {
       throw new Error("Failed to fetch product list from MediChain catalog.");
     }
-    return res.json();
+    
+    const data = await res.json();
+    // Support both paginated array and direct array response depending on what server returns
+    return Array.isArray(data) ? data : (data.products || []);
   },
 
   /**

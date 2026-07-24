@@ -195,6 +195,45 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
+// --- DIAGNOSTIC ENDPOINTS ---
+app.post("/api/diagnostic/verify-cart-products", requireAuth, async (req, res) => {
+  try {
+    const { productIds } = req.body;
+    let targetIds = productIds || [];
+
+    if (!targetIds || targetIds.length === 0) {
+      const cartItems = await dbService.getCart(req.user.id);
+      targetIds = cartItems.map((item: any) => String(item.productId || "").trim()).filter(Boolean);
+    }
+
+    const { data: allProducts, error } = await supabaseAdmin.from("products").select("id, name").in("id", targetIds);
+    if (error) throw error;
+    const productMap = new Map();
+    (allProducts || []).forEach((p: any) => productMap.set(String(p.id).trim().toLowerCase(), p));
+
+    const summary = {
+      totalProductsInDb: allProducts?.length || 0,
+      targetIdsToCheck: targetIds,
+      found: [] as any[],
+      missing: [] as string[],
+      dbSampleIds: (allProducts || []).slice(0, 10).map((p: any) => ({ id: p.id, name: p.name }))
+    };
+
+    for (const id of targetIds) {
+      const normalizedId = String(id).trim().toLowerCase();
+      if (productMap.has(normalizedId)) {
+        summary.found.push({ requestedId: id, foundId: productMap.get(normalizedId).id, name: productMap.get(normalizedId).name });
+      } else {
+        summary.missing.push(id);
+      }
+    }
+
+    res.json(summary);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- AUTHENTICATION & SESSION ENDPOINTS ---
 
 app.post("/api/auth/local-signup", loginLimiter, async (req, res) => {
@@ -405,8 +444,9 @@ app.post("/api/pharmacy/profile", requireAuth, async (req, res) => {
 
 app.get("/api/categories", async (req, res) => {
   try {
-    const allProducts = await dbService.getProductsRaw();
-    const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Boolean)));
+    const { data, error } = await supabaseAdmin.from("products").select("category_name_fallback");
+    if (error) throw error;
+    const categories = Array.from(new Set(data.map((p: any) => p.category_name_fallback).filter(Boolean)));
     res.json(categories);
   } catch (err) {
     console.error("Error fetching categories:", err);
@@ -418,34 +458,100 @@ app.get("/api/products", async (req, res) => {
   const { search, category, filter, page, limit, paginate } = req.query;
 
   const pageNum = parseInt(page as string) || 1;
-  const limitNum = parseInt(limit as string) || 12;
+  const limitNum = parseInt(limit as string) || 50;
   const searchQuery = (search as string) || "";
 
   try {
-    const allProducts = await dbService.getProductsRaw();
-    const result = performSearch(allProducts, searchQuery, {
-      category: category as string,
-      filter: filter as any,
-      page: pageNum,
-      pageSize: limitNum,
+    const from = (pageNum - 1) * limitNum;
+    const to = from + limitNum - 1;
+
+    let query = supabaseAdmin
+      .from("products")
+      .select("*, inventory(available_stock, reserved_stock, sold_stock, batch_number, expiry_date)", { count: "exact" })
+      .range(from, to);
+
+    if (searchQuery) {
+      query = query.or(`name.ilike.%${searchQuery}%,generic_name.ilike.%${searchQuery}%`);
+    }
+
+    if (category && category !== "All") {
+      query = query.eq("category_name_fallback", category);
+    }
+
+    // Sort Filters
+    if (filter === "deals") {
+      query = query.order("discount_percentage", { ascending: false });
+    } else if (filter === "low_stock") {
+      query = query.lte("stock_quantity", 150);
+    }
+
+    const { data: rawProducts, count, error } = await query;
+    
+    if (error) {
+      console.error("Supabase products pagination query failed:", error);
+      throw error;
+    }
+
+    const mappedProducts = (rawProducts || []).map((p: any) => {
+      // Map to frontend Product type
+      const inv = p.inventory && Array.isArray(p.inventory) ? p.inventory[0] : (p.inventory || null);
+      const mrpVal = p.mrp !== undefined && p.mrp !== null ? parseFloat(p.mrp) : 0;
+      let sellingVal = 0;
+      if (p.selling_price !== undefined && p.selling_price !== null && p.selling_price !== "") {
+        sellingVal = parseFloat(p.selling_price);
+      } else if (p.sellingPrice !== undefined && p.sellingPrice !== null && p.sellingPrice !== "") {
+        sellingVal = parseFloat(p.sellingPrice);
+      } else {
+        sellingVal = mrpVal;
+      }
+      const stockVal = p.stock_quantity !== undefined && p.stock_quantity !== null && p.stock_quantity !== ""
+        ? parseInt(p.stock_quantity, 10)
+        : (inv ? (inv.available_stock ?? 0) : (p.availableStock ?? 0));
+
+      return {
+        id: String(p.id || "").trim(),
+        name: p.name || "Pharmaceutical Item",
+        genericName: p.generic_name || p.genericName || "Generic Medicine",
+        company: p.company || "MediChain Partner",
+        category: p.category_name_fallback || p.category_id || p.category || "Tablet",
+        strength: p.strength || "N/A",
+        packSize: p.pack_size || p.packSize || "10x10 Box",
+        mrp: mrpVal,
+        sellingPrice: sellingVal,
+        discountPercentage: p.discount_percentage ? parseFloat(p.discount_percentage) : (mrpVal > 0 ? Math.round(((mrpVal - sellingVal) / mrpVal) * 100) : 0),
+        availableStock: stockVal,
+        reservedStock: inv ? (inv.reserved_stock ?? 0) : 0,
+        soldStock: inv ? (inv.sold_stock ?? 0) : 0,
+        batchNumber: p.batch_number || (inv ? (inv.batch_number || "") : "") || "B-MCH2026",
+        expiryDate: p.expiry_date || (inv ? (inv.expiry_date || "") : "") || "2027-12-31",
+        imageUrl: p.image_url || p.imageUrl || undefined,
+        image_url: p.image_url || p.imageUrl || undefined
+      };
     });
 
-    if (paginate === "true") {
-      return res.json(result);
+    if (filter === "frequent") {
+      mappedProducts.sort((a, b) => b.soldStock - a.soldStock);
     }
 
-    if (searchQuery || (category && category !== "All") || filter) {
-      const unpaginatedResult = performSearch(allProducts, searchQuery, {
-        category: category as string,
-        filter: filter as any,
-        page: 1,
-        pageSize: 999999,
+    if (paginate === "true" || page || limit) {
+      const total = count || 0;
+      const pages = Math.ceil(total / limitNum);
+      return res.json({
+        products: mappedProducts,
+        total,
+        page: pageNum,
+        pageSize: limitNum,
+        pages,
+        suggestions: [], // Server-side search doesn't do suggestions in this simplified query
+        originalQuery: searchQuery,
+        correctedQuery: undefined
       });
-      return res.json(unpaginatedResult.products);
     }
 
-    res.json(allProducts);
+    // Default return for non-paginated requests, although now it respects limit=50 by default
+    res.json(mappedProducts);
   } catch (err: any) {
+    console.error("Products Fetch Error:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -711,13 +817,7 @@ app.post("/api/orders", requireAuth, async (req, res) => {
         if (directProd) {
           productMap.set(normalizedId, directProd);
         } else {
-          const allProds = await dbService.getProductsRaw();
-          const foundInAll = allProds.find((p: any) => String(p.id).trim().toLowerCase() === normalizedId);
-          if (foundInAll) {
-            productMap.set(normalizedId, foundInAll);
-          } else {
-            return res.status(400).json({ error: "Selected product no longer exists in catalog" });
-          }
+          return res.status(400).json({ error: "Selected product no longer exists in catalog" });
         }
       }
     }
@@ -1051,15 +1151,6 @@ app.post("/api/prescription/upload", requireAuth, ocrLimiter, async (req, res) =
 
   try {
     let resultJson: any[] = [];
-    const allProds = await dbService.getProductsRaw();
-    const availableProductsList = allProds.map(p => ({
-      id: p.id,
-      name: p.name,
-      genericName: p.genericName,
-      strength: p.strength,
-      mrp: p.mrp,
-      price: p.sellingPrice
-    }));
 
     if (process.env.GEMINI_API_KEY) {
       const aiClient = new GoogleGenAI({
@@ -1074,19 +1165,13 @@ app.post("/api/prescription/upload", requireAuth, ocrLimiter, async (req, res) =
           {
             text: `You are an expert pharmaceutical procurement auditor. Analyze this handwritten medicine list or medical prescription image.
 Identify all the medicine names, strengths, brand/generic words, and required quantities.
-Match the extracted entries with our actual catalog products listed below:
-${JSON.stringify(availableProductsList, null, 2)}
 
 Provide your analysis strictly in JSON format matching this schema:
 [
   {
     "query": "Extracted text brand/generic name with strength",
-    "matchedProductId": "id matching our catalog product, or null if absolutely no catalog product fits",
-    "matchedProductName": "name of matched catalog product, or null",
-    "matchedProductPrice": 0, // matching sellingPrice
     "strength": "strength if found",
-    "quantitySuggested": 10, // suggest a reasonable B2B bulk quantity (e.g. 5, 10, 20 boxes) to order based on the written amount or standard depot stock
-    "confidence": 0.95 // confidence of catalog matching between 0.0 and 1.0
+    "quantitySuggested": 10 // suggest a reasonable B2B bulk quantity (e.g. 5, 10, 20 boxes) to order based on the written amount or standard depot stock
   }
 ]
 Reply with only the JSON array structure. No backticks, no markdown, no conversational text.`
@@ -1100,14 +1185,10 @@ Reply with only the JSON array structure. No backticks, no markdown, no conversa
               type: Type.OBJECT,
               properties: {
                 query: { type: Type.STRING },
-                matchedProductId: { type: Type.STRING },
-                matchedProductName: { type: Type.STRING },
-                matchedProductPrice: { type: Type.NUMBER },
                 strength: { type: Type.STRING },
-                quantitySuggested: { type: Type.INTEGER },
-                confidence: { type: Type.NUMBER }
+                quantitySuggested: { type: Type.INTEGER }
               },
-              required: ["query", "quantitySuggested", "confidence"]
+              required: ["query", "quantitySuggested"]
             }
           }
         }
@@ -1116,27 +1197,25 @@ Reply with only the JSON array structure. No backticks, no markdown, no conversa
       const rawText = response.text || "[]";
       resultJson = JSON.parse(rawText.trim());
     } else {
-      console.log("No GEMINI_API_KEY found, running realistic pharmaceutical heuristic parser...");
-      resultJson = [
-        {
-          query: "Napa Extra 500mg",
-          matchedProductId: allProds[0]?.id || "prod_1",
-          matchedProductName: allProds[0]?.name || "Napa Extra",
-          matchedProductPrice: allProds[0]?.sellingPrice || 360,
-          strength: "500mg + 65mg",
-          quantitySuggested: 10,
-          confidence: 0.98
-        }
-      ];
+      return res.status(500).json({ error: "OCR processing failed: GEMINI_API_KEY is not configured on the server." });
     }
 
     const enrichedResults = [];
     for (const resItem of resultJson) {
-      if (resItem.matchedProductId) {
-        const product = await dbService.getProductById(resItem.matchedProductId);
+      // Use Supabase text search for matching instead of pulling 21k records
+      const { data: matchedProds } = await supabaseAdmin.from("products")
+        .select("*")
+        .or(`name.ilike.%${resItem.query}%,generic_name.ilike.%${resItem.query}%`)
+        .limit(1);
+
+      if (matchedProds && matchedProds.length > 0) {
+        const product = await dbService.getProductById(matchedProds[0].id);
         if (product) {
           enrichedResults.push({
-            ...resItem,
+            query: resItem.query,
+            quantitySuggested: resItem.quantitySuggested,
+            confidence: 0.95,
+            matchedProductId: product.id,
             matchedProductName: product.name,
             matchedProductPrice: product.sellingPrice,
             strength: product.strength,
@@ -1148,7 +1227,14 @@ Reply with only the JSON array structure. No backticks, no markdown, no conversa
           continue;
         }
       }
-      enrichedResults.push(resItem);
+      
+      enrichedResults.push({
+        query: resItem.query,
+        quantitySuggested: resItem.quantitySuggested,
+        confidence: 0,
+        matchedProductId: null,
+        matchedProductName: null
+      });
     }
 
     const prescription = await dbService.createPrescription(
