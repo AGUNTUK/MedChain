@@ -18,6 +18,7 @@ declare global {
 import { importBulkCatalog } from "./src/lib/importService.js";
 import { performSearch } from "./src/lib/searchService.js";
 import { validateProduct, checkDuplicate } from "./src/lib/productValidator.js";
+import { supabaseAdmin } from "./src/lib/supabaseAdmin.js";
 import * as dbService from "./src/lib/dbService.js";
 import ocrRouter from "./src/routes/ocrRoutes.js";
 
@@ -674,13 +675,60 @@ app.post("/api/orders", requireAuth, async (req, res) => {
 
   try {
     const cartItems = await dbService.getCart(req.user.id);
-    if (cartItems.length === 0) {
+    if (!cartItems || cartItems.length === 0) {
       return res.status(400).json({ error: "Your cart is empty." });
+    }
+
+    const itemIds = cartItems.map((item: any) => String(item.productId || "").trim()).filter(Boolean);
+    if (itemIds.length === 0) {
+      return res.status(400).json({ error: "No valid product items in your cart." });
+    }
+
+    // Use supabaseAdmin (service role client) to ensure RLS does not block product verification
+    let { data: products, error } = await supabaseAdmin
+      .from('products')
+      .select('*')
+      .in('id', itemIds);
+
+    if (error) {
+      console.error("Error querying products during order creation:", error);
+      return res.status(400).json({ error: `Failed to query products: ${error.message}` });
+    }
+
+    // Normalize map keys for case-insensitive and trimmed UUID lookup
+    const productMap = new Map<string, any>();
+    (products || []).forEach((p: any) => {
+      if (p.id) {
+        productMap.set(String(p.id).trim().toLowerCase(), p);
+      }
+    });
+
+    // Strict verification for any missing products against database catalog
+    for (const itemId of itemIds) {
+      const normalizedId = String(itemId).trim().toLowerCase();
+      if (!productMap.has(normalizedId)) {
+        const directProd = await dbService.getProductById(itemId);
+        if (directProd) {
+          productMap.set(normalizedId, directProd);
+        } else {
+          const allProds = await dbService.getProductsRaw();
+          const foundInAll = allProds.find((p: any) => String(p.id).trim().toLowerCase() === normalizedId);
+          if (foundInAll) {
+            productMap.set(normalizedId, foundInAll);
+          } else {
+            return res.status(400).json({ error: "Selected product no longer exists in catalog" });
+          }
+        }
+      }
     }
 
     const pharmacy = await dbService.getPharmacyProfile(req.user.id);
     if (!pharmacy) {
       return res.status(400).json({ error: "Pharmacy verification profile not found." });
+    }
+
+    if (pharmacy.verificationStatus !== "Approved") {
+      return res.status(400).json({ error: "Your pharmacy profile is pending DGDA drug license verification" });
     }
 
     const result = await dbService.createOrderTransaction(req.user.id, pharmacy.id, {
