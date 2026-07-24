@@ -74,7 +74,7 @@ export default function FloatingCartBar({
   return (
     <>
       {/* 1. FLOATING BOTTOM CART BAR (STICKY FOOTER) */}
-      <div className="fixed bottom-16 left-0 right-0 z-30 px-3 pointer-events-none flex justify-center">
+      <div className="fixed bottom-[calc(max(12px,env(safe-area-inset-bottom))+68px)] left-0 right-0 z-30 px-3 pointer-events-none flex justify-center">
         <motion.div
           ref={barRef}
           initial={{ y: 80, opacity: 0, scale: 0.95 }}

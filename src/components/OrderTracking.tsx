@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Check, Compass, Truck, RefreshCw, Layers, Calendar, Phone } from "lucide-react";
+import { ArrowLeft, Check, Compass, Truck, RefreshCw, Layers, Calendar, Phone, KeyRound } from "lucide-react";
 import { Order, OrderStatus } from "../types";
 import { orderService } from "../services";
-import { formatRefId, generateOrderOTP } from "../lib/utils";
+import { formatRefId } from "../lib/utils";
 
 interface OrderTrackingProps {
   orderId: string;
+  userRole?: string;
   onBack: () => void;
   onRefreshStats: () => void;
 }
 
-export default function OrderTracking({ orderId, onBack, onRefreshStats }: OrderTrackingProps) {
+export default function OrderTracking({ orderId, userRole, onBack, onRefreshStats }: OrderTrackingProps) {
   const [order, setOrder] = useState<Order | null>(null);
-  const [loading, setLoading] = useState(false);
 
   const fetchOrder = async () => {
     try {
@@ -26,20 +26,6 @@ export default function OrderTracking({ orderId, onBack, onRefreshStats }: Order
   useEffect(() => {
     fetchOrder();
   }, [orderId]);
-
-  // Handle mock tracking stepping
-  const handleUpdateStatus = async (nextStatus: OrderStatus) => {
-    setLoading(true);
-    try {
-      await orderService.updateOrderStatus(orderId, nextStatus);
-      await fetchOrder();
-      onRefreshStats();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (!order) {
     return (
@@ -90,7 +76,7 @@ export default function OrderTracking({ orderId, onBack, onRefreshStats }: Order
             <ArrowLeft className="w-4 h-4 text-slate-600" />
           </button>
           <div>
-            <h2 className="text-sm font-black text-brand-charcoal">Depot Order Tracking</h2>
+            <h2 className="text-sm font-black text-brand-charcoal">{userRole === "Pharmacy Owner" ? "Track My Order" : "Depot Order Tracking"}</h2>
             <p className="text-[10px] text-slate-400 font-mono font-bold">{formatRefId(order.id, "ORD")}</p>
           </div>
         </div>
@@ -151,7 +137,7 @@ export default function OrderTracking({ orderId, onBack, onRefreshStats }: Order
               <span className="text-[8px] text-brand-purple font-black uppercase tracking-wider block font-bold">Secure Rider Handover</span>
               <div className="flex items-center gap-1.5 mt-1">
                 <span className="bg-brand-purple text-white font-mono font-black text-xs px-2 py-0.5 rounded shadow-sm">
-                  OTP: {generateOrderOTP(order.id)}
+                  OTP: {order.handoverOtp || "------"}
                 </span>
                 <span className="text-[8.5px] text-slate-500 font-semibold leading-tight">Provide OTP only after checking goods</span>
               </div>
@@ -216,36 +202,22 @@ export default function OrderTracking({ orderId, onBack, onRefreshStats }: Order
         </div>
       </div>
 
-      {/* Simulator Stepper Controls (Exclusive for applet demonstration!) */}
-      <div className="p-4 bg-white border-t border-slate-100 rounded-t-3xl shadow-xl flex-shrink-0 mt-4 text-center">
-        <h4 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3 flex items-center justify-center gap-1.5">
-          <Layers className="w-3.5 h-3.5 text-brand-lime" />
-          Warehouse Logistics Simulator
-        </h4>
-        <p className="text-[10px] text-slate-500 mb-4 leading-relaxed">
-          As a depot administrator, manually advance or backtrack delivery milestones to audit database stocks:
-        </p>
-
-        <div className="flex gap-2 overflow-x-auto pr-1">
-          {steps.map((step, idx) => {
-            const isCurrent = step.key === order.status;
-            return (
-              <button
-                key={step.key}
-                disabled={loading}
-                onClick={() => handleUpdateStatus(step.key)}
-                className={`flex-1 py-2 px-3 rounded-lg text-[10px] font-extrabold whitespace-nowrap transition-all cursor-pointer ${
-                  isCurrent
-                    ? "bg-brand-purple text-white shadow-sm"
-                    : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                }`}
-              >
-                {step.label}
-              </button>
-            );
-          })}
+      {userRole === "Pharmacy Owner" && order.status === "Out for Delivery" && (
+        <div className="p-5 bg-brand-bg border-t border-slate-100 rounded-t-3xl shadow-xl flex-shrink-0 mt-4 text-center">
+          <h4 className="text-[11px] font-extrabold text-brand-purple uppercase tracking-widest mb-2 flex items-center justify-center gap-1.5">
+            <KeyRound className="w-4 h-4 text-brand-purple" />
+            Delivery Handover OTP
+          </h4>
+          <p className="text-xs text-slate-500 mb-3 leading-relaxed">
+            Provide this secure pin to the MediChain delivery rider to confirm receipt of your consignment.
+          </p>
+          <div className="bg-white px-6 py-3 rounded-xl inline-block border border-brand-purple/20 shadow-sm">
+            <span className="text-3xl font-black text-brand-charcoal tracking-widest font-mono">
+              {order.handoverOtp || "------"}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

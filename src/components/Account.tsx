@@ -69,7 +69,7 @@ export default function Account({
   const isVerified = kycStatus === "Approved";
 
   return (
-    <div className="w-full h-full bg-slate-50 flex flex-col select-none overflow-y-auto p-4 space-y-4 pb-20">
+    <div className="w-full h-full bg-slate-50 flex flex-col select-none overflow-y-auto p-4 space-y-4">
       {/* Account Info Header */}
       <div className="bg-white rounded-3xl p-5 border border-slate-100 flex items-center gap-4 relative overflow-hidden shadow-sm">
         <div className="w-12 h-12 bg-brand-purple/10 border border-brand-purple/25 rounded-full flex items-center justify-center font-black text-brand-purple text-lg shadow-inner overflow-hidden flex-shrink-0">

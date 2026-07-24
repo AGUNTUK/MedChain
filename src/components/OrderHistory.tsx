@@ -77,7 +77,7 @@ export default function OrderHistory({ onTrackOrder, onRefreshCart, onTriggerTab
   };
 
   return (
-    <div className="w-full h-full bg-brand-bg flex flex-col select-none overflow-y-auto p-4 space-y-4 pb-20">
+    <div className="w-full h-full bg-brand-bg flex flex-col select-none overflow-y-auto p-4 space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-sm font-black text-brand-charcoal">Procurement History</h2>
         <span className="text-[9px] text-slate-400 font-bold uppercase font-mono">

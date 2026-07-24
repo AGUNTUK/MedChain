@@ -68,7 +68,7 @@ export interface CreditAccount {
   status: "Active" | "Suspended";
 }
 
-export type OrderStatus = "Pending" | "Confirmed" | "Processing" | "Packed" | "Out for Delivery" | "Delivered" | "Completed" | "Cancelled";
+export type OrderStatus = "Pending" | "Confirmed" | "Processing" | "Packed" | "Out for Delivery" | "Delivered" | "Completed" | "Cancelled" | "Failed";
 
 export interface OrderItem {
   productId: string;
@@ -85,6 +85,8 @@ export interface Order {
   id: string;
   readableId?: string;
   pharmacyId: string;
+  pharmacyName?: string;
+  pharmacyPhone?: string;
   status: OrderStatus;
   paymentMethod: "Cash on Delivery" | "bKash" | "Nagad";
   paymentStatus: "Pending" | "Paid" | "Failed" | "Refunded";
@@ -100,6 +102,7 @@ export interface Order {
   returnReason?: string;
   returnStatus?: "None" | "Pending" | "Approved" | "Rejected";
   assignedRiderId?: string;
+  handoverOtp?: string;
 }
 
 export interface AuditLog {
@@ -136,23 +139,6 @@ export interface NotificationPreference {
 
 export interface Favourite {
   productId: string;
-}
-
-export interface Prescription {
-  id: string;
-  date: string;
-  imageUrl: string;
-  extractedText?: string;
-  status: "Processing" | "Completed" | "Failed";
-  itemsMatched?: Array<{
-    query: string;
-    matchedProductId?: string;
-    matchedProductName?: string;
-    matchedProductPrice?: number;
-    strength?: string;
-    quantitySuggested?: number;
-    confidence: number;
-  }>;
 }
 
 export type UserRole = "Pharmacy Owner" | "Admin" | "Depot Staff" | "Delivery Staff";

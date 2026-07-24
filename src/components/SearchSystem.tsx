@@ -409,9 +409,6 @@ export default function SearchSystem({
                 >
                   <Mic className="w-4.5 h-4.5" />
                 </button>
-                <button className="p-1.5 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 transition-colors cursor-pointer">
-                  <Camera className="w-4.5 h-4.5" />
-                </button>
               </div>
             </div>
             

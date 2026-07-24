@@ -1111,6 +1111,8 @@ export async function createOrderTransaction(userId: string, pharmacyId: string,
     // Ah, does the frontend expect the order ID to look like MCH-xxxxx?
     // Yes! But we can keep the primary key as UUID and map the custom readable ID, or we can use the UUID itself.
     // Let's insert the order with Postgres auto-generating the UUID, and save its ID.
+    const handoverOtp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
+
     const { data: insertedOrder, error: orderErr } = await supabaseAdmin
       .from("orders")
       .insert({
@@ -1123,7 +1125,8 @@ export async function createOrderTransaction(userId: string, pharmacyId: string,
         total_mrp: totalMrp,
         notes: `${uniqueOrderId}. ${orderPayload.notes || ""}`, // Prefix unique readable order id in notes so we can search/display it!
         delivery_address: orderPayload.deliveryAddress || pharmacy.address,
-        estimated_delivery: new Date(Date.now() + 24 * 3600 * 1000).toISOString()
+        estimated_delivery: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+        handover_otp: handoverOtp
       })
       .select()
       .single();
@@ -1238,6 +1241,11 @@ export async function getOrders(pharmacyId?: string): Promise<Order[]> {
         pack_size,
         mrp
       )
+    ),
+    pharmacies (
+      pharmacy_name,
+      owner_name,
+      phone
     )
   `);
 
@@ -1277,6 +1285,8 @@ export async function getOrders(pharmacyId?: string): Promise<Order[]> {
       id: order.id,
       readableId, // Custom field
       pharmacyId: order.pharmacy_id,
+      pharmacyName: order.pharmacies?.pharmacy_name || order.pharmacies?.business_name || "Unknown Pharmacy",
+      pharmacyPhone: order.pharmacies?.phone,
       status: order.status as any,
       paymentMethod: order.payment_method as any,
       paymentStatus: order.payment_status as any,
@@ -1291,7 +1301,8 @@ export async function getOrders(pharmacyId?: string): Promise<Order[]> {
       hasReturnRequested: order.has_return_requested,
       returnReason: order.return_reason,
       returnStatus: order.return_status as any,
-      assignedRiderId: order.assigned_rider_id
+      assignedRiderId: order.assigned_rider_id,
+      handoverOtp: order.handover_otp
     };
   });
 }
@@ -1309,6 +1320,11 @@ export async function getOrderById(orderId: string): Promise<Order | null> {
           pack_size,
           mrp
         )
+      ),
+      pharmacies (
+        pharmacy_name,
+        owner_name,
+        phone
       )
     `)
     .eq("id", orderId)
@@ -1343,6 +1359,8 @@ export async function getOrderById(orderId: string): Promise<Order | null> {
     id: data.id,
     readableId,
     pharmacyId: data.pharmacy_id,
+    pharmacyName: data.pharmacies?.pharmacy_name || data.pharmacies?.business_name || "Unknown Pharmacy",
+    pharmacyPhone: data.pharmacies?.phone,
     status: data.status as any,
     paymentMethod: data.payment_method as any,
     paymentStatus: data.payment_status as any,
@@ -1357,7 +1375,8 @@ export async function getOrderById(orderId: string): Promise<Order | null> {
     hasReturnRequested: data.has_return_requested,
     returnReason: data.return_reason,
     returnStatus: data.return_status as any,
-    assignedRiderId: data.assigned_rider_id
+    assignedRiderId: data.assigned_rider_id,
+    handoverOtp: data.handover_otp
   };
 }
 
@@ -1368,6 +1387,9 @@ export async function updateOrderStatus(orderId: string, status: string, notes?:
   const updatePayload: any = { status };
   if (assignedRiderId) {
     updatePayload.assigned_rider_id = assignedRiderId;
+  }
+  if (notes) {
+    updatePayload.notes = notes;
   }
 
   const { error } = await supabaseAdmin
@@ -1647,47 +1669,6 @@ export async function getInvoices(pharmacyId?: string) {
   });
 }
 
-// ==========================================
-// PRESCRIPTIONS OCR CAPABILITIES
-// ==========================================
-
-export async function getPrescriptions(pharmacyId: string) {
-  const { data, error } = await supabaseAdmin
-    .from("prescriptions")
-    .select("*")
-    .eq("pharmacy_id", pharmacyId)
-    .order("created_at", { ascending: false });
-
-  if (error || !data) return [];
-  return data.map(p => ({
-    id: p.id,
-    pharmacyId: p.pharmacy_id,
-    imageUrl: p.image_url,
-    extractedText: p.extracted_text,
-    status: p.status,
-    itemsMatched: p.items_matched || [],
-    createdAt: p.created_at
-  }));
-}
-
-export async function createPrescription(pharmacyId: string, imageUrl: string, extractedText: string, status: string, itemsMatched: any[]) {
-  const { data, error } = await supabaseAdmin
-    .from("prescriptions")
-    .insert({
-      pharmacy_id: pharmacyId,
-      image_url: imageUrl,
-      extracted_text: extractedText,
-      status: status as any,
-      items_matched: itemsMatched
-    })
-    .select()
-    .single();
-
-  return { data, error };
-}
-
-// ==========================================
-// RETURNS & COMPLAINTS
 // ==========================================
 
 export async function createReturnRequest(orderId: string, productId: string, quantity: number, reason: string) {

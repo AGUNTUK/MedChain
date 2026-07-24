@@ -165,7 +165,7 @@ export default function Home({
   const visibleCategories = showAllCategories ? displayCategories : displayCategories.slice(0, 12);
 
   return (
-    <div className="w-full h-full bg-brand-bg flex flex-col select-none overflow-y-auto pb-20">
+    <div className="w-full h-full bg-brand-bg flex flex-col select-none overflow-y-auto">
       {/* Header Area */}
       <div className="bg-white px-4 py-3 border-b border-slate-100 flex items-center justify-between sticky top-0 z-10 shadow-sm flex-shrink-0">
         <div className="flex items-center gap-2">

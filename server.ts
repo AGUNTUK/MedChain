@@ -20,7 +20,6 @@ import { performSearch } from "./src/lib/searchService.js";
 import { validateProduct, checkDuplicate } from "./src/lib/productValidator.js";
 import { supabaseAdmin } from "./src/lib/supabaseAdmin.js";
 import * as dbService from "./src/lib/dbService.js";
-import ocrRouter from "./src/routes/ocrRoutes.js";
 
 dotenv.config();
 
@@ -92,12 +91,6 @@ const loginLimiter = rateLimiter({
   windowMs: 60 * 1000,
   max: 15,
   message: "Too many login attempts. Please try again after 1 minute."
-});
-
-const ocrLimiter = rateLimiter({
-  windowMs: 60 * 1000,
-  max: 10,
-  message: "Too many prescription OCR uploads. Please try again after 1 minute."
 });
 
 const importLimiter = rateLimiter({
@@ -574,6 +567,8 @@ app.get("/api/cart", requireAuth, async (req, res) => {
   try {
     const cartItemsInDb = await dbService.getCart(req.user.id);
     const cartItems = [];
+    let cartModified = false;
+    
     for (const item of cartItemsInDb) {
       const product = await dbService.getProductById(item.productId);
       if (product) {
@@ -581,7 +576,14 @@ app.get("/api/cart", requireAuth, async (req, res) => {
           product,
           quantity: item.quantity
         });
+      } else {
+        cartModified = true;
       }
+    }
+    
+    if (cartModified) {
+      // Clean up the DB cart to remove orphaned/deleted products
+      await dbService.saveCart(req.user.id, cartItems.map(c => ({ productId: c.product.id, quantity: c.quantity })));
     }
 
     const totalMrp = cartItems.reduce((acc, item) => acc + (item.product.mrp * item.quantity), 0);
@@ -810,17 +812,28 @@ app.post("/api/orders", requireAuth, async (req, res) => {
     });
 
     // Strict verification for any missing products against database catalog
+    const validItemIds = [];
     for (const itemId of itemIds) {
       const normalizedId = String(itemId).trim().toLowerCase();
       if (!productMap.has(normalizedId)) {
         const directProd = await dbService.getProductById(itemId);
         if (directProd) {
           productMap.set(normalizedId, directProd);
-        } else {
-          return res.status(400).json({ error: "Selected product no longer exists in catalog" });
+          validItemIds.push(itemId);
         }
+      } else {
+        validItemIds.push(itemId);
       }
     }
+    
+    if (validItemIds.length === 0) {
+      return res.status(400).json({ error: "No valid product items in your cart." });
+    }
+    
+    // Filter out invalid items from cartItems array
+    const validCartItems = cartItems.filter((item: any) => 
+      validItemIds.includes(String(item.productId || "").trim())
+    );
 
     const pharmacy = await dbService.getPharmacyProfile(req.user.id);
     if (!pharmacy) {
@@ -834,7 +847,7 @@ app.post("/api/orders", requireAuth, async (req, res) => {
     const result = await dbService.createOrderTransaction(req.user.id, pharmacy.id, {
       paymentMethod,
       notes,
-      items: cartItems.map((item: any) => ({
+      items: validCartItems.map((item: any) => ({
         productId: item.productId,
         quantity: item.quantity
       })),
@@ -1002,8 +1015,37 @@ app.post("/api/orders/:id/cancel", requireAuth, async (req, res) => {
 });
 
 app.post("/api/orders/:id/status", requireAuth, async (req, res) => {
-  const { status } = req.body;
+  const { status, otp } = req.body;
+  const role = req.user.role;
+
+  if (role === "Pharmacy Owner") {
+    return res.status(403).json({ error: "Unauthorized. Pharmacy Owners cannot alter order status manually." });
+  }
+
   try {
+    const order = await dbService.getOrderById(req.params.id);
+    if (!order) return res.status(404).json({ error: "Order not found" });
+
+    // Multi-Role Order Lifecycle Enforcement
+    if (role === "Admin") {
+      if (status !== "Confirmed" && status !== "Cancelled") {
+        return res.status(403).json({ error: "Admin can only confirm or cancel orders." });
+      }
+    } else if (role === "Depot Staff") {
+      if (status !== "Processing" && status !== "Packed" && status !== "Out for Delivery") {
+        return res.status(403).json({ error: "Depot staff can only set Processing, Packed, or Out for Delivery." });
+      }
+    } else if (role === "Delivery Staff") {
+      if (status !== "Out for Delivery" && status !== "Delivered") {
+        return res.status(403).json({ error: "Delivery staff can only set Out for Delivery or Delivered." });
+      }
+      if (status === "Delivered") {
+        if (!otp || String(otp) !== String(order.handoverOtp)) {
+          return res.status(400).json({ error: "Invalid OTP. Handover verification failed." });
+        }
+      }
+    }
+
     const { error } = await dbService.updateOrderStatus(req.params.id, status);
     if (error) return res.status(500).json({ error: error.message });
 
@@ -1138,133 +1180,6 @@ app.post("/api/notifications/read-all", requireAuth, async (req, res) => {
   }
 });
 
-// --- SYSTEM ALERT & HARNESS AUTOMATIONS (OCR + DEMO RUNNERS) ---
-
-app.post("/api/prescription/upload", requireAuth, ocrLimiter, async (req, res) => {
-  const { imageBase64, storageUrl } = req.body;
-
-  if (!imageBase64) {
-    return res.status(400).json({ error: "Prescription image base64 is required." });
-  }
-
-  const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, "");
-
-  try {
-    let resultJson: any[] = [];
-
-    if (process.env.GEMINI_API_KEY) {
-      const aiClient = new GoogleGenAI({
-        apiKey: process.env.GEMINI_API_KEY,
-        httpOptions: { headers: { "User-Agent": "aistudio-build" } }
-      });
-
-      const response = await aiClient.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: [
-          { inlineData: { mimeType: "image/jpeg", data: cleanBase64 } },
-          {
-            text: `You are an expert pharmaceutical procurement auditor. Analyze this handwritten medicine list or medical prescription image.
-Identify all the medicine names, strengths, brand/generic words, and required quantities.
-
-Provide your analysis strictly in JSON format matching this schema:
-[
-  {
-    "query": "Extracted text brand/generic name with strength",
-    "strength": "strength if found",
-    "quantitySuggested": 10 // suggest a reasonable B2B bulk quantity (e.g. 5, 10, 20 boxes) to order based on the written amount or standard depot stock
-  }
-]
-Reply with only the JSON array structure. No backticks, no markdown, no conversational text.`
-          }
-        ],
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                query: { type: Type.STRING },
-                strength: { type: Type.STRING },
-                quantitySuggested: { type: Type.INTEGER }
-              },
-              required: ["query", "quantitySuggested"]
-            }
-          }
-        }
-      });
-
-      const rawText = response.text || "[]";
-      resultJson = JSON.parse(rawText.trim());
-    } else {
-      return res.status(500).json({ error: "OCR processing failed: GEMINI_API_KEY is not configured on the server." });
-    }
-
-    const enrichedResults = [];
-    for (const resItem of resultJson) {
-      // Use Supabase text search for matching instead of pulling 21k records
-      const { data: matchedProds } = await supabaseAdmin.from("products")
-        .select("*")
-        .or(`name.ilike.%${resItem.query}%,generic_name.ilike.%${resItem.query}%`)
-        .limit(1);
-
-      if (matchedProds && matchedProds.length > 0) {
-        const product = await dbService.getProductById(matchedProds[0].id);
-        if (product) {
-          enrichedResults.push({
-            query: resItem.query,
-            quantitySuggested: resItem.quantitySuggested,
-            confidence: 0.95,
-            matchedProductId: product.id,
-            matchedProductName: product.name,
-            matchedProductPrice: product.sellingPrice,
-            strength: product.strength,
-            packSize: product.packSize,
-            mrp: product.mrp,
-            discountPercentage: product.discountPercentage,
-            availableStock: product.availableStock
-          });
-          continue;
-        }
-      }
-      
-      enrichedResults.push({
-        query: resItem.query,
-        quantitySuggested: resItem.quantitySuggested,
-        confidence: 0,
-        matchedProductId: null,
-        matchedProductName: null
-      });
-    }
-
-    const prescription = await dbService.createPrescription(
-      req.user.pharmacy_id || "pharm_default",
-      storageUrl || "data:image/jpeg;base64," + cleanBase64,
-      JSON.stringify(enrichedResults),
-      "Completed",
-      enrichedResults
-    );
-
-    res.json({
-      success: true,
-      prescriptionId: prescription.data?.id,
-      results: enrichedResults
-    });
-
-  } catch (error: any) {
-    console.error("Prescription parsing error: ", error);
-    res.status(500).json({ error: "Failed to parse prescription: " + error.message });
-  }
-});
-
-app.get("/api/prescriptions", requireAuth, async (req, res) => {
-  try {
-    const list = await dbService.getPrescriptions(req.user.pharmacy_id || "pharm_default");
-    res.json(list);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 // --- DEPOT CHANNELS ---
 
@@ -1403,12 +1318,26 @@ app.get("/api/delivery/orders", requireRole(["Admin", "Delivery Staff"]), async 
 });
 
 app.post("/api/delivery/status/:id", requireRole(["Admin", "Delivery Staff"]), async (req, res) => {
-  const { status } = req.body;
+  const { status, otp, notes } = req.body;
   if (!status) {
     return res.status(400).json({ error: "Missing status parameter." });
   }
   try {
-    const { error } = await dbService.updateOrderStatus(req.params.id, status);
+    const order = await dbService.getOrderById(req.params.id);
+    if (!order) return res.status(404).json({ error: "Order not found" });
+
+    if (status === "Delivered") {
+      if (!otp || String(otp) !== String(order.handoverOtp)) {
+        return res.status(400).json({ error: "Invalid OTP. Handover verification failed." });
+      }
+    }
+    
+    let finalNotes = order.notes || "";
+    if (status === "Failed" && notes) {
+      finalNotes = finalNotes ? `${finalNotes}\nFailure Reason: ${notes}` : `Failure Reason: ${notes}`;
+    }
+
+    const { error } = await dbService.updateOrderStatus(req.params.id, status, status === "Failed" ? finalNotes : undefined);
     if (error) return res.status(400).json({ error: error.message });
     res.json({ success: true, message: `Delivery Status updated to ${status}` });
   } catch (err: any) {
@@ -1419,7 +1348,7 @@ app.post("/api/delivery/status/:id", requireRole(["Admin", "Delivery Staff"]), a
 app.get("/api/delivery/history", requireRole(["Admin", "Delivery Staff"]), async (req, res) => {
   try {
     const orders = await dbService.getOrders();
-    const completedDeliveries = orders.filter(o => o.status === "Delivered" || o.status === "Completed");
+    const completedDeliveries = orders.filter(o => o.status === "Delivered" || o.status === "Completed" || o.status === "Failed");
     res.json({ success: true, orders: completedDeliveries });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -1440,8 +1369,6 @@ app.get("/api/admin/dashboard", requireRole(["Admin"]), async (req, res) => {
     const pharmacies = await dbService.getAllPharmacies();
     const pendingVerifications = pharmacies.filter(p => p.verificationStatus === "Pending").length;
 
-    const activePrescriptionsList = await dbService.getPrescriptions("pharm_default");
-    const pendingPrescriptions = activePrescriptionsList.filter(p => p.status === "Processing").length;
 
     res.json({
       success: true,
@@ -1449,7 +1376,6 @@ app.get("/api/admin/dashboard", requireRole(["Admin"]), async (req, res) => {
         totalRevenue,
         pendingDeliveries,
         pendingVerifications,
-        pendingPrescriptions,
         totalOrders
       }
     });
@@ -2113,9 +2039,6 @@ app.get("/api/admin/finance/summary", requireRole(["Admin"]), async (req, res) =
     res.status(500).json({ error: err.message });
   }
 });
-
-// --- HYBRID OCR PIPELINE ROUTE ---
-app.use("/api/v1/ocr", ocrRouter);
 
 // --- GLOBAL ERROR HANDLING & INITIALIZATION ---
 
