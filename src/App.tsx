@@ -101,7 +101,6 @@ export default function App() {
       return "";
     }
   });
-  const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [favouriteIds, setFavouriteIds] = useState<string[]>([]);
@@ -120,15 +119,6 @@ export default function App() {
   } | null>(null);
 
   // Sync products and credentials
-  const refreshProducts = async () => {
-    try {
-      const data = await productService.getProducts();
-      setProducts(data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   const refreshPharmacyProfile = async () => {
     try {
       const res = await fetch("/api/pharmacy/profile");
@@ -211,7 +201,7 @@ export default function App() {
 
   useEffect(() => {
     // Initial fetch of static assets and verify existing session
-    refreshProducts();
+    
     if (currentUser) {
       refreshPharmacyProfile();
     }
@@ -317,7 +307,7 @@ export default function App() {
     try {
       await productService.triggerAdminPriceDrop();
       refreshNotifications();
-      refreshProducts();
+      
     } catch (err) {
       console.error(err);
     }
@@ -347,7 +337,7 @@ export default function App() {
       try {
         await orderService.updateOrderStatus(activeOrderToDeliver.id, nextStatus);
         refreshOrders();
-        refreshProducts();
+        
         refreshPharmacyProfile();
         refreshNotifications();
       } catch (err) {
@@ -391,7 +381,7 @@ export default function App() {
             onOrderPlaced={(orderId) => {
               refreshOrders();
               refreshPharmacyProfile();
-              refreshProducts();
+              
               refreshCartCounter();
               setTrackingOrderId(orderId);
               setAppStep("success");
@@ -423,7 +413,7 @@ export default function App() {
               setActiveTab("history");
             }}
             onRefreshStats={() => {
-              refreshProducts();
+              
               refreshPharmacyProfile();
               refreshOrders();
             }}

@@ -142,7 +142,7 @@ export default function FloatingCartBar({
       {/* 2. INTERACTIVE SLIDE-UP BOTTOM SHEET CART MODAL */}
       <AnimatePresence>
         {isCartDrawerOpen && (
-          <div className="fixed inset-0 z-50 flex flex-col justify-end">
+          <div className="fixed inset-0 z-[60] flex flex-col justify-end">
             {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
@@ -320,7 +320,7 @@ export default function FloatingCartBar({
               </div>
 
               {/* Subtotal & Action Footer */}
-              <div className="p-5 bg-white border-t border-slate-100 rounded-t-3xl shadow-[0_-10px_25px_rgba(0,0,0,0.05)] space-y-3 flex-shrink-0">
+              <div className="p-5 pb-20 bg-white border-t border-slate-100 rounded-t-3xl shadow-[0_-10px_25px_rgba(0,0,0,0.05)] space-y-3 flex-shrink-0">
                 <div className="space-y-1.5 text-xs">
                   <div className="flex justify-between text-slate-500 font-medium">
                     <span>Subtotal (M.R.P)</span>

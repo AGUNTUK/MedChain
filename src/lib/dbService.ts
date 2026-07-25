@@ -435,15 +435,25 @@ export async function getAllPharmacies(): Promise<Pharmacy[]> {
     .from("pharmacies")
     .select("*");
 
-  if (!list) return [];
+  if (!list || list.length === 0) return [];
+  
+  const pharmacyIds = list.map((ph: any) => ph.id);
+  
+  const { data: crList } = await supabaseAdmin
+    .from("credit_accounts")
+    .select("*")
+    .in("pharmacy_id", pharmacyIds);
+    
+  const crMap = new Map();
+  if (crList) {
+    crList.forEach((cr: any) => {
+      crMap.set(cr.pharmacy_id, cr);
+    });
+  }
 
   const out: Pharmacy[] = [];
   for (const ph of list) {
-    const { data: cr } = await supabaseAdmin
-      .from("credit_accounts")
-      .select("*")
-      .eq("pharmacy_id", ph.id)
-      .maybeSingle();
+    const cr = crMap.get(ph.id);
 
     const license = deserializeLicenseInfo(ph.license_information);
 

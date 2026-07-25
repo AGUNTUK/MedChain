@@ -435,17 +435,39 @@ app.post("/api/pharmacy/profile", requireAuth, async (req, res) => {
 
 // --- MEDICINES & PRODUCT CATALOG ---
 
+let cachedCategories: string[] | null = null;
+let lastCategoryFetch = 0;
+
 app.get("/api/categories", async (req, res) => {
   try {
-    const { data, error } = await supabaseAdmin.from("products").select("category_name_fallback");
-    if (error) throw error;
-    const categories = Array.from(new Set(data.map((p: any) => p.category_name_fallback).filter(Boolean)));
+    if (cachedCategories && Date.now() - lastCategoryFetch < 3600000) {
+      return res.json(cachedCategories);
+    }
+    
+    // First try getting from categories table directly
+    const { data: catData, error: catErr } = await supabaseAdmin.from("categories").select("name");
+    
+    let categories = [];
+    if (!catErr && catData && catData.length > 0) {
+       categories = catData.map((c: any) => c.name);
+    } else {
+       // Fallback to distinct
+       const { data, error } = await supabaseAdmin.from("products").select("category_name_fallback");
+       if (error) throw error;
+       categories = Array.from(new Set(data.map((p: any) => p.category_name_fallback).filter(Boolean)));
+    }
+    
+    cachedCategories = categories;
+    lastCategoryFetch = Date.now();
     res.json(categories);
   } catch (err) {
     console.error("Error fetching categories:", err);
+    if (cachedCategories) return res.json(cachedCategories);
     res.status(500).json({ error: "Failed to fetch categories." });
   }
 });
+
+const productCache: Record<string, { data: any, time: number }> = {};
 
 app.get("/api/products", async (req, res) => {
   const { search, category, filter, page, limit, paginate } = req.query;
@@ -453,14 +475,21 @@ app.get("/api/products", async (req, res) => {
   const pageNum = parseInt(page as string) || 1;
   const limitNum = parseInt(limit as string) || 50;
   const searchQuery = (search as string) || "";
+  const cacheKey = `${filter}_${category}_${searchQuery}_${pageNum}_${limitNum}`;
 
   try {
+    if (!searchQuery && filter && (filter === "deals" || filter === "frequent")) {
+      const cached = productCache[cacheKey];
+      if (cached && Date.now() - cached.time < 300000) { // 5 minutes cache
+        return res.json(cached.data);
+      }
+    }
     const from = (pageNum - 1) * limitNum;
     const to = from + limitNum - 1;
 
     let query = supabaseAdmin
       .from("products")
-      .select("*, inventory(available_stock, reserved_stock, sold_stock, batch_number, expiry_date)", { count: "exact" })
+      .select("*, inventory(available_stock, reserved_stock, sold_stock, batch_number, expiry_date)", { count: "estimated" })
       .range(from, to);
 
     if (searchQuery) {
@@ -526,10 +555,11 @@ app.get("/api/products", async (req, res) => {
       mappedProducts.sort((a, b) => b.soldStock - a.soldStock);
     }
 
+    let responseData: any;
     if (paginate === "true" || page || limit) {
       const total = count || 0;
       const pages = Math.ceil(total / limitNum);
-      return res.json({
+      responseData = {
         products: mappedProducts,
         total,
         page: pageNum,
@@ -538,11 +568,16 @@ app.get("/api/products", async (req, res) => {
         suggestions: [], // Server-side search doesn't do suggestions in this simplified query
         originalQuery: searchQuery,
         correctedQuery: undefined
-      });
+      };
+    } else {
+      responseData = mappedProducts;
     }
 
-    // Default return for non-paginated requests, although now it respects limit=50 by default
-    res.json(mappedProducts);
+    if (!searchQuery && filter && (filter === "deals" || filter === "frequent")) {
+      productCache[cacheKey] = { data: responseData, time: Date.now() };
+    }
+    
+    return res.json(responseData);
   } catch (err: any) {
     console.error("Products Fetch Error:", err);
     res.status(500).json({ error: err.message });
@@ -566,16 +601,68 @@ app.get("/api/products/:id", async (req, res) => {
 app.get("/api/cart", requireAuth, async (req, res) => {
   try {
     const cartItemsInDb = await dbService.getCart(req.user.id);
-    const cartItems = [];
+    const cartItems: any[] = [];
     let cartModified = false;
     
-    for (const item of cartItemsInDb) {
-      const product = await dbService.getProductById(item.productId);
-      if (product) {
-        cartItems.push({
-          product,
-          quantity: item.quantity
+    if (cartItemsInDb.length > 0) {
+      const productIds = cartItemsInDb.map((item: any) => item.productId);
+      
+      const { data: dbProducts, error } = await dbService.supabaseAdmin
+        .from('products')
+        .select('*, inventory(available_stock, reserved_stock, sold_stock, batch_number, expiry_date)')
+        .in('id', productIds);
+        
+      if (!error && dbProducts) {
+        // Map them
+        const productMap = new Map();
+        dbProducts.forEach((p: any) => {
+          // map it just like getProductById does
+          const mrpVal = p.mrp !== undefined && p.mrp !== null ? parseFloat(p.mrp) : 0;
+          let sellingVal = 0;
+          if (p.selling_price !== undefined && p.selling_price !== null && p.selling_price !== "") {
+            sellingVal = parseFloat(p.selling_price);
+          } else if (p.sellingPrice !== undefined && p.sellingPrice !== null && p.sellingPrice !== "") {
+            sellingVal = parseFloat(p.sellingPrice);
+          } else {
+            sellingVal = mrpVal;
+          }
+          
+          const inv = Array.isArray(p.inventory) && p.inventory.length > 0 ? p.inventory[0] : (p.inventory || null);
+          const stockVal = p.stock_quantity !== undefined && p.stock_quantity !== null && p.stock_quantity !== ""
+            ? parseInt(p.stock_quantity, 10)
+            : (inv ? (inv.available_stock ?? 0) : (p.availableStock ?? 0));
+
+          productMap.set(p.id, {
+            id: String(p.id).trim(),
+            name: p.name,
+            genericName: p.generic_name || p.genericName || "Generic Medicine",
+            company: p.company,
+            category: p.category_name_fallback || p.category_id || p.category || "Tablet",
+            strength: p.strength,
+            packSize: p.pack_size || p.packSize,
+            mrp: mrpVal,
+            sellingPrice: sellingVal,
+            discountPercentage: p.discount_percentage ? parseFloat(p.discount_percentage) : (mrpVal > 0 ? Math.round(((mrpVal - sellingVal) / mrpVal) * 100) : 0),
+            availableStock: stockVal,
+            reservedStock: inv ? (inv.reserved_stock ?? 0) : 0,
+            soldStock: inv ? (inv.sold_stock ?? 0) : 0,
+            batchNumber: p.batch_number || (inv ? (inv.batch_number || "") : "") || "B-MCH2026",
+            expiryDate: p.expiry_date || (inv ? (inv.expiry_date || "") : "") || "2027-12-31",
+            imageUrl: p.image_url || p.imageUrl || undefined,
+          });
         });
+        
+        for (const item of cartItemsInDb) {
+          const product = productMap.get(item.productId);
+          if (product) {
+            cartItems.push({
+              product,
+              quantity: item.quantity
+            });
+          } else {
+            cartModified = true;
+          }
+        }
       } else {
         cartModified = true;
       }

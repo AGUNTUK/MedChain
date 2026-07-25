@@ -169,7 +169,7 @@ export default function Cart({ onCheckoutTrigger, onRefreshCartCounter, onBack }
       </div>
 
       {/* Cart Summary & Order Trigger Section */}
-      <div className="p-4 bg-white border-t border-slate-100 rounded-t-3xl shadow-xl flex-shrink-0">
+      <div className="p-4 pb-20 bg-white border-t border-slate-100 rounded-t-3xl shadow-xl flex-shrink-0">
         <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1">
           <Receipt className="w-3.5 h-3.5 text-brand-purple" />
           Procurement Price Breakdown
