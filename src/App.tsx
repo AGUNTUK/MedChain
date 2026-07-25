@@ -17,6 +17,7 @@ import DepotDashboard from "./components/DepotDashboard";
 import DeliveryDashboard from "./components/DeliveryDashboard";
 import FloatingCartBar from "./components/FloatingCartBar";
 import FlyToCartOverlay from "./components/FlyToCartOverlay";
+import PWAInstallPrompt from "./components/PWAInstallPrompt";
 import { FlyToCartProvider } from "./context/FlyToCartContext";
 import { Product, Pharmacy, Order, Notification, User } from "./types";
 import { Home as HomeIcon, Search as SearchIcon, Package as PackageIcon, FileText as FileIcon, ClipboardList as ListIcon, User as UserIcon, Shield, Smartphone } from "lucide-react";
@@ -546,6 +547,8 @@ export default function App() {
 
           {/* Dynamic Fly-To-Cart Parabolic Overlay */}
           <FlyToCartOverlay />
+
+          <PWAInstallPrompt />
 
           {/* Bottom persistent Nav Bar */}
           {appStep === "main" && (
