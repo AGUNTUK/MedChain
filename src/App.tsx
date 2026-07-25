@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import Splash from "./components/Splash";
 import Login from "./components/Login";
 import ProfileSetup from "./components/ProfileSetup";
@@ -487,19 +489,39 @@ export default function App() {
   };
 
   if (currentUser?.role === "Admin") {
-    return <AdminPanel currentUser={currentUser} onLogout={handleLogout} />;
+    return (
+      <>
+        <AdminPanel currentUser={currentUser} onLogout={handleLogout} />
+        <Analytics />
+        <SpeedInsights />
+      </>
+    );
   }
 
   if (currentUser?.role === "Depot Staff") {
-    return <DepotDashboard currentUser={currentUser} onLogout={handleLogout} />;
+    return (
+      <>
+        <DepotDashboard currentUser={currentUser} onLogout={handleLogout} />
+        <Analytics />
+        <SpeedInsights />
+      </>
+    );
   }
 
   if (currentUser?.role === "Delivery Staff") {
-    return <DeliveryDashboard currentUser={currentUser} onLogout={handleLogout} />;
+    return (
+      <>
+        <DeliveryDashboard currentUser={currentUser} onLogout={handleLogout} />
+        <Analytics />
+        <SpeedInsights />
+      </>
+    );
   }
 
   return (
     <FlyToCartProvider>
+      <Analytics />
+      <SpeedInsights />
       <div className="flex h-screen w-screen bg-slate-50 font-sans select-none overflow-hidden justify-center items-center">
         <div className="w-full h-full max-w-md bg-white shadow-2xl relative flex flex-col overflow-hidden">
           {/* Screen Content */}
