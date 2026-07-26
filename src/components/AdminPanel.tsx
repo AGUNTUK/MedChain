@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import ProductEditModal from "./ProductEditModal";
 import { 
   LayoutDashboard, 
   Pill, 
@@ -2603,258 +2604,27 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
       </main>
 
       {/* --- FLOATING DETAILED MEDICINE ADJUSTMENTS DIALOG --- */}
-      {isProductModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-slate-800 bg-slate-950/40 flex items-center justify-between">
-              <div>
-                <span className="text-[9px] uppercase font-bold text-indigo-400 tracking-wider">Catalog Schema Sheet</span>
-                <h4 className="text-sm font-black text-white mt-0.5">
-                  {selectedProductForEdit ? `Edit Product: ${selectedProductForEdit.name}` : "Add Manual Medicine Product"}
-                </h4>
-              </div>
-              <button onClick={() => setIsProductModalOpen(false)} className="p-1 rounded hover:bg-slate-800 text-slate-400 cursor-pointer">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      <ProductEditModal
+        product={selectedProductForEdit}
+        isOpen={isProductModalOpen}
+        onClose={() => setIsProductModalOpen(false)}
+        onSave={async (productData) => {
+          const res = await fetch("/api/admin/products", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(productData)
+          });
 
-            <form onSubmit={handleSaveProduct} className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <div className="space-y-1">
-                  <label className="text-slate-500 font-bold block uppercase text-[9px]">Product Name *</label>
-                  <input
-                    type="text"
-                    placeholder="e.g., Napa Extra"
-                    value={formName}
-                    onChange={(e) => setFormName(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500"
-                    required
-                  />
-                </div>
+          if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.error || "Failed to update catalog.");
+          }
 
-                <div className="space-y-1">
-                  <label className="text-slate-500 font-bold block uppercase text-[9px]">Generic Formula *</label>
-                  <input
-                    type="text"
-                    placeholder="e.g., Paracetamol + Caffeine"
-                    value={formGeneric}
-                    onChange={(e) => setFormGeneric(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <div className="space-y-1">
-                  <label className="text-slate-500 font-bold block uppercase text-[9px]">Supplier Manufacturer Company *</label>
-                  <input
-                    type="text"
-                    placeholder="e.g., Beximco Pharmaceuticals"
-                    value={formCompany}
-                    onChange={(e) => setFormCompany(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-slate-500 font-bold block uppercase text-[9px]">Classification Category *</label>
-                  <select
-                    value={formCategory}
-                    onChange={(e) => setFormCategory(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
-                    required
-                  >
-                    <option value="Tablet">Tablet</option>
-                    <option value="Capsule">Capsule</option>
-                    <option value="Syrup">Syrup</option>
-                    <option value="Injection">Injection</option>
-                    <option value="Cream">Cream</option>
-                    <option value="Supplement">Supplement</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <div className="space-y-1">
-                  <label className="text-slate-500 font-bold block uppercase text-[9px]">Strength (e.g. 500mg) *</label>
-                  <input
-                    type="text"
-                    placeholder="e.g., 500mg + 65mg"
-                    value={formStrength}
-                    onChange={(e) => setFormStrength(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-slate-500 font-bold block uppercase text-[9px]">Pack Size (e.g. 100's Box) *</label>
-                  <input
-                    type="text"
-                    placeholder="e.g., 240's Box"
-                    value={formPackSize}
-                    onChange={(e) => setFormPackSize(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                <div className="space-y-1">
-                  <label className="text-slate-500 font-bold block uppercase text-[9px]">Wholesale MRP (৳) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="e.g., 480.00"
-                    value={formMrp}
-                    onChange={(e) => setFormMrp(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-slate-500 font-bold block uppercase text-[9px]">MediChain Trade Selling Price (৳) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="e.g., 360.00"
-                    value={formSellingPrice}
-                    onChange={(e) => setFormSellingPrice(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-slate-500 font-bold block uppercase text-[9px]">Initial Reserves Stock *</label>
-                  <input
-                    type="number"
-                    placeholder="e.g., 1000"
-                    value={formStock}
-                    onChange={(e) => setFormStock(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <div className="space-y-1">
-                  <label className="text-slate-500 font-bold block uppercase text-[9px]">Batch Code Reference *</label>
-                  <input
-                    type="text"
-                    placeholder="e.g., B-NPE92"
-                    value={formBatch}
-                    onChange={(e) => setFormBatch(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-slate-500 font-bold block uppercase text-[9px]">Expiration Date *</label>
-                  <input
-                    type="date"
-                    value={formExpiry}
-                    onChange={(e) => setFormExpiry(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-slate-500 font-bold block uppercase text-[9px]">Medicine Image</label>
-                <div className="flex gap-2 items-center">
-                  <div className="relative flex-1">
-                    <input
-                      type="url"
-                      placeholder="e.g., https://example.com/images/napa.png"
-                      value={formImageUrl}
-                      onChange={(e) => setFormImageUrl(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-                  <div className="relative">
-                    <input 
-                      type="file" 
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      disabled={isUploadingImage}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-                    />
-                    <button 
-                      type="button"
-                      disabled={isUploadingImage}
-                      className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-700 text-white rounded-xl py-2 px-4 text-xs font-semibold flex items-center gap-2 transition-colors whitespace-nowrap"
-                    >
-                      {isUploadingImage ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 animate-spin" /> Uploading...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="w-4 h-4" /> Upload Picture
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-                {formImageUrl && (
-                  <div className="mt-2 rounded-xl overflow-hidden border border-slate-800 bg-slate-950 w-24 h-24 flex items-center justify-center">
-                    <img src={formImageUrl} alt="Preview" className="max-w-full max-h-full object-contain" />
-                  </div>
-                )}
-              </div>
-
-              {selectedProductForEdit && (
-                <div className="border-t border-slate-800 pt-5 space-y-3">
-                  <h5 className="text-[10px] font-black uppercase text-indigo-400 tracking-wider flex items-center gap-1.5">
-                    <History className="w-3.5 h-3.5" /> Medicine Price History Trail
-                  </h5>
-                  {priceHistory.filter(h => h.productId === selectedProductForEdit.id).length === 0 ? (
-                    <p className="text-[11px] text-slate-500 italic">No price adjustments have been registered for this medicine yet.</p>
-                  ) : (
-                    <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1">
-                      {priceHistory.filter(h => h.productId === selectedProductForEdit.id).map((h, i) => (
-                        <div key={i} className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-850 flex justify-between items-center text-[10px] text-slate-400">
-                          <div>
-                            <p className="text-slate-300 font-semibold">
-                              MRP: <span className="font-mono text-slate-500 line-through">৳{h.oldMrp}</span> → <span className="font-mono font-bold text-emerald-400">৳{h.newMrp}</span> | 
-                              Selling Price: <span className="font-mono text-slate-500 line-through">৳{h.oldSellingPrice}</span> → <span className="font-mono font-bold text-indigo-400">৳{h.newSellingPrice}</span>
-                            </p>
-                            <p className="text-[9px] text-slate-500 mt-0.5">Changed by {h.changedByAdmin} on {new Date(h.changedDate).toLocaleDateString()}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="border-t border-slate-800 pt-5 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsProductModalOpen(false)}
-                  className="bg-slate-950 hover:bg-slate-850 border border-slate-800 text-slate-300 text-xs font-semibold py-2.5 px-5 rounded-xl cursor-pointer transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold py-2.5 px-5 rounded-xl cursor-pointer transition-all shadow-lg"
-                >
-                  Save to Catalog
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+          setSuccessMsg(selectedProductForEdit ? "Medicine details updated successfully." : "New medicine added to platform catalog.");
+          setIsProductModalOpen(false);
+          refreshAllData();
+        }}
+      />
     </div>
   );
 }

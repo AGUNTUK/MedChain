@@ -20,6 +20,7 @@ import { Product } from "../types";
 import { productService } from "../services";
 import NotificationBell from "./NotificationBell";
 import { PWAInstallButton } from "./PWAInstallBanner";
+import ProductCard from "./ProductCard";
 import { formatProductPriceLabel } from "../lib/utils";
 import { useFlyToCart } from "../context/FlyToCartContext";
 
@@ -362,108 +363,19 @@ export default function Home({
               Today's Wholesale Best Deals
             </h3>
           </div>
-          <div className="space-y-2">
-            {bestDeals.map(p => (
-              <div
+          <div className="space-y-2.5">
+            {bestDeals.map((p) => (
+              <ProductCard
                 key={p.id}
-                className="bg-white rounded-2xl p-3.5 border border-slate-100 flex gap-3 shadow-sm hover:border-slate-200 transition-all cursor-pointer relative"
-              >
-                {/* Image */}
-                {p.imageUrl && (
-                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-50 border border-slate-100 flex-shrink-0" onClick={() => onOpenProductDetails(p)}>
-                    <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
-                  </div>
-                )}
-
-                {/* Save label */}
-                <div className="absolute top-3 right-3 bg-brand-purple text-white text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider">
-                  {p.discountPercentage}% OFF
-                </div>
-
-                {/* Info */}
-                <div className="flex-1" onClick={() => onOpenProductDetails(p)}>
-                  <span className="text-[8px] bg-slate-100 text-slate-500 font-bold px-1.5 py-0.5 rounded">
-                    {p.category}
-                  </span>
-                  <h4 className="text-xs font-black text-brand-charcoal mt-1 leading-tight">
-                    {p.name} <span className="text-[10px] font-bold text-slate-400">{p.strength}</span>
-                  </h4>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{p.genericName}</p>
-                  <p className="text-[9px] text-slate-500 font-semibold mt-1">{p.company}</p>
-
-                  <div className="flex items-center justify-between gap-2 mt-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] text-slate-400 line-through">MRP ৳{p.mrp}</span>
-                      <span className="text-xs font-black text-brand-purple">৳{p.sellingPrice}</span>
-                    </div>
-                    <span className="text-[8px] text-slate-500 font-bold font-mono bg-slate-50 px-1.5 py-0.5 rounded">
-                      {formatProductPriceLabel(p.sellingPrice, p.packSize)}
-                    </span>
-                  </div>
-                </div>
-
-                 {/* Add block */}
-                <div className="flex flex-col justify-end">
-                  {(() => {
-                    const inCartQty = cartQuantities[p.id] || 0;
-                    if (inCartQty > 0) {
-                      return (
-                        <div className="flex items-center gap-1.5 bg-brand-purple/5 border border-brand-purple/20 rounded-xl px-1.5 py-1" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onUpdateCartQty && onUpdateCartQty(p.id, inCartQty, -1);
-                            }}
-                            className="text-brand-purple hover:bg-brand-purple hover:text-white p-0.5 rounded transition-all cursor-pointer flex items-center justify-center"
-                          >
-                            <Minus className="w-3 h-3" />
-                          </button>
-                          <span className="text-[10px] font-black text-brand-purple font-mono">{inCartQty}</span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onUpdateCartQty && onUpdateCartQty(p.id, inCartQty, 1);
-                            }}
-                            className="text-brand-purple hover:bg-brand-purple hover:text-white p-0.5 rounded transition-all cursor-pointer flex items-center justify-center"
-                          >
-                            <Plus className="w-3 h-3" />
-                          </button>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleQuickBuy(p.id, 1, e, p.imageUrl || p.image_url);
-                        }}
-                        disabled={successId === p.id}
-                        className={`py-1.5 px-3 rounded-xl text-[10px] font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
-                          successId === p.id
-                            ? "bg-emerald-600 text-white shadow-md scale-105"
-                            : "bg-brand-lime text-slate-900 hover:shadow-sm"
-                        }`}
-                      >
-                        {successId === p.id ? (
-                          <>
-                            <Check className="w-3.5 h-3.5" />
-                            ✓ Added
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="w-3.5 h-3.5" />
-                            Buy
-                          </>
-                        )}
-                      </button>
-                    );
-                  })()}
-                </div>
-              </div>
+                product={p}
+                layout="horizontal"
+                cartQuantity={cartQuantities[p.id] || 0}
+                onAddToCart={(productId, qty) => onAddToCart(productId, qty)}
+                onUpdateCartQty={(productId, currentQty, delta) =>
+                  onUpdateCartQty ? onUpdateCartQty(productId, currentQty, delta) : null
+                }
+                onOpenDetails={(product) => onOpenProductDetails(product)}
+              />
             ))}
           </div>
         </div>
@@ -472,51 +384,24 @@ export default function Home({
         <div className="space-y-2.5">
           <div className="flex justify-between items-center">
             <h3 className="text-[10px] uppercase font-bold text-slate-400 tracking-wider flex items-center gap-1">
-              <TrendingUp className="w-3.5 h-3.5 text-brand-lime" />
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
               Highest Discount Products
             </h3>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            {highestDiscounts.map(p => {
-              const inCartQty = cartQuantities[p.id] || 0;
-              return (
-                <div
-                  key={p.id}
-                  onClick={() => onOpenProductDetails(p)}
-                  className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm hover:border-slate-200 cursor-pointer flex flex-col justify-between relative"
-                >
-                  {inCartQty > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 bg-brand-purple text-white text-[8px] font-black px-1.5 py-0.5 rounded-full z-10 shadow-sm animate-fade-in">
-                      {inCartQty} in cart
-                    </span>
-                  )}
-                  <div>
-                    {p.imageUrl && (
-                      <div className="w-full h-14 rounded-xl overflow-hidden bg-slate-50 border border-slate-100 mb-2">
-                        <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
-                      </div>
-                    )}
-                    <div className="flex justify-between items-start mb-1.5">
-                      <span className="bg-brand-purple/10 text-brand-purple text-[8px] font-black px-1.5 py-0.5 rounded">
-                        {p.discountPercentage}% OFF
-                      </span>
-                      <span className="text-[9px] text-slate-400 font-mono font-bold">Pack: {p.packSize.split(" ")[0]}</span>
-                    </div>
-                    <h4 className="text-xs font-black text-brand-charcoal truncate">{p.name}</h4>
-                    <p className="text-[9px] text-slate-400 uppercase font-bold truncate mt-0.5">{p.genericName}</p>
-                  </div>
-                  <div className="mt-3 flex justify-between items-end">
-                    <div className="flex flex-col">
-                      <span className="text-xs font-black text-brand-purple">৳{p.sellingPrice}</span>
-                      <span className="text-[7.5px] text-slate-400 font-bold font-mono">
-                        {formatProductPriceLabel(p.sellingPrice, p.packSize)}
-                      </span>
-                    </div>
-                    <span className="text-[9px] text-slate-400 line-through">৳{p.mrp}</span>
-                  </div>
-                </div>
-              );
-            })}
+            {highestDiscounts.map((p) => (
+              <ProductCard
+                key={p.id}
+                product={p}
+                layout="grid"
+                cartQuantity={cartQuantities[p.id] || 0}
+                onAddToCart={(productId, qty) => onAddToCart(productId, qty)}
+                onUpdateCartQty={(productId, currentQty, delta) =>
+                  onUpdateCartQty ? onUpdateCartQty(productId, currentQty, delta) : null
+                }
+                onOpenDetails={(product) => onOpenProductDetails(product)}
+              />
+            ))}
           </div>
         </div>
       </div>
