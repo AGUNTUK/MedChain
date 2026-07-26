@@ -19,7 +19,7 @@ import DepotDashboard from "./components/DepotDashboard";
 import DeliveryDashboard from "./components/DeliveryDashboard";
 import FloatingCartBar from "./components/FloatingCartBar";
 import FlyToCartOverlay from "./components/FlyToCartOverlay";
-import PWAInstallPrompt from "./components/PWAInstallPrompt";
+import PWAInstallBanner, { PWAInstallButton } from "./components/PWAInstallBanner";
 import { FlyToCartProvider } from "./context/FlyToCartContext";
 import { Product, Pharmacy, Order, Notification, User } from "./types";
 import { Home as HomeIcon, Search as SearchIcon, Package as PackageIcon, FileText as FileIcon, ClipboardList as ListIcon, User as UserIcon, Shield, Smartphone } from "lucide-react";
@@ -570,7 +570,7 @@ export default function App() {
           {/* Dynamic Fly-To-Cart Parabolic Overlay */}
           <FlyToCartOverlay />
 
-          <PWAInstallPrompt />
+          <PWAInstallBanner />
 
           {/* Bottom persistent Nav Bar */}
           {appStep === "main" && (
@@ -608,6 +608,8 @@ export default function App() {
                 <ListIcon className="w-5 h-5" />
                 <span className="text-[10px] font-bold">Orders</span>
               </button>
+
+              <PWAInstallButton variant="nav" />
               
               <button
                 onClick={() => setActiveTab("account")}

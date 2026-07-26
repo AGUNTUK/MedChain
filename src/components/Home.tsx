@@ -19,6 +19,7 @@ import MediChainLogo from "./MediChainLogo";
 import { Product } from "../types";
 import { productService } from "../services";
 import NotificationBell from "./NotificationBell";
+import { PWAInstallButton } from "./PWAInstallBanner";
 import { formatProductPriceLabel } from "../lib/utils";
 import { useFlyToCart } from "../context/FlyToCartContext";
 
@@ -180,6 +181,7 @@ export default function Home({
 
         {/* Notifications and status */}
         <div className="flex items-center gap-2">
+          <PWAInstallButton variant="badge" />
           {onOpenCart && (
             <button
               type="button"
