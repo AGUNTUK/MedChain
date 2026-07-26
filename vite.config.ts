@@ -11,12 +11,12 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.png', 'apple-touch-icon.png', 'logo.png'],
+        includeAssets: ['favicon.png', 'apple-touch-icon.png', 'logo.png', 'pwa-192x192.png', 'pwa-512x512.png'],
         manifest: {
-          name: "MediChain - B2B Medicine Procurement",
+          name: "MediChain - Healthcare Platform",
           short_name: "MediChain",
-          description: "DGDA Compliant B2B Medicine Procurement Network for Pharmacies",
-          theme_color: "#059669",
+          description: "Healthcare & B2B Medicine Procurement Platform",
+          theme_color: "#0284c7",
           background_color: "#ffffff",
           display: "standalone",
           start_url: "/",
