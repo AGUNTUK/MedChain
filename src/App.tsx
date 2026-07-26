@@ -525,7 +525,7 @@ export default function App() {
       <div className="flex h-screen w-screen bg-slate-50 font-sans select-none overflow-hidden justify-center items-center">
         <div className="w-full h-full max-w-md bg-white shadow-2xl relative flex flex-col overflow-hidden">
           {/* Screen Content */}
-          <div className={`flex-1 overflow-hidden relative ${appStep === "main" ? "pb-32" : ""}`}>
+          <div className="flex-1 overflow-hidden relative">
             {renderMobileContent()}
             
             {/* Floating product details overlay */}

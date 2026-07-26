@@ -499,13 +499,19 @@ export async function updatePharmacyProfile(userId: string, data: any) {
 
   const license_information = JSON.stringify(mergedLicense);
 
+  // Truncate fields to match Postgres VARCHAR column constraints
+  const safePhone = (data.phone || "").toString().trim().slice(0, 20);
+  const safePharmacyName = (data.pharmacyName || "Pharmacy").toString().trim().slice(0, 255);
+  const safeOwnerName = (data.ownerName || "Proprietor").toString().trim().slice(0, 255);
+  const safeCity = (data.city || "Dhaka").toString().trim().slice(0, 100);
+
   const payload = {
     user_id: userId,
-    pharmacy_name: data.pharmacyName,
-    owner_name: data.ownerName,
-    phone: data.phone,
-    address: data.address,
-    city: data.city,
+    pharmacy_name: safePharmacyName,
+    owner_name: safeOwnerName,
+    phone: safePhone,
+    address: data.address || "",
+    city: safeCity,
     license_information
   };
 
@@ -518,9 +524,9 @@ export async function updatePharmacyProfile(userId: string, data: any) {
   if (ph && !error) {
     // Also update pharmacy_id, name, phone and email in users table
     const userUpdatePayload: any = { pharmacy_id: ph.id };
-    if (data.ownerName) userUpdatePayload.name = data.ownerName;
-    if (data.phone) userUpdatePayload.phone = data.phone;
-    if (data.email) userUpdatePayload.email = data.email;
+    if (safeOwnerName) userUpdatePayload.name = safeOwnerName;
+    if (safePhone) userUpdatePayload.phone = safePhone;
+    if (data.email) userUpdatePayload.email = (data.email || "").toString().trim().slice(0, 255);
 
     await supabaseAdmin
       .from("users")

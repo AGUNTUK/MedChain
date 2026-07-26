@@ -199,7 +199,7 @@ export default function Home({
       </div>
 
       {/* Main Body */}
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-4 pb-32">
         {/* Mock Search Trigger */}
         <div
           onClick={() => onTriggerSearch()}

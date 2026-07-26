@@ -24,8 +24,17 @@ export function MediChainFullLogo({ className = "", size = 120 }: { className?: 
   return <MediChainOfficialLogo className={`object-contain ${className}`} size={size} />;
 }
 
-export function MediChainIconOnly({ className = "", size = 48 }: { className?: string; size?: number }) {
-  return <MediChainOfficialLogo className={`object-contain ${className}`} size={size} />;
+export function MediChainIconOnly({ className = "", size = 40 }: { className?: string; size?: number }) {
+  return (
+    <div className={`relative inline-flex items-center justify-center shrink-0 ${className}`}>
+      <img 
+        src="/logo.png" 
+        alt="MediChain Logo" 
+        className="object-contain h-full w-full max-h-full max-w-full" 
+        style={size ? { width: size, height: size } : {}}
+      />
+    </div>
+  );
 }
 
 interface LogoProps {

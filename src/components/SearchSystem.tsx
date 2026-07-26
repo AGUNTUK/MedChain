@@ -371,7 +371,7 @@ export default function SearchSystem({
       </div>
 
       {/* Main Container Area */}
-      <div className="flex-1 overflow-y-auto bg-slate-50 relative flex flex-col">
+      <div className="flex-1 overflow-y-auto bg-slate-50 relative flex flex-col pb-32">
         {/* Dedicated Full-Width Search Bar Section */}
         <div className="px-4 pt-4 pb-2 sticky top-0 z-10 bg-slate-50">
           <div className="relative">

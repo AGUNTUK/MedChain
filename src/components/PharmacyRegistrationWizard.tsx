@@ -151,19 +151,24 @@ export default function PharmacyRegistrationWizard({
   return (
     <div className="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex flex-col my-4">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-teal-800 to-emerald-900 p-6 text-white relative">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <MediChainLogo className="w-8 h-8 text-emerald-400" />
-            <div>
-              <h2 className="text-xl font-bold text-white tracking-wide">Pharmacy Onboarding Wizard</h2>
-              <p className="text-xs text-emerald-200">DGDA Compliant B2B Medicine Procurement Network</p>
+      <div className="bg-gradient-to-r from-teal-800 to-emerald-900 p-5 md:p-6 text-white relative">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <MediChainLogo size="sm" withText={false} className="shrink-0" />
+            <div className="min-w-0">
+              <h2 className="text-lg md:text-xl font-bold text-white tracking-wide leading-tight">
+                Pharmacy Onboarding Wizard
+              </h2>
+              <p className="text-xs text-emerald-200 mt-0.5 leading-snug">
+                DGDA Compliant B2B Medicine Procurement Network
+              </p>
             </div>
           </div>
           {onCancel && (
             <button
               onClick={onCancel}
-              className="text-xs text-slate-300 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+              type="button"
+              className="shrink-0 text-xs font-medium text-slate-200 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
             >
               Cancel
             </button>
