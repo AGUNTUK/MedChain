@@ -59,11 +59,16 @@ export const orderService = {
    * Retrieves the current items, subtotal, and savings in the user's active shopping cart.
    */
   async getCart(): Promise<{ items: any[]; totalAmount: number; totalSavings: number; totalMrp: number }> {
-    const res = await fetch("/api/cart");
-    if (!res.ok) {
-      throw new Error("Failed to load your procurement cart.");
+    try {
+      const res = await fetch("/api/cart");
+      if (!res.ok) {
+        return { items: [], totalAmount: 0, totalSavings: 0, totalMrp: 0 };
+      }
+      return await res.json();
+    } catch (err) {
+      console.warn("Failed to load your procurement cart (network error):", err);
+      return { items: [], totalAmount: 0, totalSavings: 0, totalMrp: 0 };
     }
-    return res.json();
   },
 
   /**

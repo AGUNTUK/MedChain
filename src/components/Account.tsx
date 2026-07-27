@@ -41,7 +41,7 @@ export default function Account({
       const dataFav = await productService.getFavourites();
       setFavProducts(dataFav);
     } catch (err) {
-      console.error(err);
+      console.warn("Analytics/Fav fetch warning:", err);
     }
   };
 

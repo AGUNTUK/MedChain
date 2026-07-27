@@ -10,36 +10,45 @@ export const productService = {
    * Fetches the B2B wholesale product catalog with optional query, category, or deals filter parameters.
    */
   async getProducts(params?: { search?: string; category?: string; filter?: "deals" | "frequent" | "low_stock"; page?: number; limit?: number }): Promise<Product[]> {
-    const q = new URLSearchParams();
-    if (params?.search) q.append("search", params.search);
-    if (params?.category) q.append("category", params.category);
-    if (params?.filter) q.append("filter", params.filter);
-    
-    // Always enforce pagination limits to prevent payload overflow
-    q.append("page", (params?.page || 1).toString());
-    q.append("limit", (params?.limit || 50).toString());
+    try {
+      const q = new URLSearchParams();
+      if (params?.search) q.append("search", params.search);
+      if (params?.category) q.append("category", params.category);
+      if (params?.filter) q.append("filter", params.filter);
+      
+      // Always enforce pagination limits to prevent payload overflow
+      q.append("page", (params?.page || 1).toString());
+      q.append("limit", (params?.limit || 50).toString());
 
-    const queryStr = q.toString() ? `?${q.toString()}` : "";
-    const res = await fetch(`/api/products${queryStr}`);
-    if (!res.ok) {
-      throw new Error("Failed to fetch product list from MediChain catalog.");
+      const queryStr = q.toString() ? `?${q.toString()}` : "";
+      const res = await fetch(`/api/products${queryStr}`);
+      if (!res.ok) {
+        return [];
+      }
+      
+      const data = await res.json();
+      // Support both paginated array and direct array response depending on what server returns
+      return Array.isArray(data) ? data : (data.products || []);
+    } catch (err) {
+      console.warn("Failed to fetch products API:", err);
+      return [];
     }
-    
-    const data = await res.json();
-    // Support both paginated array and direct array response depending on what server returns
-    return Array.isArray(data) ? data : (data.products || []);
   },
 
   /**
    * Fetches the distinct product categories from the catalog.
    */
   async getCategories(): Promise<string[]> {
-    const res = await fetch("/api/categories");
-    if (!res.ok) {
-      console.warn("Failed to fetch product categories.");
+    try {
+      const res = await fetch("/api/categories");
+      if (!res.ok) {
+        return [];
+      }
+      return await res.json();
+    } catch (err) {
+      console.warn("Failed to fetch product categories API:", err);
       return [];
     }
-    return res.json();
   },
 
   /**
@@ -61,19 +70,32 @@ export const productService = {
     originalQuery: string;
     correctedQuery?: string;
   }> {
-    const q = new URLSearchParams();
-    if (params.search) q.append("search", params.search);
-    if (params.category) q.append("category", params.category);
-    if (params.filter) q.append("filter", params.filter);
-    if (params.page) q.append("page", params.page.toString());
-    if (params.limit) q.append("limit", params.limit.toString());
-    q.append("paginate", "true");
+    try {
+      const q = new URLSearchParams();
+      if (params.search) q.append("search", params.search);
+      if (params.category) q.append("category", params.category);
+      if (params.filter) q.append("filter", params.filter);
+      if (params.page) q.append("page", params.page.toString());
+      if (params.limit) q.append("limit", params.limit.toString());
+      q.append("paginate", "true");
 
-    const res = await fetch(`/api/products?${q.toString()}`);
-    if (!res.ok) {
-      throw new Error("Failed to fetch paginated product list from MediChain catalog.");
+      const res = await fetch(`/api/products?${q.toString()}`);
+      if (!res.ok) {
+        throw new Error("Failed to fetch paginated product list from MediChain catalog.");
+      }
+      return await res.json();
+    } catch (err) {
+      console.warn("Failed to fetch paginated products API:", err);
+      return {
+        products: [],
+        total: 0,
+        page: 1,
+        pageSize: params.limit || 50,
+        pages: 0,
+        suggestions: [],
+        originalQuery: params.search || "",
+      };
     }
-    return res.json();
   },
 
   /**
@@ -97,11 +119,16 @@ export const productService = {
    * Gets only the IDs of the user's current favorite products.
    */
   async getFavouritesIds(): Promise<string[]> {
-    const res = await fetch("/api/favourites/ids");
-    if (!res.ok) {
-      throw new Error("Failed to fetch favorite product IDs.");
+    try {
+      const res = await fetch("/api/favourites/ids");
+      if (!res.ok) {
+        return [];
+      }
+      return await res.json();
+    } catch (err) {
+      console.warn("Failed to fetch favorite product IDs:", err);
+      return [];
     }
-    return res.json();
   },
 
   /**

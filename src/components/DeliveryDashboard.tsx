@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { io } from "socket.io-client";
 import { User, Order } from "../types";
 import { Truck, CheckCircle2, AlertTriangle, LogOut, Package, Phone, X, ShieldCheck } from "lucide-react";
 import NotificationBell from "./NotificationBell";
@@ -30,7 +31,7 @@ export default function DeliveryDashboard({ currentUser, onLogout }: DeliveryDas
       if (resOrders.success) setOrders(resOrders.orders);
       if (resHistory.success) setHistory(resHistory.orders);
     } catch (err) {
-      console.error(err);
+      console.warn("Delivery refresh network warning:", err);
     } finally {
       setLoading(false);
     }
@@ -38,6 +39,16 @@ export default function DeliveryDashboard({ currentUser, onLogout }: DeliveryDas
 
   useEffect(() => {
     refreshData();
+    const socket = io();
+    socket.on("connect", () => {
+      socket.emit("join_role_room", "Delivery Staff");
+    });
+    socket.on("admin_order_updated", () => {
+      refreshData();
+    });
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   const handleStatusChange = async (orderId: string, status: string, notes?: string, providedOtp?: string) => {

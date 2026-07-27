@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { io } from "socket.io-client";
 import { User, Order, Product } from "../types";
 import { 
   LayoutDashboard, ShoppingCart, Boxes, Truck, LogOut, CheckCircle2, 
@@ -79,7 +80,7 @@ export default function DepotDashboard({ currentUser, onLogout }: DepotDashboard
       }
       setProducts(prodRes || []);
     } catch (err) {
-      console.error(err);
+      console.warn("Depot refresh network warning:", err);
       setErrorMsg("Failed to synchronize depot database state.");
     } finally {
       setLoading(false);
@@ -88,6 +89,16 @@ export default function DepotDashboard({ currentUser, onLogout }: DepotDashboard
 
   useEffect(() => {
     refreshData();
+    const socket = io();
+    socket.on("connect", () => {
+      socket.emit("join_role_room", "Depot Staff");
+    });
+    socket.on("admin_order_updated", () => {
+      refreshData();
+    });
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   const handleOrderAction = async (orderId: string, action: "accept" | "process" | "pack") => {

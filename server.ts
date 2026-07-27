@@ -595,6 +595,85 @@ app.get("/api/products/:id", async (req, res) => {
   }
 });
 
+// --- AI PRESCRIPTION SCANNER (Gemini Vision) ---
+
+app.post("/api/prescription/scan", requireAuth, async (req, res) => {
+  const { imageBase64 } = req.body;
+  if (!imageBase64) {
+    return res.status(400).json({ error: "No image data provided for scanning." });
+  }
+
+  try {
+    const ai = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY,
+      httpOptions: { headers: { "User-Agent": "aistudio-build" } },
+    });
+
+    const mimeType = imageBase64.startsWith("data:image/jpeg") ? "image/jpeg" :
+                     imageBase64.startsWith("data:image/webp") ? "image/webp" : "image/png";
+    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.6-flash",
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              mimeType,
+              data: base64Data,
+            },
+          },
+          {
+            text: `Analyze this medical prescription. Extract the list of medicines. 
+            Return ONLY a raw, minified JSON array of objects without markdown formatting. 
+            Format: [{"name": "string", "strength": "string or null", "quantity": number}]`,
+          },
+        ],
+      },
+    });
+
+    const aiText = response.text || "[]";
+    let parsedItems = [];
+    try {
+      const cleanJson = aiText.replace(/```json/g, "").replace(/```/g, "").trim();
+      parsedItems = JSON.parse(cleanJson);
+    } catch (parseErr) {
+      console.warn("Failed to parse Gemini output as JSON:", aiText);
+      return res.status(500).json({ error: "Failed to parse optical prescription results." });
+    }
+
+    // Attempt to match with existing products in the DB using searchService
+    const matchedProducts = [];
+    for (const item of parsedItems) {
+      if (!item.name) continue;
+      const results = await performSearch(item.name, { limit: 1 });
+      if (results.products && results.products.length > 0) {
+        matchedProducts.push({
+          extractedName: item.name,
+          extractedStrength: item.strength,
+          extractedQuantity: item.quantity || 1,
+          matchedProduct: results.products[0],
+        });
+      } else {
+         matchedProducts.push({
+          extractedName: item.name,
+          extractedStrength: item.strength,
+          extractedQuantity: item.quantity || 1,
+          matchedProduct: null,
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      items: matchedProducts,
+    });
+  } catch (err: any) {
+    console.error("Prescription Scan API Error:", err);
+    res.status(500).json({ error: "Failed to process prescription image.", details: err.message });
+  }
+});
+
 // --- PROCUREMENT CART (Stateless DB Synced) ---
 
 app.get("/api/cart", requireAuth, async (req, res) => {
@@ -968,61 +1047,111 @@ function generateInvoicePdf(res: express.Response, order: any, pharmacy: any, in
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `attachment; filename="invoice-${order.id}.pdf"`);
 
-  const doc = new PDFDocument({ margin: 40 });
+  const doc = new PDFDocument({ margin: 40, size: 'A4' });
   doc.pipe(res);
 
-  // Header
-  doc.fillColor("#0f172a").fontSize(20).text("MediChain B2B Medicine Wholesale", { align: "left" });
-  doc.fontSize(10).fillColor("#64748b").text("Dhaka, Bangladesh | Support: +880 1700-000000 | ops@medichain.bd");
-  doc.moveDown(1.5);
+  // Colors and Styles
+  const primaryColor = "#4f46e5"; // Indigo-600
+  const secondaryColor = "#1e293b"; // Slate-800
+  const lightGray = "#f1f5f9";
+  const grayText = "#64748b";
 
-  // Invoice & Order Meta
+  // Top Accent Banner
+  doc.rect(0, 0, doc.page.width, 10).fill(primaryColor);
+
+  // Company Header (Left)
+  doc.moveDown(2);
+  doc.fillColor(primaryColor).fontSize(28).font("Helvetica-Bold").text("MediChain", 40, 40);
+  doc.fillColor(secondaryColor).fontSize(10).font("Helvetica").text("B2B Medicine Wholesale Logistics", 40, 72);
+  doc.fillColor(grayText).fontSize(9).text("Plot 12, Tejgaon Industrial Area\nDhaka-1208, Bangladesh\nPhone: +880 1700-000000\nEmail: accounts@medichain.bd.com", 40, 88);
+
+  // Invoice Meta (Right)
   const createdDate = order.createdAt ? new Date(order.createdAt).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB");
+  
+  doc.fillColor(primaryColor).fontSize(22).font("Helvetica-Bold").text("INVOICE", 380, 40, { align: "right" });
+  
+  doc.fillColor(secondaryColor).fontSize(10).font("Helvetica-Bold").text("Invoice Number:", 380, 72, { align: "right" });
+  doc.font("Helvetica").text(invoiceNumber, 380, 86, { align: "right" });
+  
+  doc.font("Helvetica-Bold").text("Date of Issue:", 380, 102, { align: "right" });
+  doc.font("Helvetica").text(createdDate, 380, 116, { align: "right" });
+  
+  doc.font("Helvetica-Bold").text("Order Reference:", 380, 132, { align: "right" });
+  doc.font("Helvetica").text(order.readableId || order.id.substring(0,8).toUpperCase(), 380, 146, { align: "right" });
 
-  doc.fillColor("#1e293b").fontSize(14).text(`TAX INVOICE: ${invoiceNumber}`, { align: "right" });
-  doc.fontSize(9).fillColor("#64748b").text(`Order Ref: ${order.readableId || order.id}`, { align: "right" });
-  doc.text(`Invoice Date: ${createdDate}`, { align: "right" });
-  doc.text(`Payment Status: ${order.paymentStatus || "Pending"} (${order.paymentMethod || "Credit"})`, { align: "right" });
-  doc.moveDown(1);
+  doc.moveDown(3);
 
-  // Customer / Pharmacy Info
-  doc.fontSize(11).fillColor("#0f172a").text("BILLED TO:");
-  doc.fontSize(10).fillColor("#334155").text(pharmacy?.pharmacyName || "Registered Pharmacy Partner");
-  if (pharmacy?.ownerName) doc.text(`Proprietor: ${pharmacy.ownerName}`);
-  if (pharmacy?.phone) doc.text(`Contact Phone: ${pharmacy.phone}`);
-  if (pharmacy?.address) doc.text(`Address: ${pharmacy.address}`);
-  if (pharmacy?.licenseNo) doc.text(`Drug License: ${pharmacy.licenseNo}`);
-  doc.moveDown(1.5);
+  // Billing and Shipping Info Box
+  const billingY = 190;
+  doc.rect(40, billingY, 250, 100).fill(lightGray).stroke(primaryColor).lineWidth(0.5).stroke();
+  doc.rect(40, billingY, 250, 20).fill(primaryColor);
+  doc.fillColor("white").font("Helvetica-Bold").fontSize(10).text("BILLED TO", 48, billingY + 6);
+  
+  doc.fillColor(secondaryColor).font("Helvetica-Bold").fontSize(11).text(pharmacy?.pharmacyName || "Registered Pharmacy Partner", 48, billingY + 28);
+  doc.font("Helvetica").fontSize(9);
+  if (pharmacy?.ownerName) doc.text(`Proprietor: ${pharmacy.ownerName}`, 48, billingY + 44);
+  if (pharmacy?.licenseNo) doc.text(`Drug License: ${pharmacy.licenseNo}`, 48, billingY + 56);
+  if (pharmacy?.phone) doc.text(`Phone: ${pharmacy.phone}`, 48, billingY + 68);
+  if (pharmacy?.address) doc.text(`Address: ${pharmacy.address}`, 48, billingY + 80, { width: 230 });
+
+  // Payment Info Box
+  doc.rect(305, billingY, 250, 100).fill(lightGray).stroke(primaryColor).lineWidth(0.5).stroke();
+  doc.rect(305, billingY, 250, 20).fill(primaryColor);
+  doc.fillColor("white").font("Helvetica-Bold").fontSize(10).text("PAYMENT DETAILS", 313, billingY + 6);
+  
+  doc.fillColor(secondaryColor).font("Helvetica-Bold").fontSize(10).text("Payment Method:", 313, billingY + 30);
+  doc.font("Helvetica").text(order.paymentMethod || "B2B Credit Line", 400, billingY + 30);
+  
+  doc.font("Helvetica-Bold").text("Payment Status:", 313, billingY + 48);
+  doc.font("Helvetica").fillColor(order.paymentStatus === "Paid" ? "#16a34a" : "#dc2626").text((order.paymentStatus || "Pending").toUpperCase(), 400, billingY + 48);
+  
+  doc.fillColor(secondaryColor).font("Helvetica-Bold").text("Due Date:", 313, billingY + 66);
+  const dueDate = new Date();
+  dueDate.setDate(dueDate.getDate() + 30); // 30 days net
+  doc.font("Helvetica").text(dueDate.toLocaleDateString("en-GB"), 400, billingY + 66);
 
   // Table Headers
-  const tableTop = doc.y;
-  doc.fontSize(9).fillColor("#0f172a");
-  doc.text("Item Name", 40, tableTop, { width: 180 });
-  doc.text("Strength", 220, tableTop, { width: 80 });
-  doc.text("Qty (Box)", 300, tableTop, { width: 60, align: "right" });
-  doc.text("Unit Price", 370, tableTop, { width: 80, align: "right" });
-  doc.text("Subtotal", 460, tableTop, { width: 90, align: "right" });
+  const tableTop = 320;
+  doc.rect(40, tableTop, doc.page.width - 80, 25).fill(primaryColor);
+  doc.font("Helvetica-Bold").fontSize(9).fillColor("white");
+  
+  doc.text("ITEM DESCRIPTION", 50, tableTop + 8, { width: 180 });
+  doc.text("STRENGTH", 240, tableTop + 8, { width: 80 });
+  doc.text("QTY", 330, tableTop + 8, { width: 40, align: "center" });
+  doc.text("UNIT PRICE", 380, tableTop + 8, { width: 70, align: "right" });
+  doc.text("SUBTOTAL", 460, tableTop + 8, { width: 80, align: "right" });
 
-  doc.moveTo(40, tableTop + 15).lineTo(550, tableTop + 15).strokeColor("#cbd5e1").stroke();
-
-  let position = tableTop + 22;
-  doc.fontSize(9).fillColor("#334155");
-
+  let position = tableTop + 35;
+  
   const items = order.items || [];
+  let alternate = false;
+
+  // Table Rows
   for (const item of items) {
     if (position > 700) {
       doc.addPage();
       position = 40;
     }
-    doc.text(item.name || "Medicine Product", 40, position, { width: 180 });
-    doc.text(item.strength || "-", 220, position, { width: 80 });
-    doc.text((item.quantity || 0).toString(), 300, position, { width: 60, align: "right" });
-    doc.text(`BDT ${item.sellingPrice ? item.sellingPrice.toLocaleString() : "0"}`, 370, position, { width: 80, align: "right" });
-    doc.text(`BDT ${item.subtotal ? item.subtotal.toLocaleString() : "0"}`, 460, position, { width: 90, align: "right" });
-    position += 18;
+
+    if (alternate) {
+      doc.rect(40, position - 5, doc.page.width - 80, 20).fill(lightGray);
+    }
+    alternate = !alternate;
+
+    doc.fontSize(9).font("Helvetica-Bold").fillColor(secondaryColor);
+    doc.text(item.name || "Medicine Product", 50, position, { width: 180, lineBreak: false });
+    
+    doc.font("Helvetica").fillColor(grayText);
+    doc.text(item.strength || "-", 240, position, { width: 80, lineBreak: false });
+    doc.text((item.quantity || 0).toString(), 330, position, { width: 40, align: "center", lineBreak: false });
+    doc.text(`BDT ${item.sellingPrice ? item.sellingPrice.toLocaleString() : "0"}`, 380, position, { width: 70, align: "right", lineBreak: false });
+    doc.text(`BDT ${item.subtotal ? item.subtotal.toLocaleString() : "0"}`, 460, position, { width: 80, align: "right", lineBreak: false });
+    
+    position += 20;
   }
 
-  doc.moveTo(40, position + 5).lineTo(550, position + 5).strokeColor("#cbd5e1").stroke();
+  // Table Footer Line
+  doc.moveTo(40, position).lineTo(doc.page.width - 40, position).strokeColor(primaryColor).lineWidth(1).stroke();
   position += 15;
 
   // Breakdown costs & totals
@@ -1030,19 +1159,40 @@ function generateInvoicePdf(res: express.Response, order: any, pharmacy: any, in
   const totalAmount = order.totalAmount || 0;
   const totalSavings = order.totalSavings || (totalMrp - totalAmount);
 
-  doc.fontSize(10).fillColor("#0f172a");
-  doc.text(`Gross Catalog MRP: BDT ${totalMrp.toLocaleString()}`, 300, position, { width: 250, align: "right" });
-  position += 15;
+  doc.font("Helvetica-Bold").fontSize(10).fillColor(secondaryColor);
+  doc.text("SUBTOTAL:", 350, position, { width: 100, align: "right" });
+  doc.font("Helvetica").text(`BDT ${totalMrp.toLocaleString()}`, 460, position, { width: 80, align: "right" });
+  position += 20;
 
   if (totalSavings > 0) {
-    doc.fillColor("#16a34a").text(`Wholesale Partner Savings: - BDT ${totalSavings.toLocaleString()}`, 300, position, { width: 250, align: "right" });
-    position += 15;
+    doc.font("Helvetica-Bold").fillColor("#16a34a");
+    doc.text("WHOLESALE SAVINGS:", 300, position, { width: 150, align: "right" });
+    doc.font("Helvetica").text(`- BDT ${totalSavings.toLocaleString()}`, 460, position, { width: 80, align: "right" });
+    position += 20;
   }
 
-  doc.fontSize(12).fillColor("#0f172a").text(`NET PAYABLE TOTAL: BDT ${totalAmount.toLocaleString()}`, 300, position, { width: 250, align: "right" });
+  // Draw Total Box
+  doc.rect(340, position, doc.page.width - 380, 30).fill(lightGray);
+  doc.font("Helvetica-Bold").fontSize(12).fillColor(primaryColor);
+  doc.text("NET PAYABLE:", 350, position + 8, { width: 100, align: "right" });
+  doc.text(`BDT ${totalAmount.toLocaleString()}`, 460, position + 8, { width: 80, align: "right" });
+  position += 50;
 
-  doc.moveDown(3);
-  doc.fontSize(8).fillColor("#94a3b8").text("Thank you for procuring with MediChain BD. Computer-generated tax invoice — no signature required.", { align: "center" });
+  // Barcode / Verification Hash area (Simulated with text font)
+  doc.font("Courier").fontSize(8).fillColor(grayText);
+  doc.text(`*|| ${order.id} ||*`, 40, position);
+  doc.text(`VERIFICATION HASH: ${Buffer.from(order.id).toString('base64').substring(0, 16)}`, 40, position + 10);
+
+  // Footer & Terms
+  doc.moveDown(4);
+  const footerY = doc.page.height - 100;
+  doc.moveTo(40, footerY).lineTo(doc.page.width - 40, footerY).strokeColor(lightGray).lineWidth(1).stroke();
+  
+  doc.font("Helvetica-Bold").fontSize(8).fillColor(secondaryColor).text("Terms & Conditions:", 40, footerY + 15);
+  doc.font("Helvetica").fillColor(grayText).fontSize(7);
+  doc.text("1. FEFO Policy applies. Goods once delivered and accepted cannot be returned unless expired upon delivery.", 40, footerY + 28);
+  doc.text("2. Credit payments must be cleared within 30 days of the invoice date.", 40, footerY + 38);
+  doc.text("3. This is a computer-generated tax invoice and requires no physical signature.", 40, footerY + 48);
 
   doc.end();
 }
@@ -1136,6 +1286,13 @@ app.post("/api/orders/:id/status", requireAuth, async (req, res) => {
     if (error) return res.status(500).json({ error: error.message });
 
     const updated = await dbService.getOrderById(req.params.id);
+    
+    // Real-time broadcast
+    if (io) {
+      io.to(`order_${req.params.id}`).emit("order_status_updated", updated);
+      io.to("role_Admin").emit("admin_order_updated", updated);
+    }
+
     res.json({ success: true, order: updated });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -1309,6 +1466,11 @@ app.post("/api/depot/orders/:id/accept", requireRole(["Admin", "Depot Staff"]), 
     const { error } = await dbService.updateOrderStatus(req.params.id, "Confirmed");
     if (error) return res.status(400).json({ error: error.message });
     const order = await dbService.getOrderById(req.params.id);
+    if (io) {
+      io.to(`order_${req.params.id}`).emit("order_status_updated", order);
+      io.to("role_Admin").emit("admin_order_updated", order);
+      io.to("role_Delivery Staff").emit("admin_order_updated", order);
+    }
     res.json({ success: true, order });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -1320,6 +1482,11 @@ app.post("/api/depot/orders/:id/process", requireRole(["Admin", "Depot Staff"]),
     const { error } = await dbService.updateOrderStatus(req.params.id, "Processing");
     if (error) return res.status(400).json({ error: error.message });
     const order = await dbService.getOrderById(req.params.id);
+    if (io) {
+      io.to(`order_${req.params.id}`).emit("order_status_updated", order);
+      io.to("role_Admin").emit("admin_order_updated", order);
+      io.to("role_Delivery Staff").emit("admin_order_updated", order);
+    }
     res.json({ success: true, order });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -1331,6 +1498,11 @@ app.post("/api/depot/orders/:id/pack", requireRole(["Admin", "Depot Staff"]), as
     const { error } = await dbService.updateOrderStatus(req.params.id, "Packed");
     if (error) return res.status(400).json({ error: error.message });
     const order = await dbService.getOrderById(req.params.id);
+    if (io) {
+      io.to(`order_${req.params.id}`).emit("order_status_updated", order);
+      io.to("role_Admin").emit("admin_order_updated", order);
+      io.to("role_Delivery Staff").emit("admin_order_updated", order);
+    }
     res.json({ success: true, order });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -1343,6 +1515,11 @@ app.post("/api/depot/orders/:id/assign-delivery", requireRole(["Admin", "Depot S
     const { error } = await dbService.updateOrderStatus(req.params.id, "Out for Delivery", undefined, assignedRiderId);
     if (error) return res.status(400).json({ error: error.message });
     const order = await dbService.getOrderById(req.params.id);
+    if (io) {
+      io.to(`order_${req.params.id}`).emit("order_status_updated", order);
+      io.to("role_Admin").emit("admin_order_updated", order);
+      io.to("role_Delivery Staff").emit("admin_order_updated", order);
+    }
     res.json({ success: true, order });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -1425,6 +1602,14 @@ app.post("/api/delivery/status/:id", requireRole(["Admin", "Delivery Staff"]), a
 
     const { error } = await dbService.updateOrderStatus(req.params.id, status, status === "Failed" ? finalNotes : undefined);
     if (error) return res.status(400).json({ error: error.message });
+    
+    // Real-time broadcast
+    if (io) {
+      const updated = await dbService.getOrderById(req.params.id);
+      io.to(`order_${req.params.id}`).emit("order_status_updated", updated);
+      io.to("role_Admin").emit("admin_order_updated", updated);
+    }
+
     res.json({ success: true, message: `Delivery Status updated to ${status}` });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -2136,7 +2321,10 @@ app.use((err: any, req: any, res: any, next: any) => {
   });
 });
 
+import { Server as SocketIOServer } from "socket.io";
+
 let serverInstance: any;
+let io: SocketIOServer;
 
 async function startServer() {
   console.log(`[${new Date().toISOString()}] [INFO] [System] Initializing MediChain platform startup diagnostics...`);
@@ -2164,6 +2352,30 @@ async function startServer() {
 
   serverInstance = app.listen(PORT, "0.0.0.0", () => {
     console.log(`[${new Date().toISOString()}] [INFO] [System] MediChain Server running on port ${PORT} in ${process.env.NODE_ENV || "development"} mode.`);
+  });
+
+  // Initialize Socket.io
+  io = new SocketIOServer(serverInstance, {
+    cors: { origin: "*", methods: ["GET", "POST"] }
+  });
+  app.set("io", io);
+
+  io.on("connection", (socket) => {
+    console.log(`[${new Date().toISOString()}] [INFO] [Socket] Client connected: ${socket.id}`);
+    
+    socket.on("join_order_room", (orderId) => {
+      socket.join(`order_${orderId}`);
+      console.log(`[Socket] Client ${socket.id} joined room: order_${orderId}`);
+    });
+
+    socket.on("join_role_room", (role) => {
+      socket.join(`role_${role}`);
+      console.log(`[Socket] Client ${socket.id} joined room: role_${role}`);
+    });
+
+    socket.on("disconnect", () => {
+      console.log(`[${new Date().toISOString()}] [INFO] [Socket] Client disconnected: ${socket.id}`);
+    });
   });
 
   const gracefulShutdown = (signal: string) => {

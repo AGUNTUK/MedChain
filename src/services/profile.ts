@@ -11,14 +11,19 @@ export const profileService = {
    * Retrieves the physical trade profile and credit metrics for the current pharmacy owner.
    */
   async getPharmacyProfile(): Promise<Pharmacy | null> {
-    const res = await fetch("/api/pharmacy/profile");
-    if (res.status === 401 || res.status === 404) {
+    try {
+      const res = await fetch("/api/pharmacy/profile");
+      if (res.status === 401 || res.status === 404) {
+        return null;
+      }
+      if (!res.ok) {
+        return null;
+      }
+      return await res.json();
+    } catch (err) {
+      console.warn("Failed to load pharmacy profile details (network error):", err);
       return null;
     }
-    if (!res.ok) {
-      throw new Error("Failed to load pharmacy profile details.");
-    }
-    return res.json();
   },
 
   /**

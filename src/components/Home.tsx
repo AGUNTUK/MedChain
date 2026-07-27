@@ -23,6 +23,7 @@ import { PWAInstallButton } from "./PWAInstallBanner";
 import ProductCard from "./ProductCard";
 import { formatProductPriceLabel } from "../lib/utils";
 import { useFlyToCart } from "../context/FlyToCartContext";
+import PrescriptionScanner from "./PrescriptionScanner";
 
 interface HomeProps {
   onTriggerSearch: (query?: string, category?: string) => void;
@@ -59,6 +60,7 @@ export default function Home({
   const [successId, setSuccessId] = useState<string | null>(null);
   const [dbCategories, setDbCategories] = useState<string[]>([]);
   const [showAllCategories, setShowAllCategories] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   const categoryIconMap: Record<string, string> = {
     "Tablet": "💊",
@@ -203,14 +205,27 @@ export default function Home({
 
       {/* Main Body */}
       <div className="p-4 space-y-4 pb-32">
-        {/* Mock Search Trigger */}
-        <div
-          onClick={() => onTriggerSearch()}
-          className="flex items-center bg-white border border-slate-200/80 rounded-2xl p-3 shadow-sm hover:shadow-md hover:border-slate-300 transition-all cursor-pointer"
-        >
-          <Search className="text-slate-400 w-4.5 h-4.5 mr-2.5" />
-          <span className="text-xs text-slate-400 font-semibold">Search medicine by brand, generic, or manufacturer...</span>
+        {/* Search & Scan Actions */}
+        <div className="flex gap-2">
+          <div
+            onClick={() => onTriggerSearch()}
+            className="flex-1 flex items-center bg-white border border-slate-200/80 rounded-2xl p-3 shadow-sm hover:shadow-md hover:border-slate-300 transition-all cursor-pointer"
+          >
+            <Search className="text-slate-400 w-4.5 h-4.5 mr-2.5 shrink-0" />
+            <span className="text-xs text-slate-400 font-semibold truncate">Search by brand, generic...</span>
+          </div>
+          <button
+            onClick={() => setIsScannerOpen(true)}
+            className="shrink-0 flex items-center justify-center gap-1.5 px-4 bg-brand-purple text-white rounded-2xl font-bold text-xs hover:shadow-lg hover:bg-indigo-700 transition-all active:scale-95 cursor-pointer shadow-sm shadow-indigo-200"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Scan Rx
+          </button>
         </div>
+
+        {isScannerOpen && (
+          <PrescriptionScanner onClose={() => setIsScannerOpen(false)} />
+        )}
 
         {/* Category Carousel Grid */}
         <div className="space-y-2">

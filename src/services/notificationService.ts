@@ -17,7 +17,7 @@ export const notificationService = {
       }
       return await res.json();
     } catch (err) {
-      console.error("Failed to load notifications:", err);
+      console.warn("Failed to load notifications (network/transient):", err);
       return [];
     }
   },

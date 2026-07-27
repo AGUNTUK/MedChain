@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { io } from "socket.io-client";
 import ProductEditModal from "./ProductEditModal";
 import { 
   LayoutDashboard, 
@@ -288,7 +289,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
         setNotifHistory(notifHistData.history || []);
       }
     } catch (err: any) {
-      console.error(err);
+      console.warn("Admin refresh network warning:", err);
       setErrorMsg("Failed to synchronize B2B ledger and medicine catalogs.");
     } finally {
       setLoading(false);
@@ -297,6 +298,22 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
 
   useEffect(() => {
     refreshAllData();
+    
+    // Connect to Socket.io for Real-time admin updates
+    const socket = io();
+
+    socket.on("connect", () => {
+      socket.emit("join_role_room", "Admin");
+    });
+
+    socket.on("admin_order_updated", () => {
+      // Refresh the orders non-obtrusively
+      refreshAllData();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   // Timed dismiss for messages

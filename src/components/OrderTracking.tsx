@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { ArrowLeft, Check, Compass, Truck, RefreshCw, Layers, Calendar, Phone, KeyRound } from "lucide-react";
+import { io, Socket } from "socket.io-client";
 import { Order, OrderStatus } from "../types";
 import { orderService } from "../services";
 import { formatRefId } from "../lib/utils";
@@ -25,6 +26,22 @@ export default function OrderTracking({ orderId, userRole, onBack, onRefreshStat
 
   useEffect(() => {
     fetchOrder();
+
+    // Socket.io initialization for real-time tracking
+    const socket = io(); // Connects to the same host/port
+
+    socket.on("connect", () => {
+      socket.emit("join_order_room", orderId);
+    });
+
+    socket.on("order_status_updated", (updatedOrder: Order) => {
+      setOrder(updatedOrder);
+      onRefreshStats(); // Optional: to refresh any parent level notifications
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, [orderId]);
 
   if (!order) {
