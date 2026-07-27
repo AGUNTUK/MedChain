@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plus, Minus, ShoppingCart, Check, Tag, Package, Building2, Pill, AlertTriangle } from "lucide-react";
+import { Plus, Minus, ShoppingCart, Check, Tag, Building2, Pill, AlertTriangle } from "lucide-react";
 import { Product } from "../types";
 import { formatProductPriceLabel } from "../lib/utils";
 import { useFlyToCart } from "../context/FlyToCartContext";
@@ -42,7 +42,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     e.stopPropagation();
     if (isOutOfStock) return;
 
-    // Trigger fly to cart parabolic animation
     if (e.currentTarget) {
       triggerFlyToCart(e.currentTarget, imageUrl);
     }
@@ -53,7 +52,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       onUpdateCartQty(product.id, cartQuantity, orderQty);
     }
 
-    // Visual Feedback
     setIsAdded(true);
     setTimeout(() => {
       setIsAdded(false);
@@ -80,71 +78,83 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     return (
       <div
         onClick={handleCardClick}
-        className={`bg-white rounded-2xl p-3.5 border border-slate-100 shadow-sm hover:border-slate-300 transition-all cursor-pointer relative flex gap-3.5 ${className}`}
+        className={`bg-white rounded-2xl p-3.5 border border-slate-100 shadow-sm hover:border-slate-300 transition-all cursor-pointer relative flex flex-col gap-2.5 ${className}`}
       >
-        {/* Aspect Ratio Image Container */}
-        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden bg-slate-50 border border-slate-100 flex-shrink-0 flex items-center justify-center p-1.5 relative">
-          {imageUrl && !imageError ? (
-            <img
-              src={imageUrl}
-              alt={product.name}
-              onError={() => setImageError(true)}
-              className="w-full h-full object-contain"
-            />
-          ) : (
-            <div className="flex flex-col items-center justify-center text-slate-300">
-              <Pill className="w-7 h-7 text-brand-purple/40" />
-            </div>
-          )}
-
-          {/* Category Badge */}
-          <span className="absolute bottom-1 left-1 bg-slate-900/80 backdrop-blur-xs text-white text-[7px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">
-            {product.category}
-          </span>
-        </div>
-
-        {/* Content Info */}
-        <div className="flex-1 min-w-0 flex flex-col justify-between">
-          <div>
-            <div className="flex items-start justify-between gap-1">
-              <h3 className="text-xs sm:text-sm font-black text-slate-900 truncate leading-snug">
-                {product.name} <span className="text-[11px] font-bold text-slate-500">{product.strength}</span>
-              </h3>
-              {calculatedDiscount > 0 && (
-                <span className="bg-brand-lime text-slate-950 text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase shrink-0">
-                  {calculatedDiscount}% OFF
-                </span>
-              )}
-            </div>
-
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate mt-0.5">
-              {product.genericName}
-            </p>
-            <p className="text-[10px] text-slate-500 font-semibold truncate flex items-center gap-1 mt-0.5">
-              <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
-              <span>{product.company}</span>
-            </p>
+        {/* Top Header Row: Image + Main Details + Right Pricing Column */}
+        <div className="flex gap-3 items-start">
+          {/* Image Container */}
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-slate-50 border border-slate-100 flex-shrink-0 flex items-center justify-center p-1 relative">
+            {imageUrl && !imageError ? (
+              <img
+                src={imageUrl}
+                alt={product.name}
+                onError={() => setImageError(true)}
+                className="w-full h-full object-contain"
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center text-slate-300">
+                <Pill className="w-6 h-6 text-brand-purple/40" />
+              </div>
+            )}
+            <span className="absolute bottom-0.5 left-0.5 bg-slate-900/80 backdrop-blur-xs text-white text-[7px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">
+              {product.category}
+            </span>
           </div>
 
-          <div className="mt-2 flex items-center justify-between gap-2">
-            <div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-sm font-black text-brand-purple">৳{product.sellingPrice}</span>
-                {product.mrp > product.sellingPrice && (
-                  <span className="text-[10px] text-slate-400 line-through">৳{product.mrp}</span>
-                )}
-              </div>
-              <span className="text-[8px] text-slate-500 font-mono block">
-                {formatProductPriceLabel(product.sellingPrice, product.packSize)}
-              </span>
+          {/* Product Details (Middle) */}
+          <div className="flex-1 min-w-0 space-y-0.5">
+            <h3 className="text-xs sm:text-sm font-black text-slate-900 leading-snug break-words">
+              {product.name} <span className="text-[11px] font-bold text-slate-500">{product.strength}</span>
+            </h3>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">
+              {product.genericName}
+            </p>
+            <p className="text-[10px] text-slate-500 font-semibold truncate flex items-center gap-1">
+              <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
+              <span className="truncate">{product.company}</span>
+            </p>
+            <div className="flex items-center gap-1.5 text-[9px] font-mono text-slate-500 pt-0.5">
+              <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">{product.packSize}</span>
+              <span className="text-slate-300">•</span>
+              <span className="font-semibold text-slate-600">Stock: {product.availableStock ?? 100} Box</span>
             </div>
+          </div>
 
-            {/* Ordering System Controls */}
-            {cartQuantity > 0 ? (
-              <div
-                className="flex items-center gap-1.5 bg-brand-purple/5 border border-brand-purple/20 rounded-xl px-2 py-1"
-                onClick={(e) => e.stopPropagation()}
-              >
+          {/* Price / Savings Column (Right) */}
+          <div className="shrink-0 text-right flex flex-col items-end gap-1 min-w-[85px] sm:min-w-[100px]">
+            {calculatedDiscount > 0 && (
+              <span className="bg-brand-lime text-slate-950 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">
+                {calculatedDiscount}% OFF
+              </span>
+            )}
+            <div className="flex items-baseline gap-1 flex-wrap justify-end">
+              <span className="text-xs sm:text-sm font-black text-brand-purple">৳{product.sellingPrice}</span>
+              {product.mrp > product.sellingPrice && (
+                <span className="text-[9.5px] text-slate-400 line-through font-medium">৳{product.mrp}</span>
+              )}
+            </div>
+            <span className="text-[8px] text-slate-500 font-mono block leading-none">
+              {formatProductPriceLabel(product.sellingPrice, product.packSize)}
+            </span>
+            {product.mrp > product.sellingPrice && (
+              <span className="text-[7.5px] bg-emerald-50 text-emerald-700 font-extrabold border border-emerald-200/60 px-1.5 py-0.5 rounded whitespace-nowrap">
+                Save ৳{product.mrp - product.sellingPrice}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom Controls Row */}
+        <div className="pt-2 border-t border-slate-50 flex items-center justify-between gap-2">
+          {cartQuantity > 0 ? (
+            <div
+              className="flex items-center justify-between gap-2 bg-brand-purple/5 border border-brand-purple/20 rounded-xl px-2 py-1 w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <span className="text-xs font-black text-brand-purple font-mono">
+                {cartQuantity} Box in Cart
+              </span>
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={(e) => {
@@ -167,12 +177,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                   <Plus className="w-3 h-3" />
                 </button>
               </div>
-            ) : (
+            </div>
+          ) : (
+            <div className="flex items-center justify-between w-full gap-2">
+              <div className="text-[9.5px] font-semibold text-slate-500 truncate">
+                Wholesale B2B Rate
+              </div>
               <button
                 type="button"
                 onClick={handleAddToCart}
                 disabled={isOutOfStock}
-                className={`py-1.5 px-3 rounded-xl text-xs font-black transition-all flex items-center gap-1 cursor-pointer ${
+                className={`py-1.5 px-3.5 rounded-xl text-xs font-black transition-all flex items-center gap-1 cursor-pointer shrink-0 ${
                   isAdded
                     ? "bg-emerald-600 text-white shadow-md"
                     : isOutOfStock
@@ -189,13 +204,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                   <span>Out of Stock</span>
                 ) : (
                   <>
-                    <ShoppingCart className="w-3.5 h-3.5" />
+                    <ShoppingCart className="w-3.5 h-3.5 text-slate-950" />
                     <span>Add</span>
                   </>
                 )}
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -271,9 +286,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </div>
 
           {/* Pricing Row */}
-          <div className="pt-1.5 border-t border-slate-100 flex items-baseline justify-between gap-1">
-            <div>
-              <div className="flex items-baseline gap-1.5">
+          <div className="pt-2 border-t border-slate-100 flex items-start justify-between gap-1.5">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-1.5 flex-wrap">
                 <span className="text-sm sm:text-base font-black text-brand-purple">৳{product.sellingPrice}</span>
                 {product.mrp > product.sellingPrice && (
                   <span className="text-[10px] text-slate-400 line-through font-medium">৳{product.mrp}</span>
@@ -284,7 +299,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               </span>
             </div>
             {product.packSize && (
-              <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-mono shrink-0">
+              <span className="text-[9px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded font-mono shrink-0">
                 {product.packSize}
               </span>
             )}
@@ -366,7 +381,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 <span>Out of Stock</span>
               ) : (
                 <>
-                  <ShoppingCart className="w-3.5 h-3.5" />
+                  <ShoppingCart className="w-3.5 h-3.5 text-slate-950" />
                   <span>Add to Order</span>
                 </>
               )}
@@ -379,4 +394,5 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 };
 
 export default ProductCard;
+
 

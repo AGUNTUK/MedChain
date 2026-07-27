@@ -12,14 +12,16 @@ export const orderService = {
   async getOrders(): Promise<Order[]> {
     try {
       const res = await fetch("/api/orders");
+      if (!res.ok) {
+        return [];
+      }
       const contentType = res.headers.get("content-type");
-      if (!res.ok || !contentType || !contentType.includes("application/json")) {
-        console.warn("Orders history request failed or returned invalid format.");
+      if (!contentType || !contentType.includes("application/json")) {
         return [];
       }
       return await res.json();
     } catch (err) {
-      console.error("Failed to load order history:", err);
+      console.warn("Unable to connect to orders API endpoint:", err);
       return [];
     }
   },

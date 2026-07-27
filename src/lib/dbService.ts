@@ -1247,80 +1247,85 @@ export async function createOrderTransaction(userId: string, pharmacyId: string,
 // ==========================================
 
 export async function getOrders(pharmacyId?: string): Promise<Order[]> {
-  let query = supabaseAdmin.from("orders").select(`
-    *,
-    order_items (
+  try {
+    let query = supabaseAdmin.from("orders").select(`
       *,
-      products (
-        name,
-        strength,
-        pack_size,
-        mrp
+      order_items (
+        *,
+        products (
+          name,
+          strength,
+          pack_size,
+          mrp
+        )
+      ),
+      pharmacies (
+        pharmacy_name,
+        owner_name,
+        phone
       )
-    ),
-    pharmacies (
-      pharmacy_name,
-      owner_name,
-      phone
-    )
-  `);
+    `);
 
-  if (pharmacyId) {
-    query = query.eq("pharmacy_id", pharmacyId);
-  }
-
-  const { data, error } = await query.order("created_at", { ascending: false });
-  if (error || !data) return [];
-
-  return data.map(order => {
-    // Extract readable readableId from notes prefix if present (e.g. "MCH-88392. Deliver during store hours...")
-    let readableId = `MCH-${order.id.substring(0, 5).toUpperCase()}`;
-    let orderNotes = order.notes || "";
-    if (orderNotes.startsWith("MCH-")) {
-      const parts = orderNotes.split(". ");
-      readableId = parts[0];
-      orderNotes = parts.slice(1).join(". ");
+    if (pharmacyId) {
+      query = query.eq("pharmacy_id", pharmacyId);
     }
 
-    const items: OrderItem[] = (order.order_items || []).map((itm: any) => {
-      const prod = itm.products || {};
-      const sellingPrice = parseFloat(itm.price);
+    const { data, error } = await query.order("created_at", { ascending: false });
+    if (error || !data) return [];
+
+    return data.map(order => {
+      // Extract readable readableId from notes prefix if present (e.g. "MCH-88392. Deliver during store hours...")
+      let readableId = `MCH-${order.id.substring(0, 5).toUpperCase()}`;
+      let orderNotes = order.notes || "";
+      if (orderNotes.startsWith("MCH-")) {
+        const parts = orderNotes.split(". ");
+        readableId = parts[0];
+        orderNotes = parts.slice(1).join(". ");
+      }
+
+      const items: OrderItem[] = (order.order_items || []).map((itm: any) => {
+        const prod = itm.products || {};
+        const sellingPrice = parseFloat(itm.price);
+        return {
+          productId: itm.product_id,
+          name: prod.name || "Medicine Item",
+          strength: prod.strength || "N/A",
+          packSize: prod.pack_size || "N/A",
+          quantity: itm.quantity,
+          sellingPrice,
+          mrp: parseFloat(prod.mrp) || (sellingPrice * 1.2),
+          subtotal: parseFloat(itm.subtotal)
+        };
+      });
+
       return {
-        productId: itm.product_id,
-        name: prod.name || "Medicine Item",
-        strength: prod.strength || "N/A",
-        packSize: prod.pack_size || "N/A",
-        quantity: itm.quantity,
-        sellingPrice,
-        mrp: parseFloat(prod.mrp) || (sellingPrice * 1.2),
-        subtotal: parseFloat(itm.subtotal)
+        id: order.id,
+        readableId, // Custom field
+        pharmacyId: order.pharmacy_id,
+        pharmacyName: order.pharmacies?.pharmacy_name || order.pharmacies?.business_name || "Unknown Pharmacy",
+        pharmacyPhone: order.pharmacies?.phone,
+        status: order.status as any,
+        paymentMethod: order.payment_method as any,
+        paymentStatus: order.payment_status as any,
+        totalAmount: parseFloat(order.total_amount),
+        totalSavings: parseFloat(order.total_savings || 0),
+        totalMrp: parseFloat(order.total_mrp || 0),
+        items,
+        notes: orderNotes,
+        deliveryAddress: order.delivery_address,
+        createdAt: order.created_at,
+        estimatedDelivery: order.status === "Delivered" ? "Delivered" : "Estimated delivery in 24 hours",
+        hasReturnRequested: order.has_return_requested,
+        returnReason: order.return_reason,
+        returnStatus: order.return_status as any,
+        assignedRiderId: order.assigned_rider_id,
+        handoverOtp: order.handover_otp
       };
     });
-
-    return {
-      id: order.id,
-      readableId, // Custom field
-      pharmacyId: order.pharmacy_id,
-      pharmacyName: order.pharmacies?.pharmacy_name || order.pharmacies?.business_name || "Unknown Pharmacy",
-      pharmacyPhone: order.pharmacies?.phone,
-      status: order.status as any,
-      paymentMethod: order.payment_method as any,
-      paymentStatus: order.payment_status as any,
-      totalAmount: parseFloat(order.total_amount),
-      totalSavings: parseFloat(order.total_savings || 0),
-      totalMrp: parseFloat(order.total_mrp || 0),
-      items,
-      notes: orderNotes,
-      deliveryAddress: order.delivery_address,
-      createdAt: order.created_at,
-      estimatedDelivery: order.status === "Delivered" ? "Delivered" : "Estimated delivery in 24 hours",
-      hasReturnRequested: order.has_return_requested,
-      returnReason: order.return_reason,
-      returnStatus: order.return_status as any,
-      assignedRiderId: order.assigned_rider_id,
-      handoverOtp: order.handover_otp
-    };
-  });
+  } catch (err) {
+    console.error("Error retrieving orders from database:", err);
+    return [];
+  }
 }
 
 export async function getOrderById(orderId: string): Promise<Order | null> {

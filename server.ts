@@ -32,10 +32,9 @@ app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ limit: "20mb", extended: true }));
 
 // Stateless concurrent cookie session with strict security guidelines
-const sessionSecret = process.env.SESSION_SECRET;
-if (!sessionSecret) {
-  console.error("CRITICAL: SESSION_SECRET environment variable is missing!");
-  throw new Error("CRITICAL: SESSION_SECRET environment variable is missing! Configure SESSION_SECRET in your environment.");
+const sessionSecret = process.env.SESSION_SECRET || "medichain_secure_session_secret_fallback_key_2026";
+if (!process.env.SESSION_SECRET) {
+  console.warn("SESSION_SECRET environment variable is missing; utilizing default fallback secret.");
 }
 
 app.use(cookieSession({

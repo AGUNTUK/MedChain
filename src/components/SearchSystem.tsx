@@ -350,7 +350,7 @@ export default function SearchSystem({
         {/* Sort and Filters */}
         <div className="flex justify-between items-center pt-2.5 border-t border-slate-50">
           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-            {debouncedSearch ? `Catalog Matches (${totalProducts})` : "Instant B2B Procurement"}
+            Instant B2B Procurement
           </span>
           <div className="flex gap-2">
             <select
@@ -664,56 +664,58 @@ export default function SearchSystem({
                         </button>
                       </div>
 
-                      {/* Product details */}
-                      <div onClick={() => onOpenProductDetails(p)} className="cursor-pointer flex gap-3 mt-1">
-                        {p.imageUrl && (
-                          <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-50 border border-slate-100 flex-shrink-0">
-                            <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
-                          </div>
-                        )}
-                        <div className="flex-1 flex items-start justify-between">
-                          <div>
-                            <h3 className="text-xs font-black text-brand-charcoal hover:text-brand-purple transition-colors leading-tight">
-                              {p.name} <span className="text-[10px] font-bold text-slate-400">{p.strength}</span>
-                            </h3>
-                            <p className="text-[9.5px] font-bold text-slate-400 uppercase mt-0.5 tracking-wider">
-                              {p.genericName}
-                            </p>
-                            <p className="text-[9px] text-slate-500 mt-1 font-semibold">{p.company}</p>
-                          </div>
-                          <div className="text-right flex-shrink-0 ml-2">
-                            {p.availableStock <= 0 ? (
-                              <span className="text-[8px] bg-slate-100 text-slate-500 border border-slate-200 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider block mb-1">
-                                Restocking Soon
-                              </span>
-                            ) : p.availableStock <= 15 ? (
-                              <span className="text-[8.5px] bg-rose-50 text-rose-600 border border-rose-100 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider block mb-1 animate-pulse">
-                                Only {p.availableStock} Left
-                              </span>
-                            ) : (
-                              <span className="text-[8px] bg-emerald-50 text-emerald-700 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider block mb-1">
-                                In Stock
-                              </span>
-                            )}
-                            <span className="text-[9px] text-slate-400 block font-mono">Pack: {p.packSize}</span>
-                            <span className="text-[9px] text-slate-500 block font-mono font-bold mt-0.5">Stock: {p.availableStock} Box</span>
+                      {/* Product details & Price block */}
+                      <div onClick={() => onOpenProductDetails(p)} className="cursor-pointer space-y-3 mt-1">
+                        <div className="flex gap-3 items-start">
+                          {p.imageUrl && (
+                            <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-50 border border-slate-100 flex-shrink-0">
+                              <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0 flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <h3 className="text-xs sm:text-sm font-black text-brand-charcoal hover:text-brand-purple transition-colors leading-tight break-words">
+                                {p.name} <span className="text-[10px] font-bold text-slate-400">{p.strength}</span>
+                              </h3>
+                              <p className="text-[9.5px] font-bold text-slate-400 uppercase mt-0.5 tracking-wider truncate">
+                                {p.genericName}
+                              </p>
+                              <p className="text-[9px] text-slate-500 mt-1 font-semibold truncate">{p.company}</p>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              {p.availableStock <= 0 ? (
+                                <span className="text-[8px] bg-slate-100 text-slate-500 border border-slate-200 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider block mb-1">
+                                  Restocking Soon
+                                </span>
+                              ) : p.availableStock <= 15 ? (
+                                <span className="text-[8.5px] bg-rose-50 text-rose-600 border border-rose-100 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider block mb-1 animate-pulse">
+                                  Only {p.availableStock} Left
+                                </span>
+                              ) : (
+                                <span className="text-[8px] bg-emerald-50 text-emerald-700 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider block mb-1">
+                                  In Stock
+                                </span>
+                              )}
+                              <span className="text-[9px] text-slate-400 block font-mono">Pack: {p.packSize}</span>
+                              <span className="text-[9px] text-slate-500 block font-mono font-bold mt-0.5">Stock: {p.availableStock} Box</span>
+                            </div>
                           </div>
                         </div>
 
                         {/* Price box with sharp B2B hierarchy */}
-                        <div className="grid grid-cols-3 items-center gap-2 mt-3.5 bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                          <div>
-                            <span className="text-[8px] text-slate-400 block font-bold uppercase tracking-wider">Retail MRP</span>
+                        <div className="grid grid-cols-3 items-center gap-2 bg-slate-50 p-2.5 sm:p-3 rounded-2xl border border-slate-100 w-full">
+                          <div className="min-w-0">
+                            <span className="text-[8px] text-slate-400 block font-bold uppercase tracking-wider truncate">Retail MRP</span>
                             <span className="text-xs font-bold text-slate-400 line-through">৳{p.mrp}</span>
                           </div>
-                          <div className="border-l border-slate-200 pl-2.5">
-                            <span className="text-[8px] text-brand-purple block font-black uppercase tracking-wider">B2B Wholesale</span>
-                            <span className="text-xs font-black text-brand-purple">৳{p.sellingPrice}</span>
-                            <span className="text-[7.5px] text-slate-400 font-bold block leading-tight">{formatProductPriceLabel(p.sellingPrice, p.packSize)}</span>
+                          <div className="border-l border-slate-200 pl-2.5 min-w-0">
+                            <span className="text-[8px] text-brand-purple block font-black uppercase tracking-wider truncate">B2B Wholesale</span>
+                            <span className="text-xs sm:text-sm font-black text-brand-purple">৳{p.sellingPrice}</span>
+                            <span className="text-[7.5px] text-slate-400 font-bold block leading-tight truncate">{formatProductPriceLabel(p.sellingPrice, p.packSize)}</span>
                           </div>
-                          <div className="bg-emerald-50 text-emerald-800 border border-emerald-100 px-2.5 py-1 rounded-xl text-center flex flex-col justify-center items-center">
-                            <span className="text-[7px] uppercase font-bold block">Net Savings</span>
-                            <span className="text-[11px] font-black tracking-tight text-emerald-700">Save ৳{p.mrp - p.sellingPrice}</span>
+                          <div className="bg-emerald-50 text-emerald-800 border border-emerald-100 px-2 py-1 rounded-xl text-center flex flex-col justify-center items-center min-w-0">
+                            <span className="text-[7px] uppercase font-bold block truncate">Net Savings</span>
+                            <span className="text-[10px] sm:text-[11px] font-black tracking-tight text-emerald-700 truncate">Save ৳{p.mrp - p.sellingPrice}</span>
                           </div>
                         </div>
                       </div>
