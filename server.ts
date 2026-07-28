@@ -1807,6 +1807,61 @@ app.post("/api/admin/inventory/alerts/sync", requireRole(["Admin"]), async (req,
   }
 });
 
+app.get("/api/admin/products/export/csv", requireRole(["Admin", "Depot Staff"]), async (req, res) => {
+  try {
+    const products = await dbService.getProductsRaw();
+    const headers = [
+      "ID",
+      "Product Name",
+      "Generic Formula Name",
+      "Manufacturer Company",
+      "Category",
+      "Strength",
+      "Pack Size",
+      "MRP (BDT)",
+      "Selling Price (BDT)",
+      "Available Stock",
+      "Batch Number",
+      "Expiry Date",
+      "Image URL"
+    ];
+
+    const escapeCSVCell = (val: any) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const rows = products.map((p: any) => [
+      p.id,
+      p.name,
+      p.genericName || p.generic_name || "",
+      p.company,
+      p.category || p.category_name_fallback || "Tablet",
+      p.strength || "",
+      p.packSize || p.pack_size || "",
+      p.mrp,
+      p.sellingPrice || p.selling_price || p.mrp,
+      p.availableStock !== undefined ? p.availableStock : (p.stock_quantity || 0),
+      p.batchNumber || p.batch_number || "",
+      p.expiryDate || p.expiry_date || "",
+      p.imageUrl || p.image_url || ""
+    ]);
+
+    const csvLines = [
+      headers.map(escapeCSVCell).join(","),
+      ...rows.map((row: any[]) => row.map(escapeCSVCell).join(","))
+    ];
+
+    const csvContent = csvLines.join("\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="medichain-all-products-catalog-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send(csvContent);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get("/api/admin/analytics", requireRole(["Admin"]), async (req, res) => {
   try {
     const orders = await dbService.getOrders();

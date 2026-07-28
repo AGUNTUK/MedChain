@@ -942,18 +942,65 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
   };
 
   const handleExportProductsCSV = () => {
-    const headers = ["Name", "Generic Name", "Company", "Category", "Strength", "Pack Size", "MRP", "Selling Price", "Stock", "Batch", "Expiry"];
+    if (!products || products.length === 0) {
+      setErrorMsg("No products available in the catalog to export.");
+      return;
+    }
+    const headers = [
+      "ID",
+      "Product Name",
+      "Generic Formula Name",
+      "Manufacturer Company",
+      "Category",
+      "Strength",
+      "Pack Size",
+      "MRP (BDT)",
+      "Selling Price (BDT)",
+      "Available Stock",
+      "Batch Number",
+      "Expiry Date",
+      "Image URL"
+    ];
+
+    const escapeCSVCell = (val: any) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
     const rows = products.map(p => [
-      p.name, p.genericName, p.company, p.category, p.strength, p.packSize, p.mrp, p.sellingPrice, p.availableStock, p.batchNumber, p.expiryDate
+      p.id,
+      p.name,
+      p.genericName,
+      p.company,
+      p.category,
+      p.strength,
+      p.packSize,
+      p.mrp,
+      p.sellingPrice,
+      p.availableStock,
+      p.batchNumber,
+      p.expiryDate,
+      p.imageUrl || p.image_url || ""
     ]);
-    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+
+    const csvContent = [
+      headers.map(escapeCSVCell).join(","),
+      ...rows.map(r => r.map(escapeCSVCell).join(","))
+    ].join("\n");
+
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `medichain-catalog-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.setAttribute("download", `medichain-all-products-catalog-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
     link.click();
-    setSuccessMsg("Catalog exported as CSV.");
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setSuccessMsg(`All products catalog (${products.length} medicines) downloaded in CSV format.`);
+    recordExportHistory("CSV Product Catalog", "CSV", { count: products.length });
   };
 
   const handleExportProductsExcel = () => {
@@ -1701,19 +1748,22 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                     <div className="flex flex-wrap gap-2 justify-end">
                       <button
                         onClick={handleExportProductsCSV}
-                        className="flex-1 sm:flex-initial justify-center bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 text-xs font-semibold py-2 px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                        className="flex-1 sm:flex-initial justify-center bg-indigo-600 hover:bg-indigo-500 text-white border border-indigo-500/50 text-xs font-bold py-2 px-3.5 rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-lg shadow-indigo-600/20"
+                        title="Download current complete product catalog in CSV format"
                       >
-                        <FileText className="w-4 h-4" /> CSV
+                        <Download className="w-4 h-4 text-white" />
+                        <span>Download Catalog (CSV)</span>
                       </button>
                       <button
                         onClick={handleExportProductsExcel}
                         className="flex-1 sm:flex-initial justify-center bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 text-xs font-semibold py-2 px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                        title="Export Catalog as Excel spreadsheet"
                       >
                         <FileText className="w-4 h-4" /> XLSX
                       </button>
                       <button
                         onClick={handleOpenAddProduct}
-                        className="w-full sm:w-auto justify-center bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold py-2 px-4 rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-lg"
+                        className="w-full sm:w-auto justify-center bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold py-2 px-4 rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-lg"
                       >
                         <Plus className="w-4 h-4" /> Add Medicine
                       </button>
@@ -1727,7 +1777,14 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                         <h3 className="text-xs font-black text-white uppercase tracking-wider">Bulk Medicine Catalog Import</h3>
                         <p className="text-[10px] text-slate-500 mt-0.5">Upload wholesale medicine files supporting both .csv and .xlsx spreadsheets.</p>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={handleExportProductsCSV}
+                          className="bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-800 text-[10px] font-bold py-1.5 px-3 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
+                          title="Download current live catalog as CSV file"
+                        >
+                          <Download className="w-3.5 h-3.5 text-indigo-400" /> Current Catalog CSV ({products.length})
+                        </button>
                         <button
                           onClick={handleDownloadCSVTemplate}
                           className="bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 text-[10px] font-bold py-1.5 px-3 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
@@ -2568,6 +2625,14 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                     </p>
 
                     <div className="flex flex-col sm:flex-row gap-3">
+                      <button
+                        onClick={handleExportProductsCSV}
+                        className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg"
+                        title="Download current all products catalog in CSV format"
+                      >
+                        <Download className="w-4 h-4" /> Download Catalog (CSV)
+                      </button>
+
                       <button
                         onClick={() => handleExportData("excel")}
                         className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg"
