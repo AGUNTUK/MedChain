@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { io } from "socket.io-client";
 import ProductEditModal from "./ProductEditModal";
+import AIEnrichmentPanel from "./AIEnrichmentPanel";
 import { 
   LayoutDashboard, 
   Pill, 
@@ -8,7 +9,8 @@ import {
   ShoppingCart, 
   Store, 
   Bell, 
-  Settings, 
+  Settings,
+  Cpu, 
   Search, 
   Plus, 
   Edit, 
@@ -74,7 +76,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
     "/admin/orders" | 
     "/admin/pharmacies" | 
     "/admin/notifications" | 
-    "/admin/settings"
+    "/admin/settings" | "/admin/ai-enrichment"
   >("/admin/dashboard");
 
   // Sync state with URL if user visits directly or refreshes
@@ -89,7 +91,8 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
         "/admin/orders",
         "/admin/pharmacies",
         "/admin/notifications",
-        "/admin/settings"
+        "/admin/settings",
+        "/admin/ai-enrichment"
       ];
       if (validRoutes.includes(matched)) {
         setActiveRoute(matched);
@@ -1299,6 +1302,17 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
               <span>Audit Logs</span>
             </button>
 
+            
+            <button
+              onClick={() => navigateTo("/admin/ai-enrichment")}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all ${
+                activeRoute === "/admin/ai-enrichment" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+              }`}
+            >
+              <Cpu className="w-4 h-4" />
+              <span>AI Enrichment</span>
+            </button>
+
             <button
               onClick={() => navigateTo("/admin/settings")}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all ${
@@ -1342,6 +1356,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
               {activeRoute === "/admin/finance" && "FINANCE & CREDIT ACCOUNTING"}
               {activeRoute === "/admin/audit-logs" && "SYSTEM TRANSACTION AUDIT LOGS"}
               {activeRoute === "/admin/settings" && "SYSTEM PLATFORM SCHEMAS"}
+              {activeRoute === "/admin/ai-enrichment" && "AI PRODUCT ENRICHMENT ENGINE"}
             </h2>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end">
@@ -2585,6 +2600,12 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
               )}
 
 
+
+              
+              {/* SCREEN 8: AI ENRICHMENT */}
+              {activeRoute === "/admin/ai-enrichment" && (
+                <AIEnrichmentPanel />
+              )}
 
               {/* SCREEN 7: SYSTEM PLATFORM SCHEMAS */}
               {activeRoute === "/admin/settings" && (

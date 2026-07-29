@@ -643,10 +643,11 @@ app.post("/api/prescription/scan", requireAuth, async (req, res) => {
     }
 
     // Attempt to match with existing products in the DB using searchService
+    const { data: dbProducts } = await dbService.supabaseAdmin.from("products").select("*");
     const matchedProducts = [];
     for (const item of parsedItems) {
       if (!item.name) continue;
-      const results = await performSearch(item.name, { limit: 1 });
+      const results = performSearch(dbProducts || [], item.name, { limit: 1 });
       if (results.products && results.products.length > 0) {
         matchedProducts.push({
           extractedName: item.name,
@@ -2377,6 +2378,7 @@ app.use((err: any, req: any, res: any, next: any) => {
 });
 
 import { Server as SocketIOServer } from "socket.io";
+import { aiEnrichmentService } from "./src/lib/aiEnrichmentService.js";
 
 let serverInstance: any;
 let io: SocketIOServer;
@@ -2389,6 +2391,40 @@ async function startServer() {
   } catch (err: any) {
     console.error(`[${new Date().toISOString()}] [CRITICAL] [Database] Connection diagnostic: FAILED! Supabase database is unreachable. Error:`, err.message || err);
   }
+
+  // --- AI PRODUCT ENRICHMENT ROUTES ---
+app.get("/api/admin/enrichment/status", requireRole(["Admin"]), async (req, res) => {
+  res.json(aiEnrichmentService.getState());
+});
+
+app.post("/api/admin/enrichment/start", requireRole(["Admin"]), async (req, res) => {
+  try {
+    await aiEnrichmentService.start(req.body);
+    res.json({ success: true, message: "Enrichment started" });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/admin/enrichment/pause", requireRole(["Admin"]), async (req, res) => {
+  aiEnrichmentService.pause();
+  res.json({ success: true, message: "Enrichment paused" });
+});
+
+app.post("/api/admin/enrichment/resume", requireRole(["Admin"]), async (req, res) => {
+  aiEnrichmentService.resume();
+  res.json({ success: true, message: "Enrichment resumed" });
+});
+
+app.post("/api/admin/enrichment/stop", requireRole(["Admin"]), async (req, res) => {
+  aiEnrichmentService.stop();
+  res.json({ success: true, message: "Enrichment stopped" });
+});
+
+app.post("/api/admin/enrichment/retry", requireRole(["Admin"]), async (req, res) => {
+  aiEnrichmentService.retryFailed();
+  res.json({ success: true, message: "Failed items reset" });
+});
 
   if (process.env.NODE_ENV !== "production") {
     const { createServer: createViteServer } = await import("vite");
@@ -2432,6 +2468,11 @@ async function startServer() {
       console.log(`[${new Date().toISOString()}] [INFO] [Socket] Client disconnected: ${socket.id}`);
     });
   });
+
+  
+
+
+
 
   const gracefulShutdown = (signal: string) => {
     console.warn(`[${new Date().toISOString()}] [WARN] [System] Received ${signal} signal. Initiating graceful shutdown...`);
