@@ -6,6 +6,7 @@ import { EnrichmentState, EnrichmentConfig } from "../lib/aiEnrichmentService";
 export default function AIEnrichmentPanel() {
   const [state, setState] = useState<EnrichmentState | null>(null);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   
   const [config, setConfig] = useState<EnrichmentConfig>({
     batchSize: 50,
@@ -45,6 +46,7 @@ export default function AIEnrichmentPanel() {
   }, []);
 
   const handleAction = async (action: "start" | "pause" | "resume" | "stop" | "retry") => {
+    setActionLoading(action);
     try {
       const res = await fetch(`/api/admin/enrichment/${action}`, {
         method: "POST",
@@ -54,6 +56,8 @@ export default function AIEnrichmentPanel() {
       if (res.ok) fetchStatus();
     } catch (err) {
       console.error(err);
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -95,7 +99,7 @@ export default function AIEnrichmentPanel() {
   };
 
   if (!state) {
-    return <div className="p-8 flex items-center justify-center text-slate-400"><RefreshCw className="animate-spin mr-2" /> Loading System State...</div>;
+    return <div className="p-8 flex items-center justify-center text-slate-500"><RefreshCw className="animate-spin mr-2" /> Loading System State...</div>;
   }
 
   const isRunning = state.status === "running";
@@ -118,27 +122,27 @@ export default function AIEnrichmentPanel() {
     <div className="p-4 sm:p-6 lg:p-8 pb-32 space-y-6 max-w-7xl mx-auto animate-fade-in">
       <div className="flex flex-col lg:flex-row gap-6 justify-between items-start lg:items-center">
         <div>
-          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-3">
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3">
             <Cpu className="w-8 h-8 text-indigo-500" />
             AI Product Enrichment System
           </h1>
-          <p className="text-sm text-slate-400 mt-2">
+          <p className="text-sm text-slate-500 mt-2">
             Automated intelligence to resolve missing medicine MRPs and catalog images.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3 bg-slate-900 p-2 rounded-xl border border-slate-800">
+        <div className="flex flex-wrap items-center gap-3 bg-slate-50 p-2 rounded-xl border border-slate-200">
           <div className="px-4 py-2 flex flex-col">
             <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Engine Status</span>
-            <span className={`text-sm font-bold ${isRunning ? "text-emerald-400" : isPaused ? "text-amber-400" : "text-slate-300"}`}>
+            <span className={`text-sm font-bold ${isRunning ? "text-emerald-400" : isPaused ? "text-amber-400" : "text-slate-700"}`}>
               {state.status.toUpperCase()}
             </span>
           </div>
-          <div className="w-px h-8 bg-slate-800 hidden sm:block"></div>
+          <div className="w-px h-8 bg-slate-200 hidden sm:block"></div>
           <div className="px-4 py-2 flex flex-col">
             <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Memory</span>
-            <span className="text-sm font-bold text-slate-300">{state.memoryUsage}</span>
+            <span className="text-sm font-bold text-slate-700">{state.memoryUsage}</span>
           </div>
-          <div className="w-px h-8 bg-slate-800 hidden sm:block"></div>
+          <div className="w-px h-8 bg-slate-200 hidden sm:block"></div>
           <div className="px-4 py-2 flex flex-col">
             <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Active Model</span>
             <span className="text-sm font-bold text-indigo-400 truncate max-w-[150px]">{state.currentAiModel}</span>
@@ -150,9 +154,9 @@ export default function AIEnrichmentPanel() {
         
         {/* Left Column: Controls & Filters */}
         <div className="space-y-6">
-          <div className="bg-slate-950/60 border border-slate-800 rounded-2xl overflow-hidden">
-            <div className="bg-slate-900 border-b border-slate-800 px-5 py-4">
-              <h2 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-2">
+          <div className="bg-white/60 border border-slate-200 rounded-2xl overflow-hidden">
+            <div className="bg-slate-50 border-b border-slate-200 px-5 py-4">
+              <h2 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
                 <Settings className="w-4 h-4 text-indigo-400" /> Configuration
               </h2>
             </div>
@@ -163,7 +167,7 @@ export default function AIEnrichmentPanel() {
                   disabled={!isIdle}
                   value={config.filters.missingType}
                   onChange={(e) => setConfig({...config, filters: {...config.filters, missingType: e.target.value as any}})}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 transition-colors disabled:opacity-50"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 transition-colors disabled:opacity-50"
                 >
                   <option value="both">Both Missing (MRP & Image)</option>
                   <option value="mrp">Only Missing MRP</option>
@@ -180,7 +184,7 @@ export default function AIEnrichmentPanel() {
                     disabled={!isIdle}
                     value={config.filters.manufacturer}
                     onChange={(e) => setConfig({...config, filters: {...config.filters, manufacturer: e.target.value}})}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 transition-colors disabled:opacity-50"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 transition-colors disabled:opacity-50"
                     placeholder="e.g. Beximco"
                   />
                 </div>
@@ -191,7 +195,7 @@ export default function AIEnrichmentPanel() {
                     disabled={!isIdle}
                     value={config.filters.category}
                     onChange={(e) => setConfig({...config, filters: {...config.filters, category: e.target.value}})}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 transition-colors disabled:opacity-50"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 transition-colors disabled:opacity-50"
                     placeholder="e.g. Tablet"
                   />
                 </div>
@@ -205,7 +209,7 @@ export default function AIEnrichmentPanel() {
                     disabled={!isIdle}
                     value={config.concurrencyLimit}
                     onChange={(e) => setConfig({...config, concurrencyLimit: parseInt(e.target.value) || 1})}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 transition-colors disabled:opacity-50"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 transition-colors disabled:opacity-50"
                     min="1" max="20"
                   />
                 </div>
@@ -216,7 +220,7 @@ export default function AIEnrichmentPanel() {
                     disabled={!isIdle}
                     value={config.delayMs}
                     onChange={(e) => setConfig({...config, delayMs: parseInt(e.target.value) || 100})}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 transition-colors disabled:opacity-50"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 transition-colors disabled:opacity-50"
                     min="0" step="500"
                   />
                 </div>
@@ -226,11 +230,11 @@ export default function AIEnrichmentPanel() {
                 <label className="flex items-center gap-3 cursor-pointer group">
                   <div className="relative">
                     <input type="checkbox" className="sr-only" checked={config.dryRun} disabled={!isIdle} onChange={(e) => setConfig({...config, dryRun: e.target.checked})} />
-                    <div className={`block w-10 h-6 rounded-full transition-colors ${config.dryRun ? 'bg-indigo-500' : 'bg-slate-800 group-hover:bg-slate-700'} ${!isIdle && 'opacity-50'}`}></div>
+                    <div className={`block w-10 h-6 rounded-full transition-colors ${config.dryRun ? 'bg-indigo-500' : 'bg-slate-200 group-hover:bg-slate-700'} ${!isIdle && 'opacity-50'}`}></div>
                     <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${config.dryRun ? 'translate-x-4' : ''}`}></div>
                   </div>
                   <div>
-                    <span className="text-xs font-bold text-slate-300">Dry Run Mode</span>
+                    <span className="text-xs font-bold text-slate-700">Dry Run Mode</span>
                     <p className="text-[10px] text-slate-500">Run search & AI without saving to database.</p>
                   </div>
                 </label>
@@ -238,7 +242,7 @@ export default function AIEnrichmentPanel() {
                 <label className="flex items-center gap-3 cursor-pointer group">
                   <div className="relative">
                     <input type="checkbox" className="sr-only" checked={config.overwriteExisting} disabled={!isIdle} onChange={(e) => setConfig({...config, overwriteExisting: e.target.checked})} />
-                    <div className={`block w-10 h-6 rounded-full transition-colors ${config.overwriteExisting ? 'bg-rose-500' : 'bg-slate-800 group-hover:bg-slate-700'} ${!isIdle && 'opacity-50'}`}></div>
+                    <div className={`block w-10 h-6 rounded-full transition-colors ${config.overwriteExisting ? 'bg-rose-500' : 'bg-slate-200 group-hover:bg-slate-700'} ${!isIdle && 'opacity-50'}`}></div>
                     <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${config.overwriteExisting ? 'translate-x-4' : ''}`}></div>
                   </div>
                   <div>
@@ -249,46 +253,50 @@ export default function AIEnrichmentPanel() {
               </div>
             </div>
             
-            <div className="bg-slate-900 border-t border-slate-800 p-4 flex flex-col gap-3">
+            <div className="bg-slate-50 border-t border-slate-200 p-4 flex flex-col gap-3">
               {isIdle && (
                 <button 
                   onClick={() => handleAction("start")}
-                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-4 rounded-xl text-sm transition-all shadow-lg flex items-center justify-center gap-2"
+                  disabled={actionLoading === "start"}
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 active:scale-95 disabled:opacity-70 disabled:active:scale-100 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-xl text-sm transition-all shadow-lg flex items-center justify-center gap-2"
                 >
-                  <Play className="w-5 h-5 fill-current" /> Start Processing
+                  {actionLoading === "start" ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5 fill-current" />} Start Processing
                 </button>
               )}
               {isRunning && (
                 <button 
                   onClick={() => handleAction("pause")}
-                  className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 px-4 rounded-xl text-sm transition-all shadow-lg flex items-center justify-center gap-2"
+                  disabled={actionLoading === "pause"}
+                  className="w-full bg-amber-600 hover:bg-amber-500 active:scale-95 disabled:opacity-70 disabled:active:scale-100 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-xl text-sm transition-all shadow-lg flex items-center justify-center gap-2"
                 >
-                  <Pause className="w-5 h-5 fill-current" /> Pause Processing
+                  {actionLoading === "pause" ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Pause className="w-5 h-5 fill-current" />} Pause Processing
                 </button>
               )}
               {isPaused && (
                 <button 
                   onClick={() => handleAction("resume")}
-                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-xl text-sm transition-all shadow-lg flex items-center justify-center gap-2"
+                  disabled={actionLoading === "resume"}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-95 disabled:opacity-70 disabled:active:scale-100 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-xl text-sm transition-all shadow-lg flex items-center justify-center gap-2"
                 >
-                  <Play className="w-5 h-5 fill-current" /> Resume
+                  {actionLoading === "resume" ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5 fill-current" />} Resume
                 </button>
               )}
               {!isIdle && (
                 <button 
                   onClick={() => handleAction("stop")}
-                  className="w-full bg-rose-950 hover:bg-rose-900 text-rose-400 font-bold py-3 px-4 rounded-xl text-sm border border-rose-900 transition-all shadow-lg flex items-center justify-center gap-2"
+                  disabled={actionLoading === "stop"}
+                  className="w-full bg-rose-950 hover:bg-rose-900 active:scale-95 disabled:opacity-70 disabled:active:scale-100 disabled:cursor-not-allowed text-rose-400 font-bold py-3 px-4 rounded-xl text-sm border border-rose-900 transition-all shadow-lg flex items-center justify-center gap-2"
                 >
-                  <Square className="w-5 h-5 fill-current" /> Stop Completely
+                  {actionLoading === "stop" ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Square className="w-5 h-5 fill-current" />} Stop Completely
                 </button>
               )}
               
               <button 
                 onClick={() => handleAction("retry")}
-                disabled={state.failedCount === 0 || isRunning}
-                className="w-full bg-slate-800 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-slate-300 font-bold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-2"
+                disabled={state.failedCount === 0 || isRunning || actionLoading === "retry"}
+                className="w-full bg-slate-200 hover:bg-slate-700 active:scale-95 disabled:opacity-50 disabled:active:scale-100 disabled:cursor-not-allowed text-slate-700 font-bold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-2"
               >
-                <RefreshCw className="w-4 h-4" /> Retry Failed Items ({state.failedCount})
+                <RefreshCw className={`w-4 h-4 ${actionLoading === "retry" ? "animate-spin" : ""}`} /> Retry Failed Items ({state.failedCount})
               </button>
             </div>
           </div>
@@ -296,9 +304,9 @@ export default function AIEnrichmentPanel() {
 
         {/* Center & Right Column: Progress & Metrics */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-6 relative overflow-hidden">
+          <div className="bg-white/60 border border-slate-200 rounded-2xl p-6 relative overflow-hidden">
             {isRunning && (
-              <div className="absolute top-0 left-0 w-full h-1 bg-slate-800">
+              <div className="absolute top-0 left-0 w-full h-1 bg-slate-200">
                 <div className="h-full bg-indigo-500 animate-pulse" style={{ width: `${progressPercentage}%` }}></div>
               </div>
             )}
@@ -307,8 +315,8 @@ export default function AIEnrichmentPanel() {
               <div>
                 <h3 className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1">Total Progress</h3>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-black text-white">{progressPercentage}%</span>
-                  <span className="text-sm font-bold text-slate-400">({state.completedCount} / {state.totalProducts})</span>
+                  <span className="text-4xl font-black text-slate-900">{progressPercentage}%</span>
+                  <span className="text-sm font-bold text-slate-500">({state.completedCount} / {state.totalProducts})</span>
                 </div>
               </div>
               <div className="text-right">
@@ -318,20 +326,20 @@ export default function AIEnrichmentPanel() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
                 <span className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Updated</span>
                 <span className="text-xl font-black text-emerald-400">{state.updatedCount}</span>
               </div>
-              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
                 <span className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Skipped</span>
-                <span className="text-xl font-black text-slate-300">{state.skippedCount}</span>
+                <span className="text-xl font-black text-slate-700">{state.skippedCount}</span>
               </div>
-              <div className="bg-slate-900 border border-amber-900/30 rounded-xl p-4 relative overflow-hidden">
+              <div className="bg-slate-50 border border-amber-900/30 rounded-xl p-4 relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
                 <span className="text-[10px] uppercase font-bold text-amber-500 block mb-1">Needs Review</span>
                 <span className="text-xl font-black text-amber-400">{state.needsReviewCount}</span>
               </div>
-              <div className="bg-slate-900 border border-rose-900/30 rounded-xl p-4 relative overflow-hidden">
+              <div className="bg-slate-50 border border-rose-900/30 rounded-xl p-4 relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-1 h-full bg-rose-500"></div>
                 <span className="text-[10px] uppercase font-bold text-rose-500 block mb-1">Failed</span>
                 <span className="text-xl font-black text-rose-400">{state.failedCount}</span>
@@ -347,25 +355,25 @@ export default function AIEnrichmentPanel() {
               </div>
               <div>
                 <h4 className="text-[10px] uppercase font-bold text-indigo-400 tracking-wider mb-0.5">Currently Processing</h4>
-                <p className="text-sm font-bold text-white max-w-[200px] sm:max-w-md truncate">
+                <p className="text-sm font-bold text-slate-900 max-w-[200px] sm:max-w-md truncate">
                   {isRunning ? (state.currentProduct || "Initializing Batch...") : "Idle"}
                 </p>
               </div>
             </div>
             <div className="text-right">
                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block mb-0.5">Batch #</span>
-               <span className="text-lg font-mono text-slate-300">{state.currentBatch}</span>
+               <span className="text-lg font-mono text-slate-700">{state.currentBatch}</span>
             </div>
           </div>
 
           {/* Live Activity Log */}
-          <div className="bg-slate-950/60 border border-slate-800 rounded-2xl flex flex-col h-[400px]">
-            <div className="border-b border-slate-800 px-5 py-3 flex justify-between items-center bg-slate-900/50">
-              <h2 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-2">
-                <Database className="w-4 h-4 text-slate-400" /> Live Activity Log
+          <div className="bg-white/60 border border-slate-200 rounded-2xl flex flex-col h-[400px]">
+            <div className="border-b border-slate-200 px-5 py-3 flex justify-between items-center bg-slate-50/50">
+              <h2 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <Database className="w-4 h-4 text-slate-500" /> Live Activity Log
               </h2>
               <div className="flex items-center gap-2">
-                <button onClick={() => handleExport("csv")} className="p-1.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors title='Export to Excel'"><Download className="w-3.5 h-3.5" /></button>
+                <button onClick={() => handleExport("csv")} className="p-1.5 text-slate-500 hover:text-slate-900 bg-slate-200 hover:bg-slate-700 rounded-lg transition-colors title='Export to Excel'"><Download className="w-3.5 h-3.5" /></button>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-2 font-mono text-xs">
@@ -377,7 +385,7 @@ export default function AIEnrichmentPanel() {
                     log.status === "success" ? "bg-emerald-950/20 border-emerald-900/30 text-emerald-300" :
                     log.status === "error" ? "bg-rose-950/20 border-rose-900/30 text-rose-300" :
                     log.status === "needs_review" ? "bg-amber-950/20 border-amber-900/30 text-amber-300" :
-                    "bg-slate-900/50 border-slate-800 text-slate-400"
+                    "bg-slate-50/50 border-slate-200 text-slate-500"
                   }`}>
                     <div className="flex justify-between items-start mb-1 gap-4">
                       <div className="flex items-center gap-2 truncate">
@@ -388,7 +396,7 @@ export default function AIEnrichmentPanel() {
                         log.status === "success" ? "bg-emerald-500/20 text-emerald-400" :
                         log.status === "error" ? "bg-rose-500/20 text-rose-400" :
                         log.status === "needs_review" ? "bg-amber-500/20 text-amber-400" :
-                        "bg-slate-800 text-slate-400"
+                        "bg-slate-200 text-slate-500"
                       }`}>{log.action}</span>
                     </div>
                     <p className="opacity-80 line-clamp-2">{log.details}</p>

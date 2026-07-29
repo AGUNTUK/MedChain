@@ -1128,7 +1128,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
   // --- RENDERING VIEWS ---
 
   return (
-    <div className="flex flex-col lg:flex-row h-screen w-screen bg-slate-900 text-slate-100 font-sans overflow-hidden">
+    <div className="flex flex-col lg:flex-row h-screen w-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
       {/* Global Alert Toast HUD */}
       {successMsg && (
         <div className="fixed top-6 right-6 bg-emerald-500 text-slate-950 px-5 py-3.5 rounded-xl shadow-2xl z-50 flex items-center gap-3 font-semibold text-sm border border-emerald-400 animate-slide-in">
@@ -1144,11 +1144,11 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
       )}
 
       {/* Mobile Top App Header Bar */}
-      <div className="lg:hidden bg-slate-950 border-b border-slate-800 px-4 py-3 flex items-center justify-between z-30 flex-shrink-0">
+      <div className="lg:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between z-30 flex-shrink-0">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white transition-all cursor-pointer"
+            className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 hover:text-slate-900 transition-all cursor-pointer"
             aria-label="Toggle Navigation Menu"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -1158,7 +1158,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
               MC
             </div>
             <div>
-              <span className="text-xs font-black tracking-wider text-white">MEDICHAIN</span>
+              <span className="text-xs font-black tracking-wider text-slate-900">MEDICHAIN</span>
               <span className="text-[8px] text-indigo-400 font-extrabold uppercase block tracking-wider">Admin</span>
             </div>
           </div>
@@ -1168,7 +1168,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
           <NotificationBell />
           <button
             onClick={refreshAllData}
-            className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white transition-all cursor-pointer"
+            className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 hover:text-slate-900 transition-all cursor-pointer"
             title="Refresh Sync"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
@@ -1176,7 +1176,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
           <button 
             onClick={onLogout}
             title="Sign Out"
-            className="p-2 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer transition-all"
+            className="p-2 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer transition-all"
           >
             <LogOut className="w-4 h-4" />
           </button>
@@ -1186,14 +1186,14 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
       {/* Mobile Sidebar Backdrop */}
       {mobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-40 lg:hidden"
+          className="fixed inset-0 bg-white/80 backdrop-blur-xs z-40 lg:hidden"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
 
       {/* Admin Sidebar HUD (responsive drawer on mobile, static on desktop) */}
       <aside className={`
-        fixed lg:static inset-y-0 left-0 z-50 w-72 lg:w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between
+        fixed lg:static inset-y-0 left-0 z-50 w-72 lg:w-64 bg-white border-r border-slate-200 flex flex-col justify-between
         transform transition-transform duration-200 ease-in-out
         ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
       `}>
@@ -1204,13 +1204,13 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                 MC
               </div>
               <div>
-                <h1 className="text-sm font-black tracking-wider text-white">MEDICHAIN</h1>
+                <h1 className="text-sm font-black tracking-wider text-slate-900">MEDICHAIN</h1>
                 <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Admin Console</p>
               </div>
             </div>
             <button
               onClick={() => setMobileMenuOpen(false)}
-              className="lg:hidden p-1.5 rounded-lg bg-slate-900 text-slate-400 hover:text-white cursor-pointer"
+              className="lg:hidden p-1.5 rounded-lg bg-slate-50 text-slate-500 hover:text-slate-900 cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -1220,7 +1220,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
             <button
               onClick={() => navigateTo("/admin/dashboard")}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all ${
-                activeRoute === "/admin/dashboard" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                activeRoute === "/admin/dashboard" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
               }`}
             >
               <LayoutDashboard className="w-4 h-4" />
@@ -1230,7 +1230,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
             <button
               onClick={() => navigateTo("/admin/products")}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all ${
-                activeRoute === "/admin/products" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                activeRoute === "/admin/products" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
               }`}
             >
               <Pill className="w-4 h-4" />
@@ -1240,7 +1240,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
             <button
               onClick={() => navigateTo("/admin/inventory")}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all ${
-                activeRoute === "/admin/inventory" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                activeRoute === "/admin/inventory" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
               }`}
             >
               <Boxes className="w-4 h-4" />
@@ -1250,7 +1250,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
             <button
               onClick={() => navigateTo("/admin/orders")}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all relative ${
-                activeRoute === "/admin/orders" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                activeRoute === "/admin/orders" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
               }`}
             >
               <ShoppingCart className="w-4 h-4" />
@@ -1265,7 +1265,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
             <button
               onClick={() => navigateTo("/admin/pharmacies")}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all ${
-                activeRoute === "/admin/pharmacies" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                activeRoute === "/admin/pharmacies" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
               }`}
             >
               <Store className="w-4 h-4" />
@@ -1275,7 +1275,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
             <button
               onClick={() => navigateTo("/admin/notifications")}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all ${
-                activeRoute === "/admin/notifications" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                activeRoute === "/admin/notifications" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
               }`}
             >
               <Bell className="w-4 h-4" />
@@ -1285,7 +1285,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
             <button
               onClick={() => navigateTo("/admin/finance")}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all ${
-                activeRoute === "/admin/finance" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                activeRoute === "/admin/finance" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
               }`}
             >
               <CircleDollarSign className="w-4 h-4" />
@@ -1295,7 +1295,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
             <button
               onClick={() => navigateTo("/admin/audit-logs")}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all ${
-                activeRoute === "/admin/audit-logs" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                activeRoute === "/admin/audit-logs" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
               }`}
             >
               <ClipboardList className="w-4 h-4" />
@@ -1306,7 +1306,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
             <button
               onClick={() => navigateTo("/admin/ai-enrichment")}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all ${
-                activeRoute === "/admin/ai-enrichment" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                activeRoute === "/admin/ai-enrichment" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
               }`}
             >
               <Cpu className="w-4 h-4" />
@@ -1316,7 +1316,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
             <button
               onClick={() => navigateTo("/admin/settings")}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all ${
-                activeRoute === "/admin/settings" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                activeRoute === "/admin/settings" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
               }`}
             >
               <Settings className="w-4 h-4" />
@@ -1326,15 +1326,15 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
         </div>
 
         {/* User profile logout */}
-        <div className="p-6 border-t border-slate-900 bg-slate-950/60 flex items-center justify-between flex-shrink-0">
+        <div className="p-6 border-t border-slate-900 bg-white/60 flex items-center justify-between flex-shrink-0">
           <div className="truncate pr-2">
-            <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
+            <p className="text-xs font-bold text-slate-900 truncate">{currentUser.name}</p>
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Super Administrator</p>
           </div>
           <button 
             onClick={onLogout}
             title="Sign Out"
-            className="p-2 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer transition-all"
+            className="p-2 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer transition-all"
           >
             <LogOut className="w-4.5 h-4.5" />
           </button>
@@ -1342,11 +1342,11 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
       </aside>
 
       {/* Main Workspace Area */}
-      <main className="flex-1 flex flex-col min-w-0 bg-slate-900 overflow-y-auto min-h-0">
+      <main className="flex-1 flex flex-col min-w-0 bg-slate-50 overflow-y-auto min-h-0">
         {/* Top Header Panel */}
-        <header className="min-h-14 border-b border-slate-800 bg-slate-950/40 px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-shrink-0">
+        <header className="min-h-14 border-b border-slate-200 bg-white/40 px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-shrink-0">
           <div>
-            <h2 className="text-xs sm:text-sm font-bold text-white tracking-wider uppercase">
+            <h2 className="text-xs sm:text-sm font-bold text-slate-900 tracking-wider uppercase">
               {activeRoute === "/admin/dashboard" && "OPERATIONS CONTROL CENTER"}
               {activeRoute === "/admin/products" && "MEDICINE MASTER REGISTRY"}
               {activeRoute === "/admin/inventory" && "STOCK LOGISTICS DISPATCH"}
@@ -1363,14 +1363,14 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
             <NotificationBell />
             <button 
               onClick={refreshAllData}
-              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+              className="p-2 rounded-lg bg-slate-200 hover:bg-slate-700 text-slate-700 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
               title="Refresh Global Sync"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
               <span className="hidden sm:inline">Synchronize Ledger</span>
               <span className="sm:hidden">Sync</span>
             </button>
-            <div className="text-[10px] sm:text-[11px] font-mono text-slate-500 tracking-wider bg-slate-950 px-2.5 sm:px-3 py-1.5 rounded-lg border border-slate-800">
+            <div className="text-[10px] sm:text-[11px] font-mono text-slate-500 tracking-wider bg-white px-2.5 sm:px-3 py-1.5 rounded-lg border border-slate-200">
               GMT 2026-07-14 03:00
             </div>
           </div>
@@ -1381,7 +1381,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
           {loading && products.length === 0 ? (
             <div className="h-full flex flex-col justify-center items-center gap-3">
               <RefreshCw className="w-8 h-8 text-indigo-500 animate-spin" />
-              <p className="text-xs font-semibold text-slate-400">Loading wholesale ledger streams...</p>
+              <p className="text-xs font-semibold text-slate-500">Loading wholesale ledger streams...</p>
             </div>
           ) : (
             <>
@@ -1393,7 +1393,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                     <button
                       onClick={() => setDashboardSubTab("hud")}
                       className={`px-4 py-2 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
-                        dashboardSubTab === "hud" ? "border-indigo-500 text-white" : "border-transparent text-slate-500 hover:text-slate-300"
+                        dashboardSubTab === "hud" ? "border-indigo-500 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-700"
                       }`}
                     >
                       Operations HUD
@@ -1401,7 +1401,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                     <button
                       onClick={() => setDashboardSubTab("analytics")}
                       className={`px-4 py-2 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
-                        dashboardSubTab === "analytics" ? "border-indigo-500 text-white" : "border-transparent text-slate-500 hover:text-slate-300"
+                        dashboardSubTab === "analytics" ? "border-indigo-500 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-700"
                       }`}
                     >
                       B2B Analytics Radar
@@ -1412,39 +1412,39 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                     <>
                       {/* Stats Grid */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-                        <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+                        <div className="bg-white/60 border border-slate-200 rounded-2xl p-5 shadow-lg relative overflow-hidden">
                           <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Catalog Medicines</span>
-                          <span className="text-2xl font-black text-white">{totalProducts}</span>
+                          <span className="text-2xl font-black text-slate-900">{totalProducts}</span>
                           <p className="text-[10px] text-indigo-400 font-bold mt-1.5 flex items-center gap-1">
                             <Pill className="w-3 h-3" /> Fully Audited Formulas
                           </p>
                         </div>
 
-                        <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+                        <div className="bg-white/60 border border-slate-200 rounded-2xl p-5 shadow-lg relative overflow-hidden">
                           <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Total Stock Count</span>
-                          <span className="text-2xl font-black text-white">{totalStock.toLocaleString()}</span>
+                          <span className="text-2xl font-black text-slate-900">{totalStock.toLocaleString()}</span>
                           <p className="text-[10px] text-emerald-400 font-bold mt-1.5 flex items-center gap-1">
                             <Boxes className="w-3 h-3" /> In-Store Reserves
                           </p>
                         </div>
 
-                        <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+                        <div className="bg-white/60 border border-slate-200 rounded-2xl p-5 shadow-lg relative overflow-hidden">
                           <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Registered Pharmacies</span>
-                          <span className="text-2xl font-black text-white">{totalRegisteredPharmacies}</span>
+                          <span className="text-2xl font-black text-slate-900">{totalRegisteredPharmacies}</span>
                           <p className="text-[10px] text-amber-400 font-bold mt-1.5 flex items-center gap-1">
                             <Store className="w-3 h-3" /> Licensed Accounts
                           </p>
                         </div>
 
-                        <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+                        <div className="bg-white/60 border border-slate-200 rounded-2xl p-5 shadow-lg relative overflow-hidden">
                           <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Total B2B Orders</span>
-                          <span className="text-2xl font-black text-white">{totalOrders}</span>
+                          <span className="text-2xl font-black text-slate-900">{totalOrders}</span>
                           <p className="text-[10px] text-blue-400 font-bold mt-1.5 flex items-center gap-1">
                             <ShoppingCart className="w-3 h-3" /> Pipeline Procurement
                           </p>
                         </div>
 
-                        <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden sm:col-span-2 md:col-span-1">
+                        <div className="bg-white/60 border border-slate-200 rounded-2xl p-5 shadow-lg relative overflow-hidden sm:col-span-2 md:col-span-1">
                           <span className="text-[9px] uppercase font-bold text-rose-400 tracking-widest block mb-1">Warnings Checklist</span>
                           <div className="flex gap-4 mt-1">
                             <div>
@@ -1460,22 +1460,22 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                       </div>
 
                       {/* Order pipeline states breakdown */}
-                      <div className="bg-slate-950/40 border border-slate-800/80 rounded-2xl p-4 sm:p-6">
-                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Orders Pipeline Progress</h3>
+                      <div className="bg-white/40 border border-slate-200/80 rounded-2xl p-4 sm:p-6">
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Orders Pipeline Progress</h3>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-                          <div className="bg-slate-950/80 p-3 sm:p-4 rounded-xl border border-slate-900">
+                          <div className="bg-white/80 p-3 sm:p-4 rounded-xl border border-slate-900">
                             <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Unprocessed</span>
-                            <span className="text-lg sm:text-xl font-black text-slate-300">{ordersPending}</span>
+                            <span className="text-lg sm:text-xl font-black text-slate-700">{ordersPending}</span>
                           </div>
-                          <div className="bg-slate-950/80 p-3 sm:p-4 rounded-xl border border-slate-900">
+                          <div className="bg-white/80 p-3 sm:p-4 rounded-xl border border-slate-900">
                             <span className="text-[9px] font-bold text-amber-500 uppercase tracking-widest block mb-1">Active Assembly</span>
                             <span className="text-lg sm:text-xl font-black text-amber-400">{ordersProcessing}</span>
                           </div>
-                          <div className="bg-slate-950/80 p-3 sm:p-4 rounded-xl border border-slate-900">
+                          <div className="bg-white/80 p-3 sm:p-4 rounded-xl border border-slate-900">
                             <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest block mb-1">Dispatched & Complete</span>
                             <span className="text-lg sm:text-xl font-black text-emerald-400">{ordersCompleted}</span>
                           </div>
-                          <div className="bg-slate-950/80 p-3 sm:p-4 rounded-xl border border-slate-900">
+                          <div className="bg-white/80 p-3 sm:p-4 rounded-xl border border-slate-900">
                             <span className="text-[9px] font-bold text-rose-500 uppercase tracking-widest block mb-1">Cancelled</span>
                             <span className="text-lg sm:text-xl font-black text-rose-400">{ordersCancelled}</span>
                           </div>
@@ -1485,8 +1485,8 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                       {/* Quick Actions & Recent Tables */}
                       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Column 1: Quick Actions panel */}
-                        <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 sm:p-6 space-y-4">
-                          <h3 className="text-xs font-black text-white uppercase tracking-wider mb-2">Platform Quick Controls</h3>
+                        <div className="bg-white/60 border border-slate-200 rounded-2xl p-4 sm:p-6 space-y-4">
+                          <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider mb-2">Platform Quick Controls</h3>
                           
                           <button
                             onClick={handleOpenAddProduct}
@@ -1500,7 +1500,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
 
                           <button
                             onClick={() => navigateTo("/admin/products")}
-                            className="w-full bg-slate-900 hover:bg-slate-850 text-slate-200 border border-slate-800 p-3.5 rounded-xl text-xs font-semibold tracking-wide transition-all flex items-center justify-between cursor-pointer"
+                            className="w-full bg-slate-50 hover:bg-slate-850 text-slate-700 border border-slate-200 p-3.5 rounded-xl text-xs font-semibold tracking-wide transition-all flex items-center justify-between cursor-pointer"
                           >
                             <span className="flex items-center gap-2">
                               <Upload className="w-4 h-4" /> Bulk Import Panel
@@ -1510,7 +1510,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
 
                           <button
                             onClick={handleTriggerPriceDropAction}
-                            className="w-full bg-slate-900 hover:bg-slate-850 text-rose-400 border border-rose-500/10 p-3.5 rounded-xl text-xs font-semibold tracking-wide transition-all flex items-center justify-between cursor-pointer"
+                            className="w-full bg-slate-50 hover:bg-slate-850 text-rose-400 border border-rose-500/10 p-3.5 rounded-xl text-xs font-semibold tracking-wide transition-all flex items-center justify-between cursor-pointer"
                           >
                             <span className="flex items-center gap-2">
                               <TrendingDown className="w-4 h-4" /> Trigger 5% Price Drop
@@ -1520,7 +1520,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
 
                           <button
                             onClick={handleTriggerFlashOfferAction}
-                            className="w-full bg-slate-900 hover:bg-slate-850 text-emerald-400 border border-emerald-500/10 p-3.5 rounded-xl text-xs font-semibold tracking-wide transition-all flex items-center justify-between cursor-pointer"
+                            className="w-full bg-slate-50 hover:bg-slate-850 text-emerald-400 border border-emerald-500/10 p-3.5 rounded-xl text-xs font-semibold tracking-wide transition-all flex items-center justify-between cursor-pointer"
                           >
                             <span className="flex items-center gap-2">
                               <Sparkles className="w-4 h-4" /> Publish Flash Offer
@@ -1530,9 +1530,9 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                         </div>
 
                         {/* Column 2 & 3: Recent Activity Lists */}
-                        <div className="lg:col-span-2 bg-slate-950/60 border border-slate-800 rounded-2xl p-4 sm:p-6 space-y-6">
+                        <div className="lg:col-span-2 bg-white/60 border border-slate-200 rounded-2xl p-4 sm:p-6 space-y-6">
                           <div>
-                            <h3 className="text-xs font-black text-white uppercase tracking-wider mb-3 flex items-center justify-between">
+                            <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider mb-3 flex items-center justify-between">
                               <span>Active B2B Pipeline Transactions</span>
                               <button onClick={() => navigateTo("/admin/orders")} className="text-[10px] text-indigo-400 font-bold hover:underline">View All</button>
                             </h3>
@@ -1543,22 +1543,22 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                                 {orders.slice(0, 3).map((o, idx) => {
                                   const orderPharmacy = pharmacies.find(ph => ph.id === o.pharmacyId);
                                   return (
-                                    <div key={o.id || `order-${idx}`} className="bg-slate-900/60 border border-slate-900 p-3 rounded-xl flex items-center justify-between text-xs hover:border-slate-850 transition-all">
+                                    <div key={o.id || `order-${idx}`} className="bg-slate-50/60 border border-slate-900 p-3 rounded-xl flex items-center justify-between text-xs hover:border-slate-850 transition-all">
                                       <div className="flex items-center gap-3">
                                         <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
                                           <ShoppingCart className="w-3.5 h-3.5" />
                                         </div>
                                         <div>
-                                          <p className="font-bold text-white text-xs">{o.id}</p>
+                                          <p className="font-bold text-slate-900 text-xs">{o.id}</p>
                                           <p className="text-[10px] text-slate-500">{orderPharmacy?.pharmacyName || "Lazz Pharma (Dhanmondi)"}</p>
                                         </div>
                                       </div>
                                       <div className="text-right">
-                                        <p className="font-extrabold text-white">৳{o.totalAmount.toLocaleString()}</p>
+                                        <p className="font-extrabold text-slate-900">৳{o.totalAmount.toLocaleString()}</p>
                                         <span className={`text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${
                                           o.status === "Pending" ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" :
                                           o.status === "Delivered" || o.status === "Completed" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
-                                          "bg-slate-800 text-slate-400 border border-slate-700/50"
+                                          "bg-slate-200 text-slate-500 border border-slate-700/50"
                                         }`}>
                                           {o.status}
                                         </span>
@@ -1571,16 +1571,16 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                           </div>
 
                           <div>
-                            <h3 className="text-xs font-black text-white uppercase tracking-wider mb-3">Recent Pharmacy Enlistments</h3>
+                            <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider mb-3">Recent Pharmacy Enlistments</h3>
                             <div className="space-y-2">
                               {pharmacies.slice(0, 3).map((ph, idx) => (
-                                <div key={ph.id || `ph-${idx}`} className="bg-slate-900/60 border border-slate-900 p-3 rounded-xl flex items-center justify-between text-xs">
+                                <div key={ph.id || `ph-${idx}`} className="bg-slate-50/60 border border-slate-900 p-3 rounded-xl flex items-center justify-between text-xs">
                                   <div className="flex items-center gap-3">
                                     <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
                                       <Store className="w-3.5 h-3.5" />
                                     </div>
                                     <div>
-                                      <p className="font-bold text-white text-xs">{ph.pharmacyName}</p>
+                                      <p className="font-bold text-slate-900 text-xs">{ph.pharmacyName}</p>
                                       <p className="text-[10px] text-slate-500">License: {ph.licenseNo}</p>
                                     </div>
                                   </div>
@@ -1600,10 +1600,10 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                       {/* B2B Analytics Dashboard */}
                       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Revenue Over Time Chart */}
-                        <div className="lg:col-span-2 bg-slate-950/60 border border-slate-800 rounded-2xl p-4 sm:p-6 space-y-4 shadow-lg">
+                        <div className="lg:col-span-2 bg-white/60 border border-slate-200 rounded-2xl p-4 sm:p-6 space-y-4 shadow-lg">
                           <div>
                             <span className="text-[9px] uppercase font-bold text-indigo-400 tracking-wider">Historical Sales Revenue Stream</span>
-                            <h3 className="text-sm font-black text-white mt-1">B2B Sales Trends (BDT ৳)</h3>
+                            <h3 className="text-sm font-black text-slate-900 mt-1">B2B Sales Trends (BDT ৳)</h3>
                           </div>
                           <div className="h-[300px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
@@ -1634,10 +1634,10 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                         </div>
 
                         {/* Order status allocation */}
-                        <div className="lg:col-span-1 bg-slate-950/60 border border-slate-800 rounded-2xl p-4 sm:p-6 space-y-4 shadow-lg">
+                        <div className="lg:col-span-1 bg-white/60 border border-slate-200 rounded-2xl p-4 sm:p-6 space-y-4 shadow-lg">
                           <div>
                             <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Status Allocation</span>
-                            <h3 className="text-sm font-black text-white">Pipeline Distribution</h3>
+                            <h3 className="text-sm font-black text-slate-900">Pipeline Distribution</h3>
                           </div>
                           <div className="h-[220px] w-full flex items-center justify-center">
                             <ResponsiveContainer width="100%" height="100%">
@@ -1683,10 +1683,10 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                       </div>
 
                       {/* Stock reserves by pharmaceutical company */}
-                      <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-lg">
+                      <div className="bg-white/60 border border-slate-200 rounded-2xl p-6 space-y-4 shadow-lg">
                         <div>
                           <span className="text-[9px] uppercase font-bold text-indigo-400 tracking-wider">Manufacturer Reserves Radar</span>
-                          <h3 className="text-sm font-black text-white">Stock Allocation by Pharmaceutical Manufacturer</h3>
+                          <h3 className="text-sm font-black text-slate-900">Stock Allocation by Pharmaceutical Manufacturer</h3>
                         </div>
                         <div className="h-[280px] w-full">
                           <ResponsiveContainer width="100%" height="100%">
@@ -1724,7 +1724,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
               {activeRoute === "/admin/products" && (
                 <div className="space-y-6 animate-fade-in">
                   {/* Action Filters Panel */}
-                  <div className="bg-slate-950/60 border border-slate-800 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+                  <div className="bg-white/60 border border-slate-200 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
                       <div className="relative flex-1 sm:max-w-xs">
                         <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -1733,14 +1733,14 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                           placeholder="Search global formulas..."
                           value={prodSearch}
                           onChange={(e) => setProdSearch(e.target.value)}
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 pl-9 pr-4 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500 transition-all"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 pl-9 pr-4 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500 transition-all"
                         />
                       </div>
 
                       <select
                         value={prodCategoryFilter}
                         onChange={(e) => setProdCategoryFilter(e.target.value)}
-                        className="bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs font-semibold text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                        className="bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
                       >
                         <option value="">All Categories</option>
                         <option value="Tablet">Tablet</option>
@@ -1756,7 +1756,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                         placeholder="Filter Company..."
                         value={prodCompanyFilter}
                         onChange={(e) => setProdCompanyFilter(e.target.value)}
-                        className="bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs font-semibold text-slate-300 focus:outline-none focus:border-indigo-500 w-full sm:w-auto sm:max-w-[150px]"
+                        className="bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:border-indigo-500 w-full sm:w-auto sm:max-w-[150px]"
                       />
                     </div>
 
@@ -1766,19 +1766,19 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                         className="flex-1 sm:flex-initial justify-center bg-indigo-600 hover:bg-indigo-500 text-white border border-indigo-500/50 text-xs font-bold py-2 px-3.5 rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-lg shadow-indigo-600/20"
                         title="Download current complete product catalog in CSV format"
                       >
-                        <Download className="w-4 h-4 text-white" />
+                        <Download className="w-4 h-4 text-slate-900" />
                         <span>Download Catalog (CSV)</span>
                       </button>
                       <button
                         onClick={handleExportProductsExcel}
-                        className="flex-1 sm:flex-initial justify-center bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 text-xs font-semibold py-2 px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                        className="flex-1 sm:flex-initial justify-center bg-slate-50 hover:bg-slate-850 text-slate-700 border border-slate-200 text-xs font-semibold py-2 px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
                         title="Export Catalog as Excel spreadsheet"
                       >
                         <FileText className="w-4 h-4" /> XLSX
                       </button>
                       <button
                         onClick={handleOpenAddProduct}
-                        className="w-full sm:w-auto justify-center bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold py-2 px-4 rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-lg"
+                        className="w-full sm:w-auto justify-center bg-slate-200 hover:bg-slate-700 text-white text-xs font-semibold py-2 px-4 rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-lg"
                       >
                         <Plus className="w-4 h-4" /> Add Medicine
                       </button>
@@ -1786,10 +1786,10 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                   </div>
 
                   {/* Bulk Import Section */}
-                  <div className="bg-slate-950/40 border border-slate-800 rounded-2xl p-4 sm:p-6">
+                  <div className="bg-white/40 border border-slate-200 rounded-2xl p-4 sm:p-6">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
                       <div>
-                        <h3 className="text-xs font-black text-white uppercase tracking-wider">Bulk Medicine Catalog Import</h3>
+                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">Bulk Medicine Catalog Import</h3>
                         <p className="text-[10px] text-slate-500 mt-0.5">Upload wholesale medicine files supporting both .csv and .xlsx spreadsheets.</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -1802,13 +1802,13 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                         </button>
                         <button
                           onClick={handleDownloadCSVTemplate}
-                          className="bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 text-[10px] font-bold py-1.5 px-3 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
+                          className="bg-slate-50 hover:bg-slate-850 text-slate-700 border border-slate-200 text-[10px] font-bold py-1.5 px-3 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
                         >
                           <Download className="w-3 h-3" /> CSV Template
                         </button>
                         <button
                           onClick={handleDownloadExcelTemplate}
-                          className="bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 text-[10px] font-bold py-1.5 px-3 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
+                          className="bg-slate-50 hover:bg-slate-850 text-slate-700 border border-slate-200 text-[10px] font-bold py-1.5 px-3 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
                         >
                           <Download className="w-3 h-3" /> Excel Template (.xlsx)
                         </button>
@@ -1822,7 +1822,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                       onDragLeave={handleDrag}
                       onDrop={handleDrop}
                       className={`border-2 border-dashed rounded-xl p-8 text-center transition-all relative ${
-                        dragActive ? "border-indigo-500 bg-indigo-500/5" : "border-slate-800 bg-slate-950/20 hover:border-slate-700"
+                        dragActive ? "border-indigo-500 bg-indigo-500/5" : "border-slate-200 bg-white/20 hover:border-slate-700"
                       }`}
                     >
                       <input
@@ -1833,11 +1833,11 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                         onChange={handleFileInput}
                       />
                       <label htmlFor="file-upload-input" className="cursor-pointer flex flex-col items-center gap-2">
-                        <div className="p-3 bg-slate-900 rounded-full text-indigo-400">
+                        <div className="p-3 bg-slate-50 rounded-full text-indigo-400">
                           <Upload className="w-6 h-6" />
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-white">Drag & Drop Catalog Spreadsheet, or <span className="text-indigo-400 hover:underline">Browse files</span></p>
+                          <p className="text-xs font-bold text-slate-900">Drag & Drop Catalog Spreadsheet, or <span className="text-indigo-400 hover:underline">Browse files</span></p>
                           <p className="text-[10px] text-slate-500 mt-1">Accepts official CSV template or Excel spreadsheets with column validation.</p>
                         </div>
                       </label>
@@ -1845,10 +1845,10 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
 
                     {/* Column Mapping Wizard Step */}
                     {showMappingStep && (
-                      <div className="mt-6 bg-slate-950 p-6 rounded-xl border border-indigo-500/30 space-y-4 animate-fade-in text-slate-200">
+                      <div className="mt-6 bg-white p-6 rounded-xl border border-indigo-500/30 space-y-4 animate-fade-in text-slate-700">
                         <div className="border-b border-slate-850 pb-3">
                           <span className="text-[9px] uppercase font-black text-indigo-400 tracking-wider">Excel Spreadsheet Column Mapping Wizard</span>
-                          <h4 className="text-xs font-extrabold text-white mt-0.5">We auto-detected columns in your spreadsheet. Review and align headers with MediChain models:</h4>
+                          <h4 className="text-xs font-extrabold text-slate-900 mt-0.5">We auto-detected columns in your spreadsheet. Review and align headers with MediChain models:</h4>
                         </div>
                         
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -1866,14 +1866,14 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                             { key: "expiryDate", label: "Expiry Date (YYYY-MM-DD)", required: false },
                             { key: "imageUrl", label: "Product Image URL", required: false }
                           ].map(field => (
-                            <div key={field.key} className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-900/60 p-3 rounded-lg border border-slate-900 text-xs gap-2">
-                              <span className="font-semibold text-slate-300">
+                            <div key={field.key} className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50/60 p-3 rounded-lg border border-slate-900 text-xs gap-2">
+                              <span className="font-semibold text-slate-700">
                                 {field.label} {field.required && <span className="text-rose-500">*</span>}
                               </span>
                               <select
                                 value={columnMapping[field.key] || ""}
                                 onChange={(e) => setColumnMapping(prev => ({ ...prev, [field.key]: e.target.value }))}
-                                className="bg-slate-950 border border-slate-800 rounded-md px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer w-full sm:w-auto sm:min-w-[140px]"
+                                className="bg-white border border-slate-200 rounded-md px-2 py-1 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 cursor-pointer w-full sm:w-auto sm:min-w-[140px]"
                               >
                                 <option value="">-- Ignore / Unmapped --</option>
                                 {uploadedHeaders.map((header, idx) => (
@@ -1890,7 +1890,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                               setShowMappingStep(false);
                               setImportedFile(null);
                             }}
-                            className="bg-slate-900 hover:bg-slate-850 text-slate-400 border border-slate-800 text-xs font-semibold py-2 px-4 rounded-xl cursor-pointer"
+                            className="bg-slate-50 hover:bg-slate-850 text-slate-500 border border-slate-200 text-xs font-semibold py-2 px-4 rounded-xl cursor-pointer"
                           >
                             Cancel
                           </button>
@@ -1908,19 +1908,19 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                     {isImporting && (
                       <div className="mt-4 flex items-center justify-center gap-2 py-4">
                         <RefreshCw className="w-4 h-4 text-indigo-400 animate-spin" />
-                        <span className="text-xs font-semibold text-slate-400">Parsing and running validation dry-run on server...</span>
+                        <span className="text-xs font-semibold text-slate-500">Parsing and running validation dry-run on server...</span>
                       </div>
                     )}
 
                     {previewData && (
-                      <div className="mt-6 bg-slate-950 p-5 rounded-xl border border-slate-850 space-y-4 animate-fade-in">
+                      <div className="mt-6 bg-white p-5 rounded-xl border border-slate-850 space-y-4 animate-fade-in">
                         <div className="flex items-center justify-between border-b border-slate-850 pb-3">
                           <div>
                             <span className="text-[9px] uppercase font-bold text-indigo-400 tracking-wider">Dry-Run Review Sheet</span>
-                            <h4 className="text-xs font-bold text-white mt-0.5">Parsed file: {importedFile?.name}</h4>
+                            <h4 className="text-xs font-bold text-slate-900 mt-0.5">Parsed file: {importedFile?.name}</h4>
                           </div>
                           <div className="flex gap-4 text-xs font-bold">
-                            <span className="text-slate-400">Total Rows: {previewData.totalProcessed}</span>
+                            <span className="text-slate-500">Total Rows: {previewData.totalProcessed}</span>
                             <span className="text-emerald-400">Valid: {previewData.successCount}</span>
                             <span className="text-rose-400">Errors: {previewData.failureCount}</span>
                           </div>
@@ -1949,7 +1949,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                             <h5 className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider mb-2">Valid Products Ready for Wholesale Listing:</h5>
                             <div className="max-h-[200px] overflow-y-auto border border-slate-850 rounded-lg">
                               <table className="w-full text-left text-[11px]">
-                                <thead className="bg-slate-900 text-slate-400 sticky top-0">
+                                <thead className="bg-slate-50 text-slate-500 sticky top-0">
                                   <tr>
                                     <th className="p-2 font-bold uppercase">Medicine Name</th>
                                     <th className="p-2 font-bold uppercase">Generic</th>
@@ -1959,10 +1959,10 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                                     <th className="p-2 font-bold uppercase">Expiry</th>
                                   </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-850 text-slate-300">
+                                <tbody className="divide-y divide-slate-850 text-slate-700">
                                   {previewData.importedProducts.map((p: any, i: number) => (
-                                    <tr key={i} className="hover:bg-slate-900/40">
-                                      <td className="p-2 font-semibold text-white">{p.name}</td>
+                                    <tr key={i} className="hover:bg-slate-50/40">
+                                      <td className="p-2 font-semibold text-slate-900">{p.name}</td>
                                       <td className="p-2">{p.genericName}</td>
                                       <td className="p-2">{p.company}</td>
                                       <td className="p-2">৳{p.sellingPrice} <span className="text-[9px] text-slate-500">(MRP ৳{p.mrp})</span></td>
@@ -1984,7 +1984,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                               setImportedFile(null);
                               setImportErrors([]);
                             }}
-                            className="bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 text-xs font-semibold py-2 px-4 rounded-xl cursor-pointer transition-all"
+                            className="bg-slate-50 hover:bg-slate-850 border border-slate-200 text-slate-700 text-xs font-semibold py-2 px-4 rounded-xl cursor-pointer transition-all"
                           >
                             Cancel Import
                           </button>
@@ -1992,7 +1992,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                             onClick={handleConfirmImport}
                             disabled={previewData.successCount === 0}
                             className={`text-xs font-semibold py-2 px-5 rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-lg ${
-                              previewData.successCount > 0 ? "bg-emerald-600 hover:bg-emerald-500 text-white" : "bg-slate-800 text-slate-500 cursor-not-allowed"
+                              previewData.successCount > 0 ? "bg-emerald-600 hover:bg-emerald-500 text-white" : "bg-slate-200 text-slate-500 cursor-not-allowed"
                             }`}
                           >
                             <Check className="w-4 h-4" /> Import {previewData.successCount} Valid Medicines
@@ -2013,14 +2013,14 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                           <p className="text-[10px] text-slate-600 italic">No historical catalog uploads logged yet.</p>
                         ) : (
                           importHistory.map((hist, idx) => (
-                            <div key={hist.id || `hist-${idx}`} className="bg-slate-900/40 border border-slate-900 p-2.5 rounded-lg flex items-center justify-between text-[11px]">
+                            <div key={hist.id || `hist-${idx}`} className="bg-slate-50/40 border border-slate-900 p-2.5 rounded-lg flex items-center justify-between text-[11px]">
                               <div className="space-y-0.5 text-left">
-                                <p className="font-extrabold text-slate-300 truncate max-w-[200px]">{hist.fileName}</p>
+                                <p className="font-extrabold text-slate-700 truncate max-w-[200px]">{hist.fileName}</p>
                                 <p className="text-[9px] text-slate-500 font-bold">{new Date(hist.date).toLocaleString()} • by {hist.importedBy}</p>
                               </div>
                               <div className="flex items-center gap-4">
                                 <div className="text-right text-[10px] font-bold">
-                                  <span className="text-slate-400">Total: {hist.totalRows}</span> • <span className="text-emerald-400">Success: {hist.successCount}</span> • <span className="text-rose-400">Failed: {hist.failureCount}</span>
+                                  <span className="text-slate-500">Total: {hist.totalRows}</span> • <span className="text-emerald-400">Success: {hist.successCount}</span> • <span className="text-rose-400">Failed: {hist.failureCount}</span>
                                 </div>
                                 <span className={`text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
                                   hist.status === "Completed" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
@@ -2036,10 +2036,10 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                   </div>
 
                   {/* Medicine Catalog Grid */}
-                  <div className="bg-slate-950/60 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
+                  <div className="bg-white/60 border border-slate-200 rounded-2xl overflow-hidden shadow-lg">
                     <div className="max-h-[500px] overflow-y-auto">
-                      <table className="w-full text-left text-xs text-slate-300">
-                        <thead className="bg-slate-950 text-slate-500 uppercase tracking-wider text-[10px] border-b border-slate-850 sticky top-0 z-10">
+                      <table className="w-full text-left text-xs text-slate-700">
+                        <thead className="bg-white text-slate-500 uppercase tracking-wider text-[10px] border-b border-slate-850 sticky top-0 z-10">
                           <tr>
                             <th className="p-4 font-bold">Formula / Brand</th>
                             <th className="p-4 font-bold">Category</th>
@@ -2051,7 +2051,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                             <th className="p-4 font-bold text-center">Actions</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-850 bg-slate-950/30">
+                        <tbody className="divide-y divide-slate-850 bg-white/30">
                           {products
                             .filter(p => {
                               const matchesSearch = p.name.toLowerCase().includes(prodSearch.toLowerCase()) || p.genericName.toLowerCase().includes(prodSearch.toLowerCase());
@@ -2060,10 +2060,10 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                               return matchesSearch && matchesCategory && matchesCompany;
                             })
                             .map((p, idx) => (
-                              <tr key={p.id || `prod-${idx}`} className="hover:bg-slate-900/40 group">
+                              <tr key={p.id || `prod-${idx}`} className="hover:bg-slate-50/40 group">
                                 <td className="p-4">
                                   <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-[10px] text-indigo-400 font-extrabold uppercase overflow-hidden">
+                                    <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-[10px] text-indigo-400 font-extrabold uppercase overflow-hidden">
                                       {p.imageUrl || p.image_url ? (
                                         <img src={p.imageUrl || p.image_url} alt={p.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                       ) : (
@@ -2071,32 +2071,32 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                                       )}
                                     </div>
                                     <div>
-                                      <p className="font-bold text-white text-xs">{p.name}</p>
+                                      <p className="font-bold text-slate-900 text-xs">{p.name}</p>
                                       <p className="text-[10px] text-slate-500 font-semibold">{p.genericName}</p>
                                     </div>
                                   </div>
                                 </td>
-                                <td className="p-4 font-semibold text-slate-400">{p.category}</td>
-                                <td className="p-4 text-slate-400 truncate max-w-[150px]">{p.company}</td>
-                                <td className="p-4 text-slate-400 font-medium">
+                                <td className="p-4 font-semibold text-slate-500">{p.category}</td>
+                                <td className="p-4 text-slate-500 truncate max-w-[150px]">{p.company}</td>
+                                <td className="p-4 text-slate-500 font-medium">
                                   <span>{p.strength}</span>
                                   <span className="block text-[10px] text-slate-500">{p.packSize}</span>
                                 </td>
-                                <td className="p-4 text-right text-slate-400">৳{p.mrp.toFixed(2)}</td>
-                                <td className="p-4 text-right font-bold text-white">৳{p.sellingPrice.toFixed(2)}</td>
+                                <td className="p-4 text-right text-slate-500">৳{p.mrp.toFixed(2)}</td>
+                                <td className="p-4 text-right font-bold text-slate-900">৳{p.sellingPrice.toFixed(2)}</td>
                                 <td className="p-4 text-right font-extrabold text-emerald-400">{p.discountPercentage}% OFF</td>
                                 <td className="p-4">
                                   <div className="flex items-center justify-center gap-2">
                                     <button
                                       onClick={() => handleOpenEditProduct(p)}
-                                      className="p-1.5 rounded bg-slate-900 hover:bg-slate-850 text-indigo-400 transition-all cursor-pointer"
+                                      className="p-1.5 rounded bg-slate-50 hover:bg-slate-850 text-indigo-400 transition-all cursor-pointer"
                                       title="Edit Details"
                                     >
                                       <Edit className="w-3.5 h-3.5" />
                                     </button>
                                     <button
                                       onClick={() => handleDeleteProduct(p.id)}
-                                      className="p-1.5 rounded bg-slate-900 hover:bg-rose-500/15 text-rose-400 transition-all cursor-pointer"
+                                      className="p-1.5 rounded bg-slate-50 hover:bg-rose-500/15 text-rose-400 transition-all cursor-pointer"
                                       title="Delete Product"
                                     >
                                       <Trash2 className="w-3.5 h-3.5" />
@@ -2116,7 +2116,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
               {activeRoute === "/admin/inventory" && (
                 <div className="space-y-6 animate-fade-in">
                   {/* Filter Hub */}
-                  <div className="bg-slate-950/60 border border-slate-800 p-5 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="bg-white/60 border border-slate-200 p-5 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
                     <div className="relative flex-1 max-w-sm w-full">
                       <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
@@ -2124,17 +2124,17 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                         placeholder="Search stock reserves..."
                         value={invSearch}
                         onChange={(e) => setInvSearch(e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 pl-9 pr-4 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500 transition-all"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 pl-9 pr-4 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500 transition-all"
                       />
                     </div>
 
                     <div className="flex flex-wrap items-center gap-4 w-full md:w-auto justify-end">
-                      <label className="flex items-center gap-2 text-xs font-bold text-slate-400 cursor-pointer select-none">
+                      <label className="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer select-none">
                         <input
                           type="checkbox"
                           checked={inventoryLowStockOnly}
                           onChange={(e) => setInventoryLowStockOnly(e.target.checked)}
-                          className="rounded border-slate-800 bg-slate-900 text-indigo-500 focus:ring-0 focus:ring-offset-0 w-4 h-4 cursor-pointer"
+                          className="rounded border-slate-200 bg-slate-50 text-indigo-500 focus:ring-0 focus:ring-offset-0 w-4 h-4 cursor-pointer"
                         />
                         <span>Low Stock Only (&lt; {lowStockThreshold})</span>
                       </label>
@@ -2144,7 +2144,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                         <select
                           value={inventoryExpiryDaysRange}
                           onChange={(e: any) => setInventoryExpiryDaysRange(e.target.value)}
-                          className="bg-slate-900 border border-slate-800 rounded-xl py-1.5 px-3 text-xs font-semibold text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                          className="bg-slate-50 border border-slate-200 rounded-xl py-1.5 px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
                         >
                           <option value="all">All Lifespans</option>
                           <option value="30">Within 30 Days</option>
@@ -2165,10 +2165,10 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                   </div>
 
                   {/* Inventory Grid Table */}
-                  <div className="bg-slate-950/60 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
+                  <div className="bg-white/60 border border-slate-200 rounded-2xl overflow-hidden shadow-lg">
                     <div className="max-h-[550px] overflow-y-auto">
-                      <table className="w-full text-left text-xs text-slate-300">
-                        <thead className="bg-slate-950 text-slate-500 uppercase tracking-wider text-[10px] border-b border-slate-850 sticky top-0 z-10">
+                      <table className="w-full text-left text-xs text-slate-700">
+                        <thead className="bg-white text-slate-500 uppercase tracking-wider text-[10px] border-b border-slate-850 sticky top-0 z-10">
                           <tr>
                             <th className="p-4 font-bold">Medicine Brand</th>
                             <th className="p-4 font-bold">Wholesale Stock Status</th>
@@ -2178,7 +2178,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                             <th className="p-4 font-bold text-center">Operation</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-850 bg-slate-950/30">
+                        <tbody className="divide-y divide-slate-850 bg-white/30">
                           {products
                             .filter(p => {
                               const matchesSearch = p.name.toLowerCase().includes(invSearch.toLowerCase()) || p.batchNumber.toLowerCase().includes(invSearch.toLowerCase());
@@ -2199,9 +2199,9 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                               const isLow = p.availableStock < lowStockThreshold;
 
                               return (
-                                <tr key={p.id || `inv-${idx}`} className="hover:bg-slate-900/40">
+                                <tr key={p.id || `inv-${idx}`} className="hover:bg-slate-50/40">
                                   <td className="p-4">
-                                    <p className="font-bold text-white text-xs">{p.name}</p>
+                                    <p className="font-bold text-slate-900 text-xs">{p.name}</p>
                                     <p className="text-[10px] text-slate-500">{p.company} • {p.strength}</p>
                                   </td>
                                   <td className="p-4">
@@ -2225,19 +2225,19 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                                         type="number"
                                         value={editingInvStock}
                                         onChange={(e) => setEditingInvStock(e.target.value)}
-                                        className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white max-w-[100px] font-bold"
+                                        className="bg-slate-50 border border-slate-700 rounded px-2 py-1 text-xs text-white max-w-[100px] font-bold"
                                       />
                                     ) : (
-                                      <span className={isLow ? "text-amber-400" : "text-white"}>{p.availableStock.toLocaleString()} units</span>
+                                      <span className={isLow ? "text-amber-400" : "text-slate-900"}>{p.availableStock.toLocaleString()} units</span>
                                     )}
                                   </td>
-                                  <td className="p-4 font-mono text-slate-300">
+                                  <td className="p-4 font-mono text-slate-700">
                                     {isEditing ? (
                                       <input
                                         type="text"
                                         value={editingInvBatch}
                                         onChange={(e) => setEditingInvBatch(e.target.value)}
-                                        className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white max-w-[120px]"
+                                        className="bg-slate-50 border border-slate-700 rounded px-2 py-1 text-xs text-white max-w-[120px]"
                                       />
                                     ) : (
                                       p.batchNumber
@@ -2249,10 +2249,10 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                                         type="date"
                                         value={editingInvExpiry}
                                         onChange={(e) => setEditingInvExpiry(e.target.value)}
-                                        className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white"
+                                        className="bg-slate-50 border border-slate-700 rounded px-2 py-1 text-xs text-white"
                                       />
                                     ) : (
-                                      <span className={daysToExpiry <= 180 ? "text-amber-400" : "text-slate-400"}>
+                                      <span className={daysToExpiry <= 180 ? "text-amber-400" : "text-slate-500"}>
                                         {p.expiryDate} <span className="text-[10px] text-slate-500">({daysToExpiry} days)</span>
                                       </span>
                                     )}
@@ -2269,7 +2269,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                                         </button>
                                         <button
                                           onClick={() => setEditingInvId(null)}
-                                          className="p-1.5 bg-slate-800 hover:bg-slate-750 text-slate-400 rounded transition-all cursor-pointer"
+                                          className="p-1.5 bg-slate-200 hover:bg-slate-750 text-slate-500 rounded transition-all cursor-pointer"
                                           title="Cancel"
                                         >
                                           <X className="w-3.5 h-3.5" />
@@ -2278,7 +2278,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                                     ) : (
                                       <button
                                         onClick={() => handleStartEditInventory(p)}
-                                        className="bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-indigo-500/30 text-indigo-400 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+                                        className="bg-slate-50 hover:bg-slate-850 border border-slate-200 hover:border-indigo-500/30 text-indigo-400 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer"
                                       >
                                         Quick Adjust
                                       </button>
@@ -2301,7 +2301,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                     {/* Orders List Pane */}
                     <div className="lg:col-span-2 space-y-4">
                       {/* Search */}
-                      <div className="bg-slate-950/60 border border-slate-800 p-4 rounded-2xl">
+                      <div className="bg-white/60 border border-slate-200 p-4 rounded-2xl">
                         <div className="relative">
                           <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                           <input
@@ -2309,14 +2309,14 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                             placeholder="Search procurement order ID or invoice ID..."
                             value={orderSearch}
                             onChange={(e) => setOrderSearch(e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 pl-9 pr-4 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500 transition-all"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 pl-9 pr-4 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500 transition-all"
                           />
                         </div>
                       </div>
 
                       {/* List */}
-                      <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-6 space-y-3">
-                        <h3 className="text-xs font-black text-white uppercase tracking-wider mb-2">Orders Ledger Pipeline</h3>
+                      <div className="bg-white/60 border border-slate-200 rounded-2xl p-6 space-y-3">
+                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider mb-2">Orders Ledger Pipeline</h3>
                         
                         {orders.length === 0 ? (
                           <p className="text-xs text-slate-500">No matching wholesale pipeline orders found.</p>
@@ -2332,34 +2332,34 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                                     key={o.id || `order-${idx}`}
                                     onClick={() => setSelectedOrderDetails(o)}
                                     className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between text-xs ${
-                                      isSelected ? "border-indigo-500 bg-indigo-500/5 shadow" : "border-slate-900 bg-slate-950 hover:border-slate-850"
+                                      isSelected ? "border-indigo-500 bg-indigo-500/5 shadow" : "border-slate-900 bg-white hover:border-slate-850"
                                     }`}
                                   >
                                     <div className="flex items-center gap-4">
                                       <div className={`p-2.5 rounded-lg ${
                                         o.status === "Pending" ? "bg-amber-500/10 text-amber-400" :
                                         o.status === "Delivered" || o.status === "Completed" ? "bg-emerald-500/10 text-emerald-400" :
-                                        "bg-slate-800 text-slate-400"
+                                        "bg-slate-200 text-slate-500"
                                       }`}>
                                         <ShoppingCart className="w-4 h-4" />
                                       </div>
                                       <div>
                                         <div className="flex items-center gap-2">
-                                          <p className="font-extrabold text-white text-xs">{o.id}</p>
+                                          <p className="font-extrabold text-slate-900 text-xs">{o.id}</p>
                                           <span className="text-[10px] text-slate-500 font-bold">•</span>
-                                          <p className="text-[10px] text-slate-400 font-bold">{new Date(o.createdAt).toLocaleDateString()}</p>
+                                          <p className="text-[10px] text-slate-500 font-bold">{new Date(o.createdAt).toLocaleDateString()}</p>
                                         </div>
                                         <p className="text-[10px] text-slate-500 font-semibold mt-0.5">{orderPharmacy?.pharmacyName || "Lazz Pharma"}</p>
                                       </div>
                                     </div>
 
                                     <div className="text-right">
-                                      <p className="font-black text-white text-xs">৳{o.totalAmount.toLocaleString()}</p>
+                                      <p className="font-black text-slate-900 text-xs">৳{o.totalAmount.toLocaleString()}</p>
                                       <span className={`text-[8px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-full block mt-1 w-max ml-auto ${
                                         o.status === "Pending" ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" :
                                         o.status === "Delivered" || o.status === "Completed" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
                                         o.status === "Cancelled" ? "bg-rose-500/10 text-rose-500 border border-rose-500/20" :
-                                        "bg-slate-800 text-slate-400 border border-slate-700/50"
+                                        "bg-slate-200 text-slate-500 border border-slate-700/50"
                                       }`}>
                                         {o.status}
                                       </span>
@@ -2375,15 +2375,15 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                     {/* Order Details Pane */}
                     <div className="lg:col-span-1">
                       {selectedOrderDetails ? (
-                        <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-6 space-y-6 animate-fade-in">
+                        <div className="bg-white/60 border border-slate-200 rounded-2xl p-6 space-y-6 animate-fade-in">
                           <div className="flex items-center justify-between border-b border-slate-850 pb-4">
                             <div>
                               <span className="text-[9px] uppercase font-bold text-indigo-400 tracking-wider">Active Workspace Sheet</span>
-                              <h4 className="text-xs font-black text-white mt-0.5">{selectedOrderDetails.id}</h4>
+                              <h4 className="text-xs font-black text-slate-900 mt-0.5">{selectedOrderDetails.id}</h4>
                             </div>
                             <button
                               onClick={() => setSelectedOrderDetails(null)}
-                              className="p-1 rounded hover:bg-slate-850 text-slate-400"
+                              className="p-1 rounded hover:bg-slate-850 text-slate-500"
                             >
                               <X className="w-4 h-4" />
                             </button>
@@ -2392,12 +2392,12 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                           {/* Pharmacy Info Block */}
                           <div className="space-y-2">
                             <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest block">Buyer Enlistment Info</span>
-                            <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-900 text-xs text-slate-300">
-                              <p className="font-extrabold text-white text-xs">Lazz Pharma (Dhanmondi)</p>
-                              <p className="text-[10px] text-slate-400 mt-1">Owner: Zahid Hasan</p>
-                              <p className="text-[10px] text-slate-400">Phone: 01712345678</p>
-                              <p className="text-[10px] text-slate-400">Address: House 42, Road 9A, Dhanmondi</p>
-                              <p className="text-[10px] text-slate-400">License No: DC-PH-2025-1194</p>
+                            <div className="bg-slate-50/60 p-3 rounded-xl border border-slate-900 text-xs text-slate-700">
+                              <p className="font-extrabold text-slate-900 text-xs">Lazz Pharma (Dhanmondi)</p>
+                              <p className="text-[10px] text-slate-500 mt-1">Owner: Zahid Hasan</p>
+                              <p className="text-[10px] text-slate-500">Phone: 01712345678</p>
+                              <p className="text-[10px] text-slate-500">Address: House 42, Road 9A, Dhanmondi</p>
+                              <p className="text-[10px] text-slate-500">License No: DC-PH-2025-1194</p>
                             </div>
                           </div>
 
@@ -2406,13 +2406,13 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                             <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest block">Wholesale Manifest items</span>
                             <div className="max-h-[160px] overflow-y-auto space-y-1.5 pr-1">
                               {selectedOrderDetails.items?.map((item, idx) => (
-                                <div key={idx} className="bg-slate-900/40 p-2.5 rounded-lg border border-slate-900 text-xs flex justify-between items-center">
+                                <div key={idx} className="bg-slate-50/40 p-2.5 rounded-lg border border-slate-900 text-xs flex justify-between items-center">
                                   <div>
-                                    <p className="font-bold text-white">{item.name}</p>
+                                    <p className="font-bold text-slate-900">{item.name}</p>
                                     <p className="text-[9px] text-slate-500">{item.strength} • {item.packSize}</p>
                                   </div>
                                   <div className="text-right">
-                                    <p className="font-semibold text-slate-300">{item.quantity} Qty</p>
+                                    <p className="font-semibold text-slate-700">{item.quantity} Qty</p>
                                     <p className="text-[9px] text-slate-500">৳{item.sellingPrice} ea</p>
                                   </div>
                                 </div>
@@ -2426,7 +2426,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                             <select
                               value={selectedOrderDetails.status}
                               onChange={(e) => handleUpdateOrderStatus(selectedOrderDetails.id, e.target.value as any)}
-                              className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
                             >
                               <option value="Pending">Pending Approval</option>
                               <option value="Confirmed">Confirmed</option>
@@ -2449,7 +2449,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                           </div>
                         </div>
                       ) : (
-                        <div className="bg-slate-950/20 border border-slate-850 border-dashed rounded-2xl p-8 text-center text-slate-500 text-xs">
+                        <div className="bg-white/20 border border-slate-850 border-dashed rounded-2xl p-8 text-center text-slate-500 text-xs">
                           Select a wholesale order from the pipeline to review inventory manifests and update delivery routing.
                         </div>
                       )}
@@ -2478,37 +2478,37 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
 
               {/* SCREEN: FINANCE & CREDIT ACCOUNTING */}
               {activeRoute === "/admin/finance" && (
-                <div className="space-y-6 animate-fade-in text-slate-200">
+                <div className="space-y-6 animate-fade-in text-slate-700">
                   {/* Summary Cards */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="bg-slate-950/60 border border-slate-800 p-4 sm:p-5 rounded-2xl space-y-2">
+                    <div className="bg-white/60 border border-slate-200 p-4 sm:p-5 rounded-2xl space-y-2">
                       <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Total Credit Limits Authorized</p>
-                      <h3 className="text-xl font-black text-white">৳{financeSummary?.totalCreditLimit?.toLocaleString() || "0"}</h3>
-                      <p className="text-[9px] text-slate-400">Aggregated credit caps across registry</p>
+                      <h3 className="text-xl font-black text-slate-900">৳{financeSummary?.totalCreditLimit?.toLocaleString() || "0"}</h3>
+                      <p className="text-[9px] text-slate-500">Aggregated credit caps across registry</p>
                     </div>
-                    <div className="bg-slate-950/60 border border-slate-800 p-4 sm:p-5 rounded-2xl space-y-2">
+                    <div className="bg-white/60 border border-slate-200 p-4 sm:p-5 rounded-2xl space-y-2">
                       <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Outstanding Balances (Receivables)</p>
                       <h3 className="text-xl font-black text-rose-400">৳{financeSummary?.totalOutstanding?.toLocaleString() || "0"}</h3>
-                      <p className="text-[9px] text-slate-400">Aggregated credit balances currently utilized</p>
+                      <p className="text-[9px] text-slate-500">Aggregated credit balances currently utilized</p>
                     </div>
-                    <div className="bg-slate-950/60 border border-slate-800 p-4 sm:p-5 rounded-2xl space-y-2">
+                    <div className="bg-white/60 border border-slate-200 p-4 sm:p-5 rounded-2xl space-y-2">
                       <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Aggregated Available Credit</p>
                       <h3 className="text-xl font-black text-emerald-400">৳{financeSummary?.totalAvailableCredit?.toLocaleString() || "0"}</h3>
-                      <p className="text-[9px] text-slate-400 font-medium text-emerald-500/80">Liquidity safety headroom buffer</p>
+                      <p className="text-[9px] text-slate-500 font-medium text-emerald-500/80">Liquidity safety headroom buffer</p>
                     </div>
-                    <div className="bg-slate-950/60 border border-slate-800 p-4 sm:p-5 rounded-2xl space-y-2">
+                    <div className="bg-white/60 border border-slate-200 p-4 sm:p-5 rounded-2xl space-y-2">
                       <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Total Revenue Paid</p>
                       <h3 className="text-xl font-black text-indigo-400">৳{financeSummary?.totalPaidAmount?.toLocaleString() || "0"}</h3>
-                      <p className="text-[9px] text-slate-400">Aggregated invoice payouts recorded</p>
+                      <p className="text-[9px] text-slate-500">Aggregated invoice payouts recorded</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
                     {/* Left 2 cols: Pharmacy Credit Accounts */}
                     <div className="lg:col-span-2 space-y-4">
-                      <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 sm:p-6 space-y-4">
+                      <div className="bg-white/60 border border-slate-200 rounded-2xl p-4 sm:p-6 space-y-4">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                          <h3 className="text-xs font-black text-white uppercase tracking-wider">B2B Pharmacy Credit Registers</h3>
+                          <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">B2B Pharmacy Credit Registers</h3>
                           <div className="relative w-full sm:w-64">
                             <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                             <input
@@ -2516,7 +2516,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                               placeholder="Search pharmacy accounts..."
                               value={financeSearch}
                               onChange={(e) => setFinanceSearch(e.target.value)}
-                              className="w-full bg-slate-900 border border-slate-800 rounded-lg py-1.5 pl-8 pr-3 text-[11px] font-semibold text-white focus:outline-none focus:border-indigo-500 transition-all"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg py-1.5 pl-8 pr-3 text-[11px] font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 transition-all"
                             />
                           </div>
                         </div>
@@ -2524,7 +2524,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                         <div className="overflow-x-auto border border-slate-900 rounded-xl">
                           <table className="w-full text-left text-xs border-collapse">
                             <thead>
-                              <tr className="bg-slate-900 text-slate-400 uppercase text-[9px] font-extrabold tracking-wider border-b border-slate-850">
+                              <tr className="bg-slate-50 text-slate-500 uppercase text-[9px] font-extrabold tracking-wider border-b border-slate-850">
                                 <th className="px-4 py-3">Pharmacy</th>
                                 <th className="px-4 py-3 text-right">Credit Bound</th>
                                 <th className="px-4 py-3 text-right">Used Credit</th>
@@ -2532,16 +2532,16 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                                 <th className="px-4 py-3 text-center">Status</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-850 bg-slate-950/40">
+                            <tbody className="divide-y divide-slate-850 bg-white/40">
                               {pharmacies
                                 .filter(ph => ph.pharmacyName.toLowerCase().includes(financeSearch.toLowerCase()))
                                 .map((ph, idx) => (
-                                  <tr key={ph.id || `ph-${idx}`} className="hover:bg-slate-900/40 transition-colors">
+                                  <tr key={ph.id || `ph-${idx}`} className="hover:bg-slate-50/40 transition-colors">
                                     <td className="px-4 py-3">
-                                      <p className="font-extrabold text-white">{ph.pharmacyName}</p>
+                                      <p className="font-extrabold text-slate-900">{ph.pharmacyName}</p>
                                       <p className="text-[10px] text-slate-500 font-bold">{ph.city}</p>
                                     </td>
-                                    <td className="px-4 py-3 text-right font-black text-white">
+                                    <td className="px-4 py-3 text-right font-black text-slate-900">
                                       ৳{ph.creditLimit?.toLocaleString()}
                                     </td>
                                     <td className="px-4 py-3 text-right font-black text-rose-400">
@@ -2568,8 +2568,8 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                     </div>
 
                     {/* Right col: Payment Ledger Log */}
-                    <div className="lg:col-span-1 bg-slate-950/60 border border-slate-800 rounded-2xl p-4 sm:p-6 space-y-4">
-                      <h3 className="text-xs font-black text-white uppercase tracking-wider">Payment Transaction History</h3>
+                    <div className="lg:col-span-1 bg-white/60 border border-slate-200 rounded-2xl p-4 sm:p-6 space-y-4">
+                      <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">Payment Transaction History</h3>
                       <div className="space-y-3 max-h-[450px] overflow-y-auto pr-1">
                         {paymentLedger.length === 0 ? (
                           <div className="text-center p-8 text-slate-500 text-xs border border-slate-900 border-dashed rounded-xl">
@@ -2577,14 +2577,14 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                           </div>
                         ) : (
                           paymentLedger.map((pay, idx) => (
-                            <div key={idx} className="bg-slate-900/50 border border-slate-900 p-4 rounded-xl text-xs space-y-2">
+                            <div key={idx} className="bg-slate-50/50 border border-slate-900 p-4 rounded-xl text-xs space-y-2">
                               <div className="flex items-center justify-between">
-                                <span className="font-extrabold text-white text-[11px]">{pay.pharmacyName}</span>
+                                <span className="font-extrabold text-slate-900 text-[11px]">{pay.pharmacyName}</span>
                                 <span className="text-emerald-400 font-bold">৳{pay.amountPaid?.toLocaleString()}</span>
                               </div>
                               <div className="flex items-center justify-between text-[10px] text-slate-500">
                                 <span>Ref: {pay.orderId}</span>
-                                <span>Method: <span className="text-slate-300 font-semibold">{pay.paymentMethod}</span></span>
+                                <span>Method: <span className="text-slate-700 font-semibold">{pay.paymentMethod}</span></span>
                               </div>
                               <div className="flex items-center justify-between text-[9px] border-t border-slate-850 pt-2 text-slate-500 font-bold">
                                 <span>{new Date(pay.paidAt).toLocaleString()}</span>
@@ -2610,24 +2610,24 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
               {/* SCREEN 7: SYSTEM PLATFORM SCHEMAS */}
               {activeRoute === "/admin/settings" && (
                 <div className="space-y-6 max-w-xl animate-fade-in">
-                  <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-6 space-y-4">
-                    <h3 className="text-xs font-black text-white uppercase tracking-wider mb-2">B2B Platform Operations Profile</h3>
+                  <div className="bg-white/60 border border-slate-200 rounded-2xl p-6 space-y-4">
+                    <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider mb-2">B2B Platform Operations Profile</h3>
                     
-                    <div className="text-xs space-y-3.5 text-slate-300">
+                    <div className="text-xs space-y-3.5 text-slate-700">
                       <div>
                         <span className="text-slate-500 font-bold block uppercase text-[9px] tracking-wider mb-1">Platform Instance Node ID</span>
-                        <p className="font-mono bg-slate-900 px-3 py-2 rounded-lg border border-slate-850 text-slate-400">c2e94b69-4bca-494d-b42f-f8adefd8426f</p>
+                        <p className="font-mono bg-slate-50 px-3 py-2 rounded-lg border border-slate-850 text-slate-500">c2e94b69-4bca-494d-b42f-f8adefd8426f</p>
                       </div>
 
                       <div>
                         <span className="text-slate-500 font-bold block uppercase text-[9px] tracking-wider mb-1">Ledger Database State Storage</span>
-                        <p className="font-mono bg-slate-900 px-3 py-2 rounded-lg border border-slate-850 text-slate-400">db-store.json (In-Memory synchronized file system)</p>
+                        <p className="font-mono bg-slate-50 px-3 py-2 rounded-lg border border-slate-850 text-slate-500">db-store.json (In-Memory synchronized file system)</p>
                       </div>
 
                       <div>
                         <span className="text-slate-500 font-bold block uppercase text-[9px] tracking-wider mb-1">Authorization Credentials RBAC Bounds</span>
-                        <p className="bg-slate-900 px-3 py-2 rounded-lg border border-slate-850 text-slate-400">
-                          Authorized Admin Account: <span className="font-bold text-white font-mono">admin@medichain.com</span> <br />
+                        <p className="bg-slate-50 px-3 py-2 rounded-lg border border-slate-850 text-slate-500">
+                          Authorized Admin Account: <span className="font-bold text-slate-900 font-mono">admin@medichain.com</span> <br />
                           Required authorization level: <span className="text-indigo-400 font-bold font-mono">Role == "Admin"</span>
                         </p>
                       </div>
@@ -2635,13 +2635,13 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                   </div>
 
                   {/* Backup & Export Tools Panel */}
-                  <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-6 space-y-4">
+                  <div className="bg-white/60 border border-slate-200 rounded-2xl p-6 space-y-4">
                     <div>
                       <span className="text-[9px] uppercase font-bold text-indigo-400 tracking-wider">State Management & Snapshots</span>
-                      <h3 className="text-xs font-black text-white uppercase tracking-wider mt-1">Backup & Export Ledger Tools</h3>
+                      <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider mt-1">Backup & Export Ledger Tools</h3>
                     </div>
 
-                    <p className="text-xs text-slate-400 leading-relaxed">
+                    <p className="text-xs text-slate-500 leading-relaxed">
                       Generate high-fidelity snapshots of the MediChain wholesale ledger. Download compiled lists of verified catalog products in high-precision Excel format or structural JSON database dumps.
                     </p>
 
@@ -2663,7 +2663,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
 
                       <button
                         onClick={() => handleExportData("json")}
-                        className="flex-1 bg-slate-900 hover:bg-slate-850 text-white border border-slate-800 font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+                        className="flex-1 bg-slate-50 hover:bg-slate-850 text-white border border-slate-200 font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
                       >
                         <Download className="w-4 h-4" /> Export JSON DB Backup
                       </button>
@@ -2677,9 +2677,9 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                       ) : (
                         <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
                           {exportHistory.map((item, index) => (
-                            <div key={item.id || index} className="bg-slate-900/60 p-3 rounded-xl border border-slate-900 flex justify-between items-center text-[11px]">
+                            <div key={item.id || index} className="bg-slate-50/60 p-3 rounded-xl border border-slate-900 flex justify-between items-center text-[11px]">
                               <div>
-                                <p className="font-extrabold text-white text-xs">{item.type}</p>
+                                <p className="font-extrabold text-slate-900 text-xs">{item.type}</p>
                                 <p className="text-[9px] text-slate-500 mt-0.5">By {item.exportedByAdmin} • {new Date(item.exportedAt).toLocaleString()}</p>
                               </div>
                               <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
