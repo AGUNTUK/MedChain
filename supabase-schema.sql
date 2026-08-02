@@ -632,3 +632,27 @@ CREATE POLICY "Admins manage product images" ON storage.objects
         bucket_id = 'product-images' AND 
         EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'Admin')
     );
+
+-- ==========================================
+-- 18. AI ENRICHMENT JOBS TABLE
+-- ==========================================
+CREATE TABLE IF NOT EXISTS ai_enrichment_jobs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed', 'needs_review'
+    retries INTEGER NOT NULL DEFAULT 0,
+    error_message TEXT,
+    enrichment_data JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_enrichment_jobs_status ON ai_enrichment_jobs(status);
+
+-- RLS for ai_enrichment_jobs
+ALTER TABLE ai_enrichment_jobs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Admins can manage ai_enrichment_jobs" ON ai_enrichment_jobs
+    FOR ALL USING (
+        EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'Admin')
+    );
+
