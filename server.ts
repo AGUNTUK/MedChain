@@ -20,6 +20,8 @@ import { performSearch } from "./src/lib/searchService.js";
 import { validateProduct, checkDuplicate } from "./src/lib/productValidator.js";
 import { supabaseAdmin } from "./src/lib/supabaseAdmin.js";
 import * as dbService from "./src/lib/dbService.js";
+import { aiEnrichmentService } from "./src/lib/aiEnrichmentService.js";
+import cron from "node-cron";
 
 dotenv.config();
 
@@ -647,7 +649,7 @@ app.post("/api/prescription/scan", requireAuth, async (req, res) => {
     const matchedProducts = [];
     for (const item of parsedItems) {
       if (!item.name) continue;
-      const results = performSearch(dbProducts || [], item.name, { limit: 1 });
+      const results = performSearch(dbProducts || [], item.name, { pageSize: 1 });
       if (results.products && results.products.length > 0) {
         matchedProducts.push({
           extractedName: item.name,
@@ -2378,7 +2380,6 @@ app.use((err: any, req: any, res: any, next: any) => {
 });
 
 import { Server as SocketIOServer } from "socket.io";
-import { aiEnrichmentService } from "./src/lib/aiEnrichmentService.js";
 
 let serverInstance: any;
 let io: SocketIOServer;
@@ -2394,36 +2395,71 @@ async function startServer() {
 
   // --- AI PRODUCT ENRICHMENT ROUTES ---
 app.get("/api/admin/enrichment/status", requireRole(["Admin"]), async (req, res) => {
-  res.json(aiEnrichmentService.getState());
+  try {
+    let state = await aiEnrichmentService.getState();
+    if (state.status === "running") {
+      state = await aiEnrichmentService.tick();
+    }
+    res.json(state);
+  } catch (err: any) {
+    console.error("Enrichment status error:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
-
 app.post("/api/admin/enrichment/start", requireRole(["Admin"]), async (req, res) => {
   try {
-    await aiEnrichmentService.start(req.body);
-    res.json({ success: true, message: "Enrichment started" });
+    const state = await aiEnrichmentService.start(req.body);
+    res.json(state);
+  } catch (err: any) {
+    console.error("Enrichment start error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+app.post("/api/admin/enrichment/pause", requireRole(["Admin"]), async (req, res) => {
+  try {
+    const state = await aiEnrichmentService.pause();
+    res.json(state);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
-
-app.post("/api/admin/enrichment/pause", requireRole(["Admin"]), async (req, res) => {
-  aiEnrichmentService.pause();
-  res.json({ success: true, message: "Enrichment paused" });
-});
-
 app.post("/api/admin/enrichment/resume", requireRole(["Admin"]), async (req, res) => {
-  aiEnrichmentService.resume();
-  res.json({ success: true, message: "Enrichment resumed" });
+  try {
+    const state = await aiEnrichmentService.resume();
+    res.json(state);
+  } catch (err: any) {
+    console.error("Enrichment resume error:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
-
 app.post("/api/admin/enrichment/stop", requireRole(["Admin"]), async (req, res) => {
-  aiEnrichmentService.stop();
-  res.json({ success: true, message: "Enrichment stopped" });
+  try {
+    const state = await aiEnrichmentService.stop();
+    res.json(state);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
-
 app.post("/api/admin/enrichment/retry", requireRole(["Admin"]), async (req, res) => {
-  aiEnrichmentService.retryFailed();
-  res.json({ success: true, message: "Failed items reset" });
+  try {
+    const state = await aiEnrichmentService.retryFailed();
+    res.json(state);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+app.post("/api/admin/enrichment/tick", async (req, res) => {
+  const auth = req.headers["authorization"];
+  if (process.env.CRON_SECRET && auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  try {
+    const state = await aiEnrichmentService.tick();
+    res.json({ ok: true, status: state.status, pending: state.pendingIds.length });
+  } catch (err: any) {
+    console.error("Enrichment tick error:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
   if (process.env.NODE_ENV !== "production") {
@@ -2494,6 +2530,17 @@ app.post("/api/admin/enrichment/retry", requireRole(["Admin"]), async (req, res)
   process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
   process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 }
+
+// Advances the AI enrichment queue by one batch every minute while the
+// server process is alive. Safe to call even when idle/paused — it's a
+// no-op unless status is "running".
+cron.schedule("* * * * *", async () => {
+  try {
+    await aiEnrichmentService.tick();
+  } catch (err) {
+    console.error("[enrichment] cron tick failed:", err);
+  }
+});
 
 if (!process.env.VERCEL) {
   startServer();

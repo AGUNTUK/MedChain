@@ -1,7 +1,5 @@
 import axios from "axios";
 import { supabaseAdmin } from "./supabaseAdmin.js";
-import { dbService } from "./dbService.js";
-
 
 export interface EnrichmentFilter {
   missingType: "mrp" | "image" | "both" | "all";
@@ -48,6 +46,7 @@ export interface EnrichmentState {
   memoryUsage: string;
   estimatedRemainingTime: number;
   logs: EnrichmentLog[];
+  lastTickAt: string | null;
 }
 
 const DEFAULT_STATE: EnrichmentState = {
@@ -67,119 +66,132 @@ const DEFAULT_STATE: EnrichmentState = {
   currentAiModel: "-",
   memoryUsage: "0 MB",
   estimatedRemainingTime: 0,
-  logs: []
+  logs: [],
+  lastTickAt: null
 };
 
-let state: EnrichmentState = { ...DEFAULT_STATE };
-let loopTimer: NodeJS.Timeout | null = null;
-let isProcessing = false;
+const STATE_ROW_TYPE = "ai_enrichment_state";
+const LOG_ROW_TYPE = "ai_enrichment_job_log";
+const MAX_IN_MEMORY_LOGS = 200;
+const TICK_LOCK_MS = 2000;
 
-loadStateFromCloud();
+let cachedLogs: EnrichmentLog[] = [];
 
-
-// --- Cloud State Persistence ---
-async function loadStateFromCloud() {
+async function loadState(): Promise<EnrichmentState> {
   try {
-    const { data } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("notifications")
-      .select("message")
-      .eq("type", "ai_enrichment_state")
+      .select("id, message")
+      .eq("type", STATE_ROW_TYPE)
       .order("created_at", { ascending: false })
       .limit(1);
 
+    if (error) throw error;
+
     if (data && data.length > 0) {
       const cloudState = JSON.parse(data[0].message);
-      // Merge, but keep logs limited in memory
-      state = { ...DEFAULT_STATE, ...cloudState, logs: state.logs };
-      if (state.status === "running") {
-        state.status = "paused"; // Pause if resuming from crash
-      }
+      return { ...DEFAULT_STATE, ...cloudState, logs: cachedLogs };
     }
   } catch (e) {
-    console.error("Failed to load enrichment state from cloud", e);
+    console.error("Failed to load enrichment state from cloud:", e);
   }
+  return { ...DEFAULT_STATE, logs: cachedLogs };
 }
 
-async function saveStateToCloud() {
+async function saveState(state: EnrichmentState): Promise<void> {
   try {
-    const stateToSave = { ...state, logs: [] }; // Don't bloat the state object with logs
+    const stateToSave = { ...state, logs: [] };
     const { data } = await supabaseAdmin
       .from("notifications")
       .select("id")
-      .eq("type", "ai_enrichment_state")
+      .eq("type", STATE_ROW_TYPE)
       .limit(1);
 
     if (data && data.length > 0) {
-      await supabaseAdmin.from("notifications").update({ message: JSON.stringify(stateToSave), created_at: new Date().toISOString() }).eq("id", data[0].id);
+      await supabaseAdmin
+        .from("notifications")
+        .update({ message: JSON.stringify(stateToSave), created_at: new Date().toISOString() })
+        .eq("id", data[0].id);
     } else {
       await supabaseAdmin.from("notifications").insert({
         title: "AI Enrichment State",
         message: JSON.stringify(stateToSave),
-        type: "ai_enrichment_state",
+        type: STATE_ROW_TYPE,
         read: true
       });
     }
   } catch (e) {
-    console.error("Failed to save enrichment state to cloud", e);
+    console.error("Failed to save enrichment state to cloud:", e);
   }
 }
 
-
-
-async function addLog(log: Omit<EnrichmentLog, "timestamp">) {
+function addLog(state: EnrichmentState, log: Omit<EnrichmentLog, "timestamp">) {
   const fullLog = { ...log, timestamp: new Date().toISOString() };
-  state.logs.unshift(fullLog);
-  if (state.logs.length > 500) state.logs.pop();
-  
-  // Persist important logs to cloud
+  cachedLogs.unshift(fullLog);
+  if (cachedLogs.length > MAX_IN_MEMORY_LOGS) cachedLogs.pop();
+  state.logs = cachedLogs;
+
   if (log.status === "error" || log.status === "needs_review" || log.status === "success") {
-    try {
-      await supabaseAdmin.from("notifications").insert({
+    supabaseAdmin
+      .from("notifications")
+      .insert({
         title: `Enrichment ${log.status}: ${log.productName}`,
         message: JSON.stringify(fullLog),
-        type: "ai_enrichment_job_log",
+        type: LOG_ROW_TYPE,
         related_id: log.productId,
         read: true
-      });
-    } catch(e) {}
+      })
+      .then(
+        () => {},
+        () => {}
+      );
   }
 }
-
 
 const OPENROUTER_MODELS = [
   "qwen/qwen3-30b-a3b:free",
   "qwen/qwen-2.5-72b-instruct:free",
-  "openrouter/free"
+  "meta-llama/llama-3.3-70b-instruct:free",
+  "google/gemini-2.0-flash-exp:free"
 ];
 
-async function callOpenRouter(prompt: string, retries = 0): Promise<{ content: string, model: string }> {
+async function callOpenRouter(
+  state: EnrichmentState,
+  prompt: string,
+  retries = 0
+): Promise<{ content: string; model: string }> {
   const apiKey = process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY;
-  if (!apiKey) throw new Error("OPENROUTER_API_KEY not found");
+  if (!apiKey) {
+    throw new Error(
+      "OPENROUTER_API_KEY is not set in the environment. Add it in Render > Environment, then redeploy."
+    );
+  }
 
   const model = OPENROUTER_MODELS[Math.min(retries, OPENROUTER_MODELS.length - 1)];
   state.currentAiModel = model;
-  
-  try {
-    const response = await axios.post("https://openrouter.ai/api/v1/chat/completions", {
-      model,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.1
-    }, {
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "HTTP-Referer": process.env.APP_URL || "https://medichain.com",
-        "X-Title": "MediChain Enrichment"
-      }
-    });
 
-    if (response.data && response.data.choices && response.data.choices[0]) {
-      return { content: response.data.choices[0].message.content, model };
-    }
-    throw new Error("Invalid response from OpenRouter");
+  try {
+    const response = await axios.post(
+      "https://openrouter.ai/api/v1/chat/completions",
+      { model, messages: [{ role: "user", content: prompt }], temperature: 0.1 },
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "HTTP-Referer": process.env.APP_URL || "https://medichain.com",
+          "X-Title": "MediChain Enrichment"
+        },
+        timeout: 30000
+      }
+    );
+
+    const choice = response.data?.choices?.[0];
+    if (!choice) throw new Error("Invalid response shape from OpenRouter");
+    return { content: choice.message.content, model };
   } catch (error: any) {
-    if (error.response?.status === 429 && retries < OPENROUTER_MODELS.length - 1) {
-      console.warn(`Rate limited on ${model}, trying next...`);
-      return callOpenRouter(prompt, retries + 1);
+    const status = error.response?.status;
+    if ((status === 429 || status === 503 || status === 404) && retries < OPENROUTER_MODELS.length - 1) {
+      console.warn(`OpenRouter model ${model} unavailable (HTTP ${status}), falling back to next free model...`);
+      return callOpenRouter(state, prompt, retries + 1);
     }
     throw error;
   }
@@ -188,12 +200,12 @@ async function callOpenRouter(prompt: string, retries = 0): Promise<{ content: s
 async function searchWeb(query: string) {
   const cx = process.env.GOOGLE_SEARCH_CX;
   const key = process.env.GOOGLE_SEARCH_API_KEY;
-  if (!cx || !key) {
-    return null; // Silent fallback if API keys aren't set
-  }
+  if (!cx || !key) return null;
+
   try {
     const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
-      params: { key, cx, q: query, num: 3 }
+      params: { key, cx, q: query, num: 3 },
+      timeout: 10000
     });
     return res.data.items || [];
   } catch (e) {
@@ -202,281 +214,292 @@ async function searchWeb(query: string) {
   }
 }
 
-async function processProduct(productId: string) {
+async function processProduct(state: EnrichmentState, productId: string) {
   const config = state.config!;
-  
-  // 1. Fetch product
   const { data: products, error } = await supabaseAdmin.from("products").select("*").eq("id", productId);
+
   if (error || !products || products.length === 0) {
-    addLog({ productId, productName: "Unknown", action: "Fetch", status: "error", details: "Product not found in DB" });
+    addLog(state, { productId, productName: "Unknown", action: "Fetch", status: "error", details: "Product not found in DB" });
     state.failedCount++;
     return;
   }
+
   const product = products[0];
   state.currentProduct = product.name;
 
   try {
-    // 2. Determine what needs updating
     const needsMrp = config.overwriteExisting || !product.mrp || product.mrp === 0;
     const needsImage = config.overwriteExisting || !product.image_url;
 
     if (!needsMrp && !needsImage) {
-      addLog({ productId, productName: product.name, action: "Check", status: "skipped", details: "Already enriched" });
+      addLog(state, { productId, productName: product.name, action: "Check", status: "skipped", details: "Already enriched" });
       state.skippedCount++;
       return;
     }
 
-    // 3. Search for product details (Search context)
     let searchContext = "";
     let searchImages: string[] = [];
+    const query = `${product.name} ${product.generic_name || ""} ${product.strength || ""} ${product.company || ""} medicine price Bangladesh`;
     
-    const query = `${product.name} ${product.generic_name || ""} ${product.strength || ""} ${product.company || ""} medicine`;
     const searchResults = await searchWeb(query);
-    
+
     if (searchResults) {
       searchContext = searchResults.map((item: any) => `Title: ${item.title}\nSnippet: ${item.snippet}\nLink: ${item.link}`).join("\n\n");
-      
-      // Also try an image search if needed
       if (needsImage) {
         try {
           const imgRes = await axios.get("https://www.googleapis.com/customsearch/v1", {
-            params: { key: process.env.GOOGLE_SEARCH_API_KEY, cx: process.env.GOOGLE_SEARCH_CX, q: query, searchType: "image", num: 3 }
+            params: {
+              key: process.env.GOOGLE_SEARCH_API_KEY,
+              cx: process.env.GOOGLE_SEARCH_CX,
+              q: query,
+              searchType: "image",
+              num: 3
+            },
+            timeout: 10000
           });
-          if (imgRes.data.items) {
-            searchImages = imgRes.data.items.map((img: any) => img.link);
-          }
-        } catch(e) {}
+          if (imgRes.data.items) searchImages = imgRes.data.items.map((img: any) => img.link);
+        } catch {
+          /* image search is best-effort */
+        }
       }
     }
 
     if (config.dryRun) {
-      addLog({ productId, productName: product.name, action: "Dry Run", status: "success", details: `Would enrich (MRP: ${needsMrp}, Image: ${needsImage})` });
+      addLog(state, {
+        productId,
+        productName: product.name,
+        action: "Dry Run",
+        status: "success",
+        details: `Would enrich (MRP: ${needsMrp}, Image: ${needsImage})`
+      });
       state.updatedCount++;
       return;
     }
 
-    // 4. Ask AI to analyze
-    const prompt = `
-You are a highly accurate pharmaceutical data enrichment AI.
+    const prompt = `You are a pharmaceutical data enrichment AI focused on the Bangladesh market.
+
 Target Product:
-- Name: ${product.name}
-- Generic: ${product.generic_name || "N/A"}
-- Manufacturer: ${product.company || "N/A"}
-- Strength: ${product.strength || "N/A"}
-- Pack Size: ${product.pack_size || "N/A"}
-
+Name: ${product.name}
+Generic: ${product.generic_name || "N/A"}
+Manufacturer: ${product.company || "N/A"}
+Strength: ${product.strength || "N/A"}
+Pack Size: ${product.pack_size || "N/A"}
 Goal:
-1. Extract the current Maximum Retail Price (MRP) in BDT (Bangladesh Taka) if possible.
-2. Select the best product package image URL from the candidates.
-
-Search Context:
-${searchContext}
-
+Extract the current Maximum Retail Price (MRP) in BDT if possible.
+Select the best product package image URL from the candidates.
+${
+  searchContext
+    ? `Search Context:\n${searchContext}\n`
+    : "No web search context is available for this request — use your own general knowledge of Bangladeshi pharmaceutical products and typical pricing, and lower your confidence score if you are not certain.\n"
+}
 Candidate Image URLs:
-${searchImages.join("\n")}
+${searchImages.join("\n") || "None found."}
+Respond ONLY with valid JSON in this exact structure, with no markdown code fences:
+{"mrp": number or null, "imageUrl": string or null, "confidenceScore": number (0 to 100), "reasoning": "brief explanation"}`;
 
-Respond ONLY with valid JSON in this exact structure:
-{
-  "mrp": number or null,
-  "imageUrl": string or null,
-  "confidenceScore": number (0 to 100),
-  "reasoning": "brief explanation"
-}`;
+    const aiRes = await callOpenRouter(state, prompt);
 
-    const aiRes = await callOpenRouter(prompt);
     let extracted: any;
     try {
-      // Strip markdown code block if present
       const jsonStr = aiRes.content.replace(/```json/g, "").replace(/```/g, "").trim();
       extracted = JSON.parse(jsonStr);
-    } catch (e) {
-      addLog({ productId, productName: product.name, action: "AI Parse", status: "error", details: "Failed to parse AI JSON response" });
+    } catch {
+      addLog(state, {
+        productId,
+        productName: product.name,
+        action: "AI Parse",
+        status: "error",
+        details: `Failed to parse JSON from ${aiRes.model}`
+      });
       state.failedCount++;
       return;
     }
 
-    if (extracted.confidenceScore < 85) {
-      addLog({ productId, productName: product.name, action: "Enrichment", status: "needs_review", details: `Low confidence (${extracted.confidenceScore}%)` });
+    const CONFIDENCE_THRESHOLD = 70;
+    if (typeof extracted.confidenceScore !== "number" || extracted.confidenceScore < CONFIDENCE_THRESHOLD) {
+      addLog(state, {
+        productId,
+        productName: product.name,
+        action: "Enrichment",
+        status: "needs_review",
+        details: `Low confidence (${extracted.confidenceScore ?? "?"}%) from ${aiRes.model}`
+      });
       state.needsReviewCount++;
       return;
     }
 
-    // 5. Update data
     const updates: any = {};
     if (needsMrp && typeof extracted.mrp === "number" && extracted.mrp > 0) {
       updates.mrp = extracted.mrp;
       if (!product.selling_price || product.selling_price === 0) {
-        updates.selling_price = extracted.mrp; // Set selling price to MRP if empty
+        updates.selling_price = extracted.mrp;
       }
     }
 
-    if (needsImage && extracted.imageUrl && extracted.imageUrl.startsWith("http")) {
-      // Download and upload image to Supabase Storage
+    if (needsImage && extracted.imageUrl && typeof extracted.imageUrl === "string" && extracted.imageUrl.startsWith("http")) {
       try {
         const imgResponse = await axios.get(extracted.imageUrl, { responseType: "arraybuffer", timeout: 10000 });
         const buffer = Buffer.from(imgResponse.data, "binary");
-        
-        // Basic quality/size check
         if (buffer.length > 5 * 1024 * 1024) throw new Error("Image too large");
         if (buffer.length < 5000) throw new Error("Image too small (likely thumbnail or broken)");
-        
+
         const ext = extracted.imageUrl.split(".").pop()?.split("?")[0] || "jpg";
         const cleanName = product.name.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
         const filePath = `products/enriched_${cleanName}_${Date.now()}.${ext}`;
-        
+
         const { error: uploadErr } = await supabaseAdmin.storage
           .from("product-images")
-          .upload(filePath, buffer, { contentType: imgResponse.headers["content-type"] || `image/${ext}`, upsert: true });
-          
-        if (uploadErr) {
-          throw new Error("Storage upload failed: " + uploadErr.message);
-        }
-        
+          .upload(filePath, buffer, { contentType: imgResponse.headers["content-type"] as string || `image/${ext}`, upsert: true });
+
+        if (uploadErr) throw new Error("Storage upload failed: " + uploadErr.message);
+
         const { data: pubUrl } = supabaseAdmin.storage.from("product-images").getPublicUrl(filePath);
         updates.image_url = pubUrl.publicUrl;
       } catch (imgErr: any) {
-        addLog({ productId, productName: product.name, action: "Image processing", status: "error", details: imgErr.message });
-        // Don't fail the whole product if just image failed, maybe we updated MRP
+        addLog(state, { productId, productName: product.name, action: "Image processing", status: "error", details: imgErr.message });
       }
     }
 
     if (Object.keys(updates).length > 0) {
       const { error: updateErr } = await supabaseAdmin.from("products").update(updates).eq("id", productId);
       if (updateErr) throw updateErr;
-      
-      addLog({ productId, productName: product.name, action: "Update DB", status: "success", details: `Updated ${Object.keys(updates).join(", ")}` });
+      addLog(state, {
+        productId,
+        productName: product.name,
+        action: "Update DB",
+        status: "success",
+        details: `Updated ${Object.keys(updates).join(", ")} via ${aiRes.model}`
+      });
       state.updatedCount++;
     } else {
-      addLog({ productId, productName: product.name, action: "Check", status: "skipped", details: "No valid data to update" });
+      addLog(state, { productId, productName: product.name, action: "Check", status: "skipped", details: "No valid data to update" });
       state.skippedCount++;
     }
 
   } catch (error: any) {
-    addLog({ productId, productName: product.name, action: "Process", status: "error", details: error.message });
+    addLog(state, { productId, productName: product.name, action: "Process", status: "error", details: error.message });
     state.failedCount++;
-    
-    // Auto retry logic could push it back to pending if needed, but for now just mark failed
+
     if (config.autoRetry && state.retriesCount < Math.min(100, state.totalProducts * 2)) {
       state.retriesCount++;
       state.pendingIds.push(productId);
       state.failedCount--;
-      addLog({ productId, productName: product.name, action: "Auto Retry", status: "skipped", details: "Pushed to end of queue for retry" });
+      addLog(state, { productId, productName: product.name, action: "Auto Retry", status: "skipped", details: "Pushed to end of queue for retry" });
     }
   }
 }
 
-async function loop() {
-  if (state.status !== "running" || isProcessing) return;
-  isProcessing = true;
+async function processOneBatch(): Promise<EnrichmentState> {
+  const state = await loadState();
+  if (state.status !== "running" || !state.config) {
+    return state;
+  }
 
-  try {
-    const config = state.config!;
-    // Take batch
-    const batch = state.pendingIds.splice(0, config.concurrencyLimit);
-    if (batch.length === 0) {
-      state.status = "stopped";
-      saveStateToCloud();
-      isProcessing = false;
-      return;
-    }
-
-    state.currentBatch++;
-    state.runningIds = batch;
-    saveStateToCloud();
-
-    await Promise.all(batch.map(id => processProduct(id)));
-
-    state.completedCount += batch.length;
-    state.runningIds = [];
-    
-    // Estimate remaining time
-    if (state.pendingIds.length > 0) {
-      const batchesLeft = Math.ceil(state.pendingIds.length / config.concurrencyLimit);
-      state.estimatedRemainingTime = batchesLeft * (config.delayMs / 1000 + 2); // roughly 2 sec processing time + delay
-    } else {
-      state.estimatedRemainingTime = 0;
-    }
-    
-    saveStateToCloud();
-
-  } catch (err) {
-    console.error("Enrichment loop error:", err);
-  } finally {
-    isProcessing = false;
-    if (state.status === "running") {
-      loopTimer = setTimeout(loop, state.config?.delayMs || 1000);
+  if (state.lastTickAt) {
+    const elapsed = Date.now() - new Date(state.lastTickAt).getTime();
+    if (elapsed >= 0 && elapsed < TICK_LOCK_MS) {
+      return state;
     }
   }
+
+  if (state.pendingIds.length === 0) {
+    state.status = "stopped";
+    state.runningIds = [];
+    state.estimatedRemainingTime = 0;
+    await saveState(state);
+    return state;
+  }
+
+  const config = state.config;
+  state.lastTickAt = new Date().toISOString();
+  await saveState(state);
+
+  const batch = state.pendingIds.splice(0, config.concurrencyLimit);
+  state.currentBatch++;
+  state.runningIds = batch;
+
+  await Promise.all(batch.map(id => processProduct(state, id)));
+
+  state.completedCount += batch.length;
+  state.runningIds = [];
+
+  if (state.pendingIds.length > 0) {
+    const batchesLeft = Math.ceil(state.pendingIds.length / config.concurrencyLimit);
+    state.estimatedRemainingTime = batchesLeft * 60;
+  } else {
+    state.estimatedRemainingTime = 0;
+    state.status = "stopped";
+  }
+
+  await saveState(state);
+  return state;
 }
 
 export const aiEnrichmentService = {
-  getState() {
+  async getState(): Promise<EnrichmentState> {
+    const state = await loadState();
     const mem = process.memoryUsage();
     state.memoryUsage = `${Math.round(mem.rss / 1024 / 1024)} MB (RSS)`;
-    return { ...state };
+    return state;
   },
 
-  async start(config: EnrichmentConfig) {
-    if (state.status === "running") return;
-    
-    // If starting fresh (no config or stopped), rebuild queue
-    if (state.status === "idle" || state.status === "stopped") {
-      state = { ...DEFAULT_STATE, config, status: "running" };
-      
-      // Build query based on filters
-      let query = supabaseAdmin.from("products").select("id");
-      
-      if (config.filters.manufacturer) query = query.ilike("company", `%${config.filters.manufacturer}%`);
-      if (config.filters.generic) query = query.ilike("generic_name", `%${config.filters.generic}%`);
-      if (config.filters.category) query = query.ilike("category_name_fallback", `%${config.filters.category}%`);
-      
-      if (config.filters.missingType === "mrp") {
-         query = query.or("mrp.is.null,mrp.eq.0");
-      } else if (config.filters.missingType === "image") {
-         query = query.is("image_url", null);
-      } else if (config.filters.missingType === "both") {
-         query = query.or("mrp.is.null,mrp.eq.0").is("image_url", null);
-      }
+  async start(config: EnrichmentConfig): Promise<EnrichmentState> {
+    let state = await loadState();
+    if (state.status === "running") return state;
 
-      const { data, error } = await query;
-      if (error) throw error;
-      
-      state.pendingIds = (data || []).map((d: any) => d.id);
-      state.totalProducts = state.pendingIds.length;
-    } else {
-      // Resuming
-      state.config = config;
-      state.status = "running";
+    state = { ...DEFAULT_STATE, config, status: "running", logs: cachedLogs };
+
+    let query = supabaseAdmin.from("products").select("id");
+    
+    if (config.filters.manufacturer) query = query.ilike("company", `%${config.filters.manufacturer}%`);
+    if (config.filters.generic) query = query.ilike("generic_name", `%${config.filters.generic}%`);
+    if (config.filters.category) query = query.ilike("category_name_fallback", `%${config.filters.category}%`);
+    
+    if (config.filters.missingType === "mrp") {
+      query = query.or("mrp.is.null,mrp.eq.0");
+    } else if (config.filters.missingType === "image") {
+      query = query.is("image_url", null);
+    } else if (config.filters.missingType === "both") {
+      query = query.or("mrp.is.null,mrp.eq.0").is("image_url", null);
     }
 
-    saveStateToCloud();
-    loop(); // Start loop
+    const { data, error } = await query;
+    if (error) throw error;
+
+    state.pendingIds = (data || []).map((d: any) => d.id);
+    state.totalProducts = state.pendingIds.length;
+
+    await saveState(state);
+    return processOneBatch();
   },
 
-  pause() {
+  async pause(): Promise<EnrichmentState> {
+    const state = await loadState();
     state.status = "paused";
-    if (loopTimer) clearTimeout(loopTimer);
-    saveStateToCloud();
+    await saveState(state);
+    return state;
   },
 
-  resume() {
-    if (state.status !== "paused") return;
+  async resume(): Promise<EnrichmentState> {
+    const state = await loadState();
+    if (state.status !== "paused") return state;
     state.status = "running";
-    saveStateToCloud();
-    loop();
+    await saveState(state);
+    return processOneBatch();
   },
 
-  stop() {
+  async stop(): Promise<EnrichmentState> {
+    const state = await loadState();
     state.status = "stopped";
-    if (loopTimer) clearTimeout(loopTimer);
     state.pendingIds = [];
     state.runningIds = [];
-    saveStateToCloud();
+    await saveState(state);
+    return state;
   },
 
-  retryFailed() {
-    // In a full implementation, we'd keep track of failed IDs. 
-    // Here we just restart the process for missing items by stopping and relying on the user to click Start again.
-    // Or we could query the DB again.
-  }
+  async retryFailed(): Promise<EnrichmentState> {
+    return loadState();
+  },
+
+  tick: processOneBatch
 };
