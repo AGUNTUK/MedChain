@@ -1,4 +1,5 @@
 import React from "react";
+import officialLogo from "../assets/images/logo.png";
 
 export function MediChainOfficialLogo({ 
   className = "h-16 w-auto object-contain", 
@@ -12,7 +13,7 @@ export function MediChainOfficialLogo({
   const widthHeight = size ? { width: size, height: size } : {};
   return (
     <img 
-      src="/logo.png" 
+      src={officialLogo || "/logo.png"} 
       alt="MediChain Logo" 
       className={className} 
       style={{ ...style, ...widthHeight }}
@@ -28,7 +29,7 @@ export function MediChainIconOnly({ className = "", size = 40 }: { className?: s
   return (
     <div className={`relative inline-flex items-center justify-center shrink-0 ${className}`}>
       <img 
-        src="/logo.png" 
+        src={officialLogo || "/logo.png"} 
         alt="MediChain Logo" 
         className="object-contain h-full w-full max-h-full max-w-full" 
         style={size ? { width: size, height: size } : {}}
