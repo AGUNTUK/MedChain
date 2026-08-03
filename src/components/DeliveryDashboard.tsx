@@ -87,9 +87,7 @@ export default function DeliveryDashboard({ currentUser, onLogout }: DeliveryDas
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-brand-purple flex items-center justify-center font-black text-white text-xs">
-              MC
-            </div>
+            <img src="/logo.png" alt="MediChain Logo" className="w-8 h-8 object-contain" />
             <div>
               <h1 className="text-sm font-black tracking-wider text-slate-900">MEDICHAIN</h1>
               <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Rider Portal</p>

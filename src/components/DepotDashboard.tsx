@@ -187,9 +187,7 @@ export default function DepotDashboard({ currentUser, onLogout }: DepotDashboard
       <aside className="hidden md:flex w-64 bg-slate-950 border-r border-slate-800 flex-col justify-between shrink-0">
         <div className="p-6">
           <div className="flex items-center gap-3 mb-8 select-none">
-            <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center font-black text-white shadow-md shadow-indigo-600/30">
-              MC
-            </div>
+            <img src="/logo.png" alt="MediChain Logo" className="w-9 h-9 object-contain" />
             <div>
               <h1 className="text-sm font-black tracking-wider text-slate-100">MEDICHAIN</h1>
               <p className="text-[9px] text-indigo-400 font-bold uppercase tracking-widest">WMS WAREHOUSE</p>
@@ -254,9 +252,7 @@ export default function DepotDashboard({ currentUser, onLogout }: DepotDashboard
       {/* MOBILE RESPONSIVE TOP HEADER */}
       <header className="md:hidden w-full bg-slate-950 border-b border-slate-800 p-4 flex items-center justify-between z-20">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-black text-white text-xs">
-            MC
-          </div>
+          <img src="/logo.png" alt="MediChain Logo" className="w-8 h-8 object-contain" />
           <div>
             <h1 className="text-xs font-black tracking-wider text-slate-100">MEDICHAIN</h1>
             <p className="text-[8px] text-indigo-400 font-bold uppercase tracking-widest">WMS Mobile</p>
