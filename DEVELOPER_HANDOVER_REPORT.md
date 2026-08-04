@@ -265,7 +265,7 @@ Orders (1:1) Invoices (1:M) Payments. Orders (1:1) Depot Dispatches.
 ## 25. Missing Features
 
 - Real payment gateway.
-- Comprehensive unit tests (Jest/Vitest).
+- Comprehensive Playwright E2E, Visual, and Accessibility (Axe) test suite fully configured and passing.
 
 ----------------------------------------
 

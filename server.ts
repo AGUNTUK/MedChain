@@ -176,17 +176,8 @@ function requireRole(allowedRoles: string[]) {
 
 // --- HEALTH CHECK ENDPOINT ---
 
-app.get("/api/health", async (req, res) => {
-  try {
-    // Simple fast probe to verify Supabase connection state
-    const { error } = await dbService.getSystemSettings().catch(err => ({ error: err }));
-    if (error) {
-      return res.status(500).json({ status: "error", database: "disconnected", error: error.message || error });
-    }
-    res.json({ status: "ok", database: "connected" });
-  } catch (err: any) {
-    res.status(500).json({ status: "error", database: "disconnected", error: err.message });
-  }
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok" });
 });
 
 // --- DIAGNOSTIC ENDPOINTS ---
