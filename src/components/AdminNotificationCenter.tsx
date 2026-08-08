@@ -30,8 +30,8 @@ export default function AdminNotificationCenter({
   onNavigateToTab,
   onRefreshNotifications
 }: AdminNotificationCenterProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"All" | "Orders" | "Verification" | "Broadcast">("All");
+  const [activeTab, setActiveTab] = useState<"All" | "Orders" | "Verification">("All");
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
 
   // Broadcast Notification Form
   const [broadcastTitle, setBroadcastTitle] = useState("");
@@ -41,7 +41,19 @@ export default function AdminNotificationCenter({
   const [broadcastSuccess, setBroadcastSuccess] = useState("");
   const [broadcastError, setBroadcastError] = useState("");
 
-  const unreadCount = notifications.filter((n) => !n.is_read && !(n as any).isRead).length;
+  const isNotifRead = (n: Notification) => readIds.has(n.id) || Boolean(n.is_read || (n as any).isRead);
+
+  const unreadCount = notifications.filter((n) => !isNotifRead(n)).length;
+
+  const handleMarkRead = async (id: string) => {
+    setReadIds(prev => new Set(prev).add(id));
+    try {
+      await notificationService.markAsRead(id);
+      if (onRefreshNotifications) onRefreshNotifications();
+    } catch (err) {
+      console.error("Failed to mark notification read", err);
+    }
+  };
 
   const handleSendBroadcast = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,6 +87,8 @@ export default function AdminNotificationCenter({
   };
 
   const handleMarkAllRead = async () => {
+    const allIds = notifications.map(n => n.id);
+    setReadIds(new Set(allIds));
     try {
       await notificationService.markAllAsRead();
       if (onRefreshNotifications) {
@@ -92,184 +106,170 @@ export default function AdminNotificationCenter({
   });
 
   return (
-    <div className="relative inline-block text-left">
-      {/* Bell Button Trigger */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer flex items-center justify-center border border-slate-200"
-        title="Admin Alert Center & Broadcast"
-      >
-        <Bell className="w-5 h-5 text-slate-700" />
-        {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-rose-600 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-md animate-pulse">
-            {unreadCount > 99 ? "99+" : unreadCount}
-          </span>
-        )}
-      </button>
-
-      {/* Notification Drawer Dropdown */}
-      {isOpen && (
-        <div className="fixed inset-x-4 top-16 md:absolute md:inset-auto md:right-0 md:top-12 md:w-[420px] bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden flex flex-col max-h-[85vh]">
-          {/* Header */}
-          <div className="p-4 bg-gradient-to-r from-teal-900 to-slate-900 text-white flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Bell className="w-5 h-5 text-emerald-400" />
+    <div className="space-y-6 animate-fade-in text-slate-700">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left 2 Cols: Notifications Feed */}
+        <div className="lg:col-span-2 bg-white/60 border border-slate-200 rounded-2xl p-4 sm:p-6 space-y-4 shadow-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-teal-500/10 text-teal-600 rounded-xl">
+                <Bell className="w-5 h-5" />
+              </div>
               <div>
-                <h3 className="font-bold text-sm">MediChain Operations Alerts</h3>
-                <p className="text-[10px] text-slate-300">Live B2B Network Notifications</p>
+                <h3 className="text-sm font-black text-slate-900">MediChain Operations Alerts</h3>
+                <p className="text-[10px] text-slate-500">Live B2B Network Notifications</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               {unreadCount > 0 && (
                 <button
                   onClick={handleMarkAllRead}
-                  className="text-[10px] font-medium text-emerald-300 hover:text-white bg-white/10 px-2 py-1 rounded transition-colors"
+                  className="text-xs font-bold text-teal-700 hover:text-teal-800 bg-teal-50 border border-teal-200 px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-xs"
                 >
-                  Clear Unread
+                  Clear Unread ({unreadCount})
                 </button>
               )}
-              <button
-                onClick={() => setIsOpen(false)}
-                className="text-slate-300 hover:text-white p-1 rounded-lg hover:bg-white/10"
-              >
-                <X className="w-4 h-4" />
-              </button>
             </div>
           </div>
 
-          {/* Sub Navigation Tabs */}
-          <div className="flex items-center border-b border-slate-200 bg-slate-50 p-1 text-xs font-semibold">
-            {(["All", "Orders", "Verification", "Broadcast"] as const).map((tab) => (
+          {/* Sub Navigation Filter Tabs */}
+          <div className="flex items-center border border-slate-200 bg-slate-50/80 p-1 rounded-xl text-xs font-semibold">
+            {(["All", "Orders", "Verification"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`flex-1 py-1.5 rounded-lg transition-all cursor-pointer text-center ${
                   activeTab === tab
-                    ? "bg-white text-teal-800 shadow-sm font-bold"
+                    ? "bg-white text-teal-800 shadow-xs font-bold border border-slate-200"
                     : "text-slate-500 hover:text-slate-800"
                 }`}
               >
-                {tab === "Broadcast" ? "📢 Push Alert" : tab}
+                {tab}
               </button>
             ))}
           </div>
 
-          {/* Body Content */}
-          <div className="p-4 overflow-y-auto flex-1 space-y-3">
-            {activeTab === "Broadcast" ? (
-              /* BROADCAST FORM */
-              <form onSubmit={handleSendBroadcast} className="space-y-3">
-                <div className="p-3 bg-teal-50 border border-teal-200 rounded-xl text-xs text-teal-800 flex items-start gap-2">
-                  <Megaphone className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold">Publish B2B Network Alert</p>
-                    <p className="text-[11px] text-teal-700">
-                      Instantly pushes announcements or wholesale offers to all registered pharmacies in Bangladesh.
-                    </p>
-                  </div>
-                </div>
-
-                {broadcastSuccess && (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>{broadcastSuccess}</span>
-                  </div>
-                )}
-
-                {broadcastError && (
-                  <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                    <span>{broadcastError}</span>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Notification Category
-                  </label>
-                  <select
-                    value={broadcastType}
-                    onChange={(e) => setBroadcastType(e.target.value as any)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  >
-                    <option value="global">Global Announcement</option>
-                    <option value="offer">Wholesale Discount Offer</option>
-                    <option value="price_drop">Price Drop Warning</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Alert Title</label>
-                  <input
-                    type="text"
-                    value={broadcastTitle}
-                    onChange={(e) => setBroadcastTitle(e.target.value)}
-                    placeholder="e.g. 10% Extra Discount on Antibiotics!"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Alert Message</label>
-                  <textarea
-                    rows={3}
-                    value={broadcastMessage}
-                    onChange={(e) => setBroadcastMessage(e.target.value)}
-                    placeholder="Type details for pharmacy partners..."
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={sending}
-                  className="w-full py-2.5 bg-teal-700 hover:bg-teal-800 text-white font-semibold text-xs rounded-xl flex items-center justify-center gap-2 shadow-md transition-colors cursor-pointer"
-                >
-                  <Send className="w-4 h-4" />
-                  {sending ? "Publishing Alert..." : "Broadcast to All Pharmacies"}
-                </button>
-              </form>
-            ) : filteredNotifications.length === 0 ? (
-              /* EMPTY NOTIFICATIONS */
+          {/* Notification Items List */}
+          <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
+            {filteredNotifications.length === 0 ? (
               <div className="py-12 text-center text-slate-400">
                 <Bell className="w-10 h-10 mx-auto mb-2 opacity-40 text-slate-400" />
-                <p className="text-xs font-semibold text-slate-600">No active alerts</p>
+                <p className="text-xs font-semibold text-slate-600">No active alerts found</p>
                 <p className="text-[11px] text-slate-400">All network activities are normal.</p>
               </div>
             ) : (
-              /* NOTIFICATION LIST */
-              filteredNotifications.map((notif, idx) => (
-                <div
-                  key={notif.id || `notif-${idx}`}
-                  className={`p-3 rounded-xl border transition-all text-xs flex items-start gap-3 ${
-                    (notif.is_read || (notif as any).isRead)
-                      ? "bg-slate-50 border-slate-200 text-slate-600 opacity-80"
-                      : "bg-teal-50/60 border-teal-200 text-slate-900 shadow-sm"
-                  }`}
-                >
-                  <div className="p-2 rounded-lg bg-teal-100 text-teal-800 shrink-0 mt-0.5">
-                    {notif.type === "offer" ? (
-                      <Sparkles className="w-4 h-4 text-emerald-600" />
-                    ) : (
-                      <Bell className="w-4 h-4 text-teal-700" />
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-1 mb-0.5">
-                      <h4 className="font-bold text-xs truncate">{notif.title}</h4>
-                      <span className="text-[10px] text-slate-400 whitespace-nowrap">
-                        {notif.created_at || (notif as any).timestamp || (notif as any).date ? new Date(notif.created_at || (notif as any).timestamp || (notif as any).date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Just now"}
-                      </span>
+              filteredNotifications.map((notif, idx) => {
+                const read = isNotifRead(notif);
+                return (
+                  <div
+                    key={notif.id || `notif-${idx}`}
+                    onClick={() => !read && handleMarkRead(notif.id)}
+                    className={`p-3.5 rounded-xl border transition-all text-xs flex items-start gap-3 cursor-pointer ${
+                      read
+                        ? "bg-slate-50/80 border-slate-200 text-slate-600 opacity-80 hover:bg-slate-100"
+                        : "bg-teal-50/60 border-teal-200 text-slate-900 shadow-xs hover:bg-teal-100/70"
+                    }`}
+                  >
+                    <div className="p-2 rounded-lg bg-teal-100 text-teal-800 shrink-0 mt-0.5">
+                      {notif.type === "offer" ? (
+                        <Sparkles className="w-4 h-4 text-emerald-600" />
+                      ) : (
+                        <Bell className="w-4 h-4 text-teal-700" />
+                      )}
                     </div>
-                    <p className="text-[11px] text-slate-600 leading-snug line-clamp-2">{notif.message}</p>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1 mb-0.5">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <h4 className="font-bold text-xs truncate">{notif.title}</h4>
+                          {!read && <span className="w-2 h-2 rounded-full bg-teal-600 shrink-0"></span>}
+                        </div>
+                        <span className="text-[10px] text-slate-400 whitespace-nowrap">
+                          {notif.created_at || (notif as any).timestamp || (notif as any).date ? new Date(notif.created_at || (notif as any).timestamp || (notif as any).date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Just now"}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 leading-snug">{notif.message}</p>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
-      )}
+
+        {/* Right Col: Broadcast Form */}
+        <div className="bg-white/60 border border-slate-200 rounded-2xl p-4 sm:p-6 space-y-4 shadow-lg h-fit">
+          <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
+            <Megaphone className="w-5 h-5 text-teal-600" />
+            <div>
+              <h3 className="text-sm font-black text-slate-900">Push Network Broadcast</h3>
+              <p className="text-[10px] text-slate-500">Publish announcements to all pharmacies</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleSendBroadcast} className="space-y-3.5">
+            {broadcastSuccess && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{broadcastSuccess}</span>
+              </div>
+            )}
+
+            {broadcastError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{broadcastError}</span>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Notification Category
+              </label>
+              <select
+                value={broadcastType}
+                onChange={(e) => setBroadcastType(e.target.value as any)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer"
+              >
+                <option value="global">Global Announcement</option>
+                <option value="offer">Wholesale Discount Offer</option>
+                <option value="price_drop">Price Drop Warning</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Alert Title</label>
+              <input
+                type="text"
+                value={broadcastTitle}
+                onChange={(e) => setBroadcastTitle(e.target.value)}
+                placeholder="e.g. 10% Extra Discount on Antibiotics!"
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Alert Message</label>
+              <textarea
+                rows={4}
+                value={broadcastMessage}
+                onChange={(e) => setBroadcastMessage(e.target.value)}
+                placeholder="Type details for pharmacy partners across Bangladesh..."
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={sending}
+              className="w-full py-2.5 bg-teal-700 hover:bg-teal-800 text-white font-semibold text-xs rounded-xl flex items-center justify-center gap-2 shadow-md transition-colors cursor-pointer"
+            >
+              <Send className="w-4 h-4" />
+              {sending ? "Publishing Alert..." : "Broadcast to All Pharmacies"}
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }

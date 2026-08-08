@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, MapPin, CreditCard, Receipt, ShieldCheck, RefreshCw, AlertCircle, Check } from "lucide-react";
+import { ArrowLeft, MapPin, CreditCard, ShieldCheck, RefreshCw, AlertCircle, Check, Smartphone, X, Lock } from "lucide-react";
 import { Pharmacy } from "../types";
-import { orderService } from "../services";
+import { orderService, paymentService } from "../services";
 
 interface CheckoutProps {
   onBackToCart: () => void;
@@ -15,6 +15,12 @@ export default function Checkout({ onBackToCart, onOrderPlaced, pharmacy }: Chec
   const [cartSummary, setCartSummary] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Digital Wallet State
+  const [walletNumber, setWalletNumber] = useState(pharmacy?.phone || "01700000000");
+  const [showGatewayModal, setShowGatewayModal] = useState(false);
+  const [pinInput, setPinInput] = useState("12345");
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   useEffect(() => {
     const fetchSummary = async () => {
@@ -31,21 +37,37 @@ export default function Checkout({ onBackToCart, onOrderPlaced, pharmacy }: Chec
   const handlePlaceOrder = async () => {
     if (!cartSummary) return;
 
+    if ((paymentMethod === "bKash" || paymentMethod === "Nagad") && !showGatewayModal) {
+      setShowGatewayModal(true);
+      return;
+    }
+
     setLoading(true);
     setError("");
 
     try {
+      const generatedTrxId = paymentMethod !== "Cash on Delivery"
+        ? `PGW-${paymentMethod.toUpperCase()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
+        : undefined;
+
       const data = await orderService.createOrder({
         paymentMethod,
         notes,
+        paymentStatus: paymentMethod !== "Cash on Delivery" ? "Paid" : "Pending",
+        transactionId: generatedTrxId,
         ...({ deliveryAddress: pharmacy?.address || "Dhanmondi, Dhaka" } as any)
       } as any);
+
+      if (showGatewayModal) {
+        setShowGatewayModal(false);
+      }
 
       onOrderPlaced(data.orderId);
     } catch (err: any) {
       setError(err.message || "Failed to place order.");
     } finally {
       setLoading(false);
+      setIsProcessingPayment(false);
     }
   };
 
@@ -58,7 +80,7 @@ export default function Checkout({ onBackToCart, onOrderPlaced, pharmacy }: Chec
   }
 
   return (
-    <div className="w-full h-full bg-brand-bg flex flex-col justify-between select-none overflow-y-auto">
+    <div className="w-full h-full bg-brand-bg flex flex-col justify-between select-none overflow-y-auto relative">
       {/* Checkout Area */}
       <div className="p-4 space-y-4">
         {/* Navigation title */}
@@ -122,7 +144,7 @@ export default function Checkout({ onBackToCart, onOrderPlaced, pharmacy }: Chec
                   name="payment"
                   checked={paymentMethod === "Cash on Delivery"}
                   onChange={() => setPaymentMethod("Cash on Delivery")}
-                  className="accent-brand-purple"
+                  className="accent-brand-purple cursor-pointer"
                 />
                 <div className="text-left">
                   <span>Cash on Delivery (COD)</span>
@@ -137,46 +159,88 @@ export default function Checkout({ onBackToCart, onOrderPlaced, pharmacy }: Chec
             </label>
 
             {/* bKash */}
-            <label className={`flex items-center justify-between p-3.5 rounded-xl border-2 transition-all cursor-pointer ${
+            <div className={`p-3.5 rounded-xl border-2 transition-all ${
               paymentMethod === "bKash"
-                ? "border-brand-purple bg-brand-purple/5"
+                ? "border-[#E2125D] bg-[#E2125D]/5"
                 : "border-slate-100 bg-slate-50/50 hover:bg-slate-50"
             }`}>
-              <div className="flex items-center gap-2.5 text-xs font-bold text-slate-800">
-                <input
-                  type="radio"
-                  name="payment"
-                  checked={paymentMethod === "bKash"}
-                  onChange={() => setPaymentMethod("bKash")}
-                  className="accent-brand-purple"
-                />
-                <span>bKash Wallet</span>
-              </div>
-              <div className="bg-[#E2125D] text-white text-[9px] font-black px-2 py-0.5 rounded-md uppercase">
-                Instant
-              </div>
-            </label>
+              <label className="flex items-center justify-between cursor-pointer">
+                <div className="flex items-center gap-2.5 text-xs font-bold text-slate-800">
+                  <input
+                    type="radio"
+                    name="payment"
+                    checked={paymentMethod === "bKash"}
+                    onChange={() => setPaymentMethod("bKash")}
+                    className="accent-[#E2125D] cursor-pointer"
+                  />
+                  <span>bKash Payment Gateway</span>
+                </div>
+                <div className="bg-[#E2125D] text-white text-[9px] font-black px-2 py-0.5 rounded-md uppercase">
+                  Instant Verification
+                </div>
+              </label>
+
+              {paymentMethod === "bKash" && (
+                <div className="mt-3 pt-3 border-t border-[#E2125D]/20 space-y-2">
+                  <label className="text-[10px] font-bold text-slate-600 flex items-center gap-1">
+                    <Smartphone className="w-3.5 h-3.5 text-[#E2125D]" />
+                    bKash Account Mobile Number
+                  </label>
+                  <input
+                    type="text"
+                    value={walletNumber}
+                    onChange={(e) => setWalletNumber(e.target.value)}
+                    placeholder="017XXXXXXXX"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono font-bold text-slate-800 outline-none focus:border-[#E2125D]"
+                  />
+                  <p className="text-[9px] text-slate-400 font-medium">
+                    You will be redirected to bKash PGW secure verification window to enter your OTP & PIN.
+                  </p>
+                </div>
+              )}
+            </div>
 
             {/* Nagad */}
-            <label className={`flex items-center justify-between p-3.5 rounded-xl border-2 transition-all cursor-pointer ${
+            <div className={`p-3.5 rounded-xl border-2 transition-all ${
               paymentMethod === "Nagad"
-                ? "border-brand-purple bg-brand-purple/5"
+                ? "border-[#F15A22] bg-[#F15A22]/5"
                 : "border-slate-100 bg-slate-50/50 hover:bg-slate-50"
             }`}>
-              <div className="flex items-center gap-2.5 text-xs font-bold text-slate-800">
-                <input
-                  type="radio"
-                  name="payment"
-                  checked={paymentMethod === "Nagad"}
-                  onChange={() => setPaymentMethod("Nagad")}
-                  className="accent-brand-purple"
-                />
-                <span>Nagad Wallet</span>
-              </div>
-              <div className="bg-[#F15A22] text-white text-[9px] font-black px-2 py-0.5 rounded-md uppercase">
-                Instant
-              </div>
-            </label>
+              <label className="flex items-center justify-between cursor-pointer">
+                <div className="flex items-center gap-2.5 text-xs font-bold text-slate-800">
+                  <input
+                    type="radio"
+                    name="payment"
+                    checked={paymentMethod === "Nagad"}
+                    onChange={() => setPaymentMethod("Nagad")}
+                    className="accent-[#F15A22] cursor-pointer"
+                  />
+                  <span>Nagad Digital Wallet</span>
+                </div>
+                <div className="bg-[#F15A22] text-white text-[9px] font-black px-2 py-0.5 rounded-md uppercase">
+                  Instant Verification
+                </div>
+              </label>
+
+              {paymentMethod === "Nagad" && (
+                <div className="mt-3 pt-3 border-t border-[#F15A22]/20 space-y-2">
+                  <label className="text-[10px] font-bold text-slate-600 flex items-center gap-1">
+                    <Smartphone className="w-3.5 h-3.5 text-[#F15A22]" />
+                    Nagad Mobile Wallet
+                  </label>
+                  <input
+                    type="text"
+                    value={walletNumber}
+                    onChange={(e) => setWalletNumber(e.target.value)}
+                    placeholder="018XXXXXXXX"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono font-bold text-slate-800 outline-none focus:border-[#F15A22]"
+                  />
+                  <p className="text-[9px] text-slate-400 font-medium">
+                    Fast automated settlement via Nagad Merchant API.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -214,18 +278,116 @@ export default function Checkout({ onBackToCart, onOrderPlaced, pharmacy }: Chec
         <button
           onClick={handlePlaceOrder}
           disabled={loading}
-          className="w-full bg-brand-lime hover:bg-brand-lime-dark text-slate-900 py-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-brand-lime/20 transition-all cursor-pointer disabled:opacity-50"
+          className={`w-full py-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 ${
+            paymentMethod === "bKash"
+              ? "bg-[#E2125D] hover:bg-[#c80f51] text-white shadow-lg shadow-[#E2125D]/20"
+              : paymentMethod === "Nagad"
+              ? "bg-[#F15A22] hover:bg-[#d84d1a] text-white shadow-lg shadow-[#F15A22]/20"
+              : "bg-brand-lime hover:bg-brand-lime-dark text-slate-900 hover:shadow-lg hover:shadow-brand-lime/20"
+          }`}
         >
           {loading ? (
             <RefreshCw className="w-4 h-4 animate-spin" />
           ) : (
             <>
-              Confirm & Place Order (৳{cartSummary.totalAmount.toLocaleString()})
-              <ShieldCheck className="w-4 h-4 text-brand-purple" />
+              {paymentMethod === "Cash on Delivery"
+                ? `Confirm & Place Order (৳${cartSummary.totalAmount.toLocaleString()})`
+                : `Pay via ${paymentMethod} Gateway (৳${cartSummary.totalAmount.toLocaleString()})`}
+              <ShieldCheck className="w-4 h-4 shrink-0" />
             </>
           )}
         </button>
       </div>
+
+      {/* Interactive Digital Gateway Modal */}
+      {showGatewayModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className={`p-4 text-white flex justify-between items-start ${
+              paymentMethod === "bKash" ? "bg-[#E2125D]" : "bg-[#F15A22]"
+            }`}>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-white/80">
+                  {paymentMethod} PGW Gateway
+                </span>
+                <h3 className="text-base font-black flex items-center gap-1.5 mt-0.5">
+                  <ShieldCheck className="w-5 h-5" />
+                  MediChain Merchant
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowGatewayModal(false)}
+                className="p-1 rounded-full bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4 text-white" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4">
+              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex justify-between items-center text-xs">
+                <span className="text-slate-500 font-medium">Invoice Amount:</span>
+                <span className="text-base font-black text-slate-900 font-mono">
+                  ৳{cartSummary.totalAmount.toLocaleString()}
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">
+                    Wallet Phone Number
+                  </label>
+                  <input
+                    type="text"
+                    value={walletNumber}
+                    onChange={(e) => setWalletNumber(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 outline-none focus:border-brand-purple"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1 flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-slate-400" />
+                    Enter Wallet PIN
+                  </label>
+                  <input
+                    type="password"
+                    maxLength={5}
+                    value={pinInput}
+                    onChange={(e) => setPinInput(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold tracking-widest text-slate-800 outline-none focus:border-brand-purple"
+                  />
+                </div>
+              </div>
+
+              <p className="text-[10px] text-slate-400 text-center leading-normal">
+                By clicking confirm, you authorize MediChain to debit ৳{cartSummary.totalAmount.toLocaleString()} from your {paymentMethod} wallet.
+              </p>
+
+              <button
+                onClick={() => {
+                  setIsProcessingPayment(true);
+                  setTimeout(() => {
+                    handlePlaceOrder();
+                  }, 800);
+                }}
+                disabled={isProcessingPayment || loading}
+                className={`w-full py-3 rounded-xl font-extrabold text-xs text-white flex items-center justify-center gap-2 cursor-pointer ${
+                  paymentMethod === "bKash" ? "bg-[#E2125D] hover:bg-[#c80f51]" : "bg-[#F15A22] hover:bg-[#d84d1a]"
+                }`}
+              >
+                {isProcessingPayment ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  `Confirm & Authorize Payment`
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

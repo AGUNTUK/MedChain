@@ -38,16 +38,24 @@ export default function PharmacyVerificationPanel({
   const [actionSuccess, setActionSuccess] = useState("");
   const [actionError, setActionError] = useState("");
 
-  const filteredPharmacies = pharmacies.filter((p) => {
-    const matchesSearch =
-      p.pharmacyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.ownerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.licenseNo && p.licenseNo.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (p.phone && p.phone.includes(searchQuery));
-
-    const isVerified = p.verificationStatus === "Approved" || (p as any).status === "Verified" || (p as any).isVerified;
-    const isSuspended = p.verificationStatus === "Suspended" || (p as any).status === "Suspended";
+  const checkStatus = (p: Pharmacy) => {
+    const st = (p.verificationStatus || (p as any).status || "").toString().toLowerCase();
+    const isVerified = st === "approved" || st === "verified";
+    const isSuspended = st === "suspended" || st === "rejected";
     const isPending = !isVerified && !isSuspended;
+    return { isVerified, isSuspended, isPending, st };
+  };
+
+  const filteredPharmacies = pharmacies.filter((p) => {
+    const q = searchQuery.toLowerCase().trim();
+    const matchesSearch =
+      !q ||
+      p.pharmacyName.toLowerCase().includes(q) ||
+      p.ownerName.toLowerCase().includes(q) ||
+      (p.licenseNo && p.licenseNo.toLowerCase().includes(q)) ||
+      (p.phone && p.phone.includes(q));
+
+    const { isVerified, isSuspended, isPending } = checkStatus(p);
 
     const matchesStatus =
       statusFilter === "All"
@@ -67,14 +75,15 @@ export default function PharmacyVerificationPanel({
     setActionSuccess("");
 
     try {
-      const res = await fetch(`/api/admin/pharmacies/${pharmacyId}/status`, {
-        method: "PUT",
+      const endpoint = status === "Verified" ? "approve" : status === "Suspended" ? "suspend" : "status";
+      const res = await fetch(`/api/admin/pharmacies/${pharmacyId}/${endpoint}`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           status,
-          isVerified: status === "Verified",
-          creditLimit: creditLimit || 50000,
-          rejectionReason: status === "Suspended" ? rejectionReason : undefined
+          reason: rejectionReason,
+          rejectionReason,
+          creditLimit
         })
       });
 
@@ -83,8 +92,9 @@ export default function PharmacyVerificationPanel({
         throw new Error(err.error || "Failed to update pharmacy verification status.");
       }
 
-      setActionSuccess(`Pharmacy status successfully updated to ${status}.`);
+      setActionSuccess(`Pharmacy account status updated to ${status}.`);
       setSelectedPharmacy(null);
+      setRejectionReason("");
       if (onPharmacyUpdated) {
         onPharmacyUpdated();
       }
@@ -113,13 +123,19 @@ export default function PharmacyVerificationPanel({
           <div className="bg-white/10 px-4 py-2 rounded-xl text-center border border-white/10">
             <span className="block text-xs text-slate-300">Pending Review</span>
             <span className="text-lg font-bold text-amber-400">
-              {pharmacies.filter((p) => p.verificationStatus !== "Approved" && p.verificationStatus !== "Suspended" && (p as any).status !== "Verified").length}
+              {pharmacies.filter((p) => checkStatus(p).isPending).length}
             </span>
           </div>
           <div className="bg-white/10 px-4 py-2 rounded-xl text-center border border-white/10">
             <span className="block text-xs text-slate-300">Verified Partners</span>
             <span className="text-lg font-bold text-emerald-400">
-              {pharmacies.filter((p) => p.verificationStatus === "Approved" || (p as any).status === "Verified" || (p as any).isVerified).length}
+              {pharmacies.filter((p) => checkStatus(p).isVerified).length}
+            </span>
+          </div>
+          <div className="bg-white/10 px-4 py-2 rounded-xl text-center border border-white/10">
+            <span className="block text-xs text-slate-300">Suspended</span>
+            <span className="text-lg font-bold text-rose-400">
+              {pharmacies.filter((p) => checkStatus(p).isSuspended).length}
             </span>
           </div>
         </div>
@@ -191,9 +207,7 @@ export default function PharmacyVerificationPanel({
           </div>
         ) : (
           filteredPharmacies.map((pharm, idx) => {
-            const isVerified = pharm.verificationStatus === "Approved" || (pharm as any).status === "Verified" || (pharm as any).isVerified;
-            const isSuspended = pharm.verificationStatus === "Suspended" || (pharm as any).status === "Suspended";
-            const isPending = !isVerified && !isSuspended;
+            const { isVerified, isSuspended, isPending } = checkStatus(pharm);
 
             return (
               <div

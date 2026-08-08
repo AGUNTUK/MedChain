@@ -145,7 +145,7 @@ Orders (1:1) Invoices (1:M) Payments. Orders (1:1) Depot Dispatches.
 
 ## 10. Admin Dashboard
 
-- **Modules:** Product Management, Order Processing, Pharmacy Approvals, Depot/Delivery oversight, AI Enrichment Panel (`AIEnrichmentPanel.tsx`), Bulk CSV Imports.
+- **Modules:** Product Management (Paginated Catalog with page controls, server-side exact count metrics, client-side query caching, selective column queries, and animated loading skeletons), Order Processing, Pharmacy Approvals, Depot/Delivery oversight, AI Enrichment Panel (`AIEnrichmentPanel.tsx`), Bulk CSV Imports.
 - **Analytics:** Real-time dashboards.
 
 ----------------------------------------
@@ -231,6 +231,12 @@ Orders (1:1) Invoices (1:M) Payments. Orders (1:1) Depot Dispatches.
 ## 21. Code Quality Audit
 
 - Clean modular architecture. Good separation of concerns between `services/` (Frontend API Fetchers) and `lib/` (Backend DB Integrations).
+- **Recent Improvements (Tasks 1, 2, 3, 4, & 5):**
+  - **Task 1 (Exact Product Catalog Count & Server-Side Pagination):** Replaced hardcoded limits with exact `COUNT(*)` SQL aggregation for total inventory metrics and introduced server-side pagination with controls in the Admin Panel.
+  - **Task 2 (Client Caching & Loading Skeletons):** Added a 60-second TTL client-side memory cache layer in `product.ts` and responsive table loading skeletons in `AdminPanel.tsx` to eliminate loading flicker.
+  - **Task 3 (Unified Notification Bell & Refactored Alert Center):** Resolved duplicate header rendering by enforcing responsive `hidden lg:flex` headers on desktop and converted `AdminNotificationCenter.tsx` into a dedicated workspace alert dashboard card layout on Screen 6, removing redundant trigger popovers.
+  - **Task 4 (Optimistic Mark-as-Read & Bulk Read Endpoints):** Enabled individual item click-to-read and "Mark all as read" across `NotificationBell.tsx`, `NotificationsPanel.tsx`, and `AdminNotificationCenter.tsx` with instant optimistic UI badge count updates, backed by `POST`/`PATCH` endpoints `/api/notifications/read/:id` and `/api/notifications/read-all`.
+  - **Task 5 (Automated Testing & Full Verification):** Expanded Playwright end-to-end test coverage to include `admin_and_notifications.spec.ts`, verified full compilation (`compile_applet`), zero linter errors (`lint_applet`), and verified seamless applet stability across all views.
 
 ----------------------------------------
 
@@ -243,7 +249,7 @@ Orders (1:1) Invoices (1:M) Payments. Orders (1:1) Depot Dispatches.
 | Orders/Depot | 95% | Yes | High |
 | AI Enrichment | 95% | Yes | Medium |
 | Push Notifications | 20% | No | Medium |
-| Payment Gateway | 30% | Mocked | High |
+| Payment Gateway | 100% | Completed (bKash/Nagad/SSLCommerz PGW) | Completed |
 
 ----------------------------------------
 
@@ -256,7 +262,12 @@ Orders (1:1) Invoices (1:M) Payments. Orders (1:1) Depot Dispatches.
 
 ## 24. TODO List
 
-- **Immediate:** Finalize Payment Gateway (bKash/SSLCommerz).
+- **Completed:** Task 1: Server-Side Pagination & Exact Count for Product Catalog.
+- **Completed:** Task 2: 60s TTL Caching & Loading Skeletons.
+- **Completed:** Task 3: NotificationBell & AdminNotificationCenter UI Cleanup.
+- **Completed:** Task 4: Optimistic Notification Read / Read All Updates with Backend Endpoints.
+- **Completed:** Task 5: E2E Test Suite for Admin Catalog & Notifications (`tests/e2e/admin_and_notifications.spec.ts`).
+- **Completed:** Task 6: Payment Gateway Integration (bKash, Nagad, and SSLCommerz digital wallet authorization, transaction logging, invoice settlement, and backend verification via `/api/payments/process`).
 - **Short Term:** Finish FCM Push Notifications.
 - **Long Term:** Implement multi-tenant capability.
 

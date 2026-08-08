@@ -174,6 +174,27 @@ function requireRole(allowedRoles: string[]) {
   };
 }
 
+async function requireVerifiedPharmacy(req: any, res: any, next: any) {
+  if (req.user && (req.user.role === "Pharmacy Owner" || req.user.role === "User")) {
+    try {
+      const pharmacy = await dbService.getPharmacyProfile(req.user.id).catch(() => null);
+      if (!pharmacy) {
+        return res.status(403).json({ error: "Your account is pending admin approval." });
+      }
+      const st = (pharmacy.verificationStatus || "").toString().toLowerCase();
+      if (st === "suspended" || st === "rejected") {
+        return res.status(403).json({ error: "Account Suspended — contact support." });
+      }
+      if (st !== "approved" && st !== "verified") {
+        return res.status(403).json({ error: "Your account is pending admin approval." });
+      }
+    } catch (e: any) {
+      return res.status(403).json({ error: "Verification check failed. Please log in again." });
+    }
+  }
+  next();
+}
+
 // --- HEALTH CHECK ENDPOINT ---
 
 app.get("/api/health", (req, res) => {
@@ -470,18 +491,17 @@ app.get("/api/products", async (req, res) => {
   const cacheKey = `${filter}_${category}_${searchQuery}_${pageNum}_${limitNum}`;
 
   try {
-    if (!searchQuery && filter && (filter === "deals" || filter === "frequent")) {
-      const cached = productCache[cacheKey];
-      if (cached && Date.now() - cached.time < 300000) { // 5 minutes cache
-        return res.json(cached.data);
-      }
+    const cached = productCache[cacheKey];
+    if (cached && Date.now() - cached.time < 60000) { // 60 seconds cache for all queries
+      return res.json(cached.data);
     }
+
     const from = (pageNum - 1) * limitNum;
     const to = from + limitNum - 1;
 
     let query = supabaseAdmin
       .from("products")
-      .select("*, inventory(available_stock, reserved_stock, sold_stock, batch_number, expiry_date)", { count: "estimated" })
+      .select("id, name, generic_name, company, category_name_fallback, category_id, strength, pack_size, mrp, selling_price, stock_quantity, discount_percentage, image_url, inventory(available_stock, reserved_stock, sold_stock, batch_number, expiry_date)", { count: "exact" })
       .range(from, to);
 
     if (searchQuery) {
@@ -565,9 +585,7 @@ app.get("/api/products", async (req, res) => {
       responseData = mappedProducts;
     }
 
-    if (!searchQuery && filter && (filter === "deals" || filter === "frequent")) {
-      productCache[cacheKey] = { data: responseData, time: Date.now() };
-    }
+    productCache[cacheKey] = { data: responseData, time: Date.now() };
     
     return res.json(responseData);
   } catch (err: any) {
@@ -590,7 +608,7 @@ app.get("/api/products/:id", async (req, res) => {
 
 // --- AI PRESCRIPTION SCANNER (Gemini Vision) ---
 
-app.post("/api/prescription/scan", requireAuth, async (req, res) => {
+app.post("/api/prescription/scan", requireAuth, requireVerifiedPharmacy, async (req, res) => {
   const { imageBase64 } = req.body;
   if (!imageBase64) {
     return res.status(400).json({ error: "No image data provided for scanning." });
@@ -760,7 +778,7 @@ app.get("/api/cart", requireAuth, async (req, res) => {
   }
 });
 
-app.post("/api/cart/add", requireAuth, async (req, res) => {
+app.post("/api/cart/add", requireAuth, requireVerifiedPharmacy, async (req, res) => {
   const { productId, quantity } = req.body;
 
   try {
@@ -938,7 +956,7 @@ app.get("/api/orders", requireAuth, async (req, res) => {
 });
 
 app.post("/api/orders", requireAuth, async (req, res) => {
-  const { paymentMethod, notes, deliveryAddress } = req.body;
+  const { paymentMethod, notes, deliveryAddress, paymentStatus, transactionId } = req.body;
 
   try {
     const cartItems = await dbService.getCart(req.user.id);
@@ -999,13 +1017,16 @@ app.post("/api/orders", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "Pharmacy verification profile not found." });
     }
 
-    if (pharmacy.verificationStatus !== "Approved") {
-      return res.status(400).json({ error: "Your pharmacy profile is pending DGDA drug license verification" });
+    const st = (pharmacy.verificationStatus || "").toString().toLowerCase();
+    if (st !== "approved" && st !== "verified") {
+      return res.status(403).json({ error: "Your account is pending admin approval. You cannot place orders until verified." });
     }
 
     const result = await dbService.createOrderTransaction(req.user.id, pharmacy.id, {
       paymentMethod,
       notes,
+      paymentStatus,
+      transactionId,
       items: validCartItems.map((item: any) => ({
         productId: item.productId,
         quantity: item.quantity
@@ -1022,6 +1043,33 @@ app.post("/api/orders", requireAuth, async (req, res) => {
     });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+app.post("/api/payments/process", requireAuth, async (req, res) => {
+  const { orderId, paymentMethod, walletNumber, pin, amount, transactionId } = req.body;
+  if (!orderId) {
+    return res.status(400).json({ error: "Missing order ID" });
+  }
+
+  try {
+    const generatedTrxId = transactionId || `PGW-${(paymentMethod || "GATEWAY").toUpperCase().substring(0, 5)}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    const result = await dbService.processPaymentGatewayTransaction(
+      orderId,
+      paymentMethod || "bKash",
+      generatedTrxId,
+      amount
+    );
+
+    res.json({
+      success: true,
+      message: `Payment of ৳${result.amount.toLocaleString()} processed successfully via ${paymentMethod || 'bKash'} Gateway`,
+      transactionId: generatedTrxId,
+      orderId: result.orderId,
+      status: result.status
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Payment processing failed" });
   }
 });
 
@@ -1399,23 +1447,31 @@ app.get("/api/notifications", requireAuth, async (req, res) => {
   }
 });
 
-app.post("/api/notifications/read/:id", requireAuth, async (req, res) => {
+const handleMarkRead = async (req: any, res: any) => {
   try {
     await dbService.markNotificationRead(req.params.id);
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+};
 
-app.post("/api/notifications/read-all", requireAuth, async (req, res) => {
+app.post("/api/notifications/read/:id", requireAuth, handleMarkRead);
+app.patch("/api/notifications/read/:id", requireAuth, handleMarkRead);
+app.post("/api/notifications/:id/read", requireAuth, handleMarkRead);
+app.patch("/api/notifications/:id/read", requireAuth, handleMarkRead);
+
+const handleMarkAllRead = async (req: any, res: any) => {
   try {
     await dbService.markAllNotificationsRead(req.user.id);
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
-});
+};
+
+app.post("/api/notifications/read-all", requireAuth, handleMarkAllRead);
+app.patch("/api/notifications/read-all", requireAuth, handleMarkAllRead);
 
 
 // --- DEPOT CHANNELS ---
@@ -1632,8 +1688,14 @@ app.get("/api/admin/dashboard", requireRole(["Admin"]), async (req, res) => {
     const pendingDeliveries = activeOrders.filter(o => o.status !== "Delivered" && o.status !== "Completed").length;
 
     const pharmacies = await dbService.getAllPharmacies();
-    const pendingVerifications = pharmacies.filter(p => p.verificationStatus === "Pending").length;
+    const pendingVerifications = pharmacies.filter(p => {
+      const st = (p.verificationStatus || "").toString().toLowerCase();
+      return st !== "approved" && st !== "verified" && st !== "suspended" && st !== "rejected";
+    }).length;
 
+    const { count: totalProductsCount } = await dbService.supabaseAdmin
+      .from("products")
+      .select("*", { count: "exact", head: true });
 
     res.json({
       success: true,
@@ -1641,7 +1703,8 @@ app.get("/api/admin/dashboard", requireRole(["Admin"]), async (req, res) => {
         totalRevenue,
         pendingDeliveries,
         pendingVerifications,
-        totalOrders
+        totalOrders,
+        totalProducts: totalProductsCount || 0
       }
     });
   } catch (err: any) {
@@ -1652,7 +1715,7 @@ app.get("/api/admin/dashboard", requireRole(["Admin"]), async (req, res) => {
 app.get("/api/admin/pharmacies", requireRole(["Admin"]), async (req, res) => {
   try {
     const list = await dbService.getAllPharmacies();
-    res.json(list);
+    res.json({ pharmacies: list });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -2087,6 +2150,29 @@ app.post("/api/admin/products", requireRole(["Admin"]), async (req, res) => {
     await dbService.logAudit(`Product ${productData.id ? "updated" : "created"}: ${productData.name}`, "Products", saved.id, req.user.email, req.user.role);
 
     res.json({ success: true, message: "Product saved successfully.", product: saved });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch("/api/admin/products/:id", requireRole(["Admin"]), async (req, res) => {
+  try {
+    const existing = await dbService.getProductById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ error: "Product not found." });
+    }
+
+    const updates = req.body;
+    const merged = { ...existing, ...updates, id: req.params.id };
+
+    if (updates.mrp !== undefined && updates.mrp !== existing.mrp) {
+      await dbService.logPriceHistory(req.params.id, merged.name, existing.mrp, updates.mrp, existing.sellingPrice, merged.sellingPrice, req.user.name);
+    }
+
+    const saved = await dbService.addOrUpdateProduct(merged);
+    await dbService.logAudit(`Product patched: ${saved.name}`, "Products", saved.id, req.user.email, req.user.role);
+
+    res.json({ success: true, message: "Product updated in place.", product: saved });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

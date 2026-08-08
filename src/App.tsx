@@ -15,6 +15,7 @@ import OrderHistory from "./components/OrderHistory";
 import Account from "./components/Account";
 import NotificationsPanel from "./components/NotificationsPanel";
 import AdminPanel from "./components/AdminPanel";
+import PharmacyPendingScreen from "./components/PharmacyPendingScreen";
 import DepotDashboard from "./components/DepotDashboard";
 import DeliveryDashboard from "./components/DeliveryDashboard";
 import FloatingCartBar from "./components/FloatingCartBar";
@@ -351,6 +352,25 @@ export default function App() {
 
   // Render proper sub-screens in the Mobile frame
   const renderMobileContent = () => {
+    // Verification check for non-admin/staff pharmacy users
+    if (currentUser && !["Admin", "Depot Staff", "Delivery Staff"].includes(currentUser.role)) {
+      if (appStep !== "splash" && appStep !== "login" && appStep !== "setup") {
+        if (!pharmacy) {
+          return <ProfileSetup phone={phone} onSetupComplete={handleSetupComplete} onBack={() => setAppStep("login")} />;
+        }
+        const isVerified = pharmacy.verificationStatus === "Approved" || pharmacy.verificationStatus === "Verified" || (pharmacy.verificationStatus as string) === "verified" || (pharmacy.verificationStatus as string) === "approved";
+        if (!isVerified) {
+          return (
+            <PharmacyPendingScreen
+              pharmacy={pharmacy}
+              onRefreshStatus={refreshPharmacyProfile}
+              onLogout={handleLogout}
+            />
+          );
+        }
+      }
+    }
+
     switch (appStep) {
       case "splash":
         return (

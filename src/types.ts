@@ -23,7 +23,7 @@ export interface Product {
   image_url?: string;
 }
 
-export type VerificationStatus = "Pending" | "Under Review" | "Approved" | "Rejected" | "Suspended";
+export type VerificationStatus = "Pending" | "Under Review" | "Approved" | "Verified" | "Rejected" | "Suspended" | "pending" | "verified" | "suspended";
 
 export interface Pharmacy {
   id: string;

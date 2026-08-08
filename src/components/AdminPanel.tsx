@@ -26,6 +26,7 @@ import {
   Sparkles, 
   LogOut, 
   ArrowRight,
+  ArrowLeft,
   RefreshCw,
   Eye,
   Calendar,
@@ -125,6 +126,15 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
 
   // Backend state synchronization
   const [products, setProducts] = useState<Product[]>([]);
+  const [totalProductsCount, setTotalProductsCount] = useState<number>(0);
+  const [catalogPage, setCatalogPage] = useState<number>(1);
+  const [catalogTotalPages, setCatalogTotalPages] = useState<number>(1);
+  const [catalogTotalCount, setCatalogTotalCount] = useState<number>(0);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [prodSearch, setProdSearch] = useState("");
+  const [prodCategoryFilter, setProdCategoryFilter] = useState("");
+  const [prodCompanyFilter, setProdCompanyFilter] = useState("");
+  const [prodStockFilter, setProdStockFilter] = useState<"" | "in_stock" | "low_stock" | "out_of_stock">("");
   const [orders, setOrders] = useState<Order[]>([]);
   const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -226,9 +236,25 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
   const refreshAllData = async () => {
     setLoading(true);
     try {
-      // Get Products
-      const prodData = await productService.getProducts();
-      setProducts(prodData);
+      // Get Admin Dashboard Metrics
+      const dashRes = await fetch("/api/admin/dashboard");
+      if (dashRes.ok) {
+        const dashData = await dashRes.json();
+        if (dashData.metrics) {
+          setTotalProductsCount(dashData.metrics.totalProducts || 0);
+        }
+      }
+
+      // Get Paginated Catalog Products
+      const paginatedRes = await productService.getProductsPaginated({
+        page: catalogPage,
+        limit: 50,
+        search: prodSearch,
+        category: prodCategoryFilter
+      });
+      setProducts(paginatedRes.products || []);
+      setCatalogTotalCount(paginatedRes.total || 0);
+      setCatalogTotalPages(paginatedRes.pages || 1);
 
       // Get Orders (All orders are returned for Admin on /api/orders)
       const ordData = await orderService.getOrders();
@@ -238,7 +264,8 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
       const pharmRes = await fetch("/api/admin/pharmacies");
       if (pharmRes.ok) {
         const pharmData = await pharmRes.json();
-        setPharmacies(pharmData.pharmacies || []);
+        const list = Array.isArray(pharmData) ? pharmData : (pharmData.pharmacies || []);
+        setPharmacies(list);
       }
 
       // Get Notifications
@@ -334,8 +361,39 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
     }
   }, [errorMsg]);
 
+  // Refetch catalog when page or search/category filters change
+  useEffect(() => {
+    const fetchCatalog = async () => {
+      setCatalogLoading(true);
+      try {
+        const paginatedRes = await productService.getProductsPaginated({
+          page: catalogPage,
+          limit: 50,
+          search: prodSearch,
+          category: prodCategoryFilter
+        });
+        setProducts(paginatedRes.products || []);
+        setCatalogTotalCount(paginatedRes.total || 0);
+        setCatalogTotalPages(paginatedRes.pages || 1);
+      } catch (err) {
+        console.error("Error refetching catalog:", err);
+      } finally {
+        setCatalogLoading(false);
+      }
+    };
+
+    if (!loading) {
+      fetchCatalog();
+    }
+  }, [catalogPage, prodSearch, prodCategoryFilter]);
+
+  // Reset page to 1 when filters change
+  useEffect(() => {
+    setCatalogPage(1);
+  }, [prodSearch, prodCategoryFilter]);
+
   // Calculations for dashboard
-  const totalProducts = products.length;
+  const totalProducts = totalProductsCount || catalogTotalCount || products.length;
   const totalStock = products.reduce((acc, p) => acc + (p.availableStock || 0), 0);
   const totalRegisteredPharmacies = pharmacies.length;
   const totalOrders = orders.length;
@@ -366,9 +424,6 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
   // --- Sub-Module States & Actions ---
 
   // 1. Medicine Product Management Module
-  const [prodSearch, setProdSearch] = useState("");
-  const [prodCategoryFilter, setProdCategoryFilter] = useState("");
-  const [prodCompanyFilter, setProdCompanyFilter] = useState("");
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [selectedProductForEdit, setSelectedProductForEdit] = useState<Product | null>(null);
 
@@ -469,23 +524,40 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
       };
 
       if (selectedProductForEdit) {
-        body.id = selectedProductForEdit.id;
-      }
+        const res = await fetch(`/api/admin/products/${selectedProductForEdit.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
 
-      const res = await fetch("/api/admin/products", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || "Failed to update catalog via PATCH.");
+        }
 
-      if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Failed to update catalog.");
+        const updatedProduct = data.product || { ...selectedProductForEdit, ...body };
+        
+        // Update product row in place without full page refetch
+        setProducts(prev => prev.map(p => p.id === selectedProductForEdit.id ? updatedProduct : p));
+        setSuccessMsg("Medicine details updated successfully (saved via PATCH).");
+      } else {
+        const res = await fetch("/api/admin/products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || "Failed to update catalog.");
+        }
+
+        setSuccessMsg("New medicine added to platform catalog.");
+        refreshAllData();
       }
 
-      setSuccessMsg(selectedProductForEdit ? "Medicine details updated successfully." : "New medicine added to platform catalog.");
       setIsProductModalOpen(false);
-      refreshAllData();
     } catch (err: any) {
       setErrorMsg(err.message || "An error occurred.");
     }
@@ -1340,7 +1412,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
       {/* Main Workspace Area */}
       <main className="flex-1 flex flex-col min-w-0 bg-slate-50 overflow-y-auto min-h-0">
         {/* Top Header Panel */}
-        <header className="min-h-14 border-b border-slate-200 bg-white/40 px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-shrink-0">
+        <header className="hidden lg:flex min-h-14 border-b border-slate-200 bg-white/40 px-6 lg:px-8 py-3 items-center justify-between gap-3 flex-shrink-0">
           <div>
             <h2 className="text-xs sm:text-sm font-bold text-slate-900 tracking-wider uppercase">
               {activeRoute === "/admin/dashboard" && "OPERATIONS CONTROL CENTER"}
@@ -1408,40 +1480,67 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                     <>
                       {/* Stats Grid */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-                        <div className="bg-white/60 border border-slate-200 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-                          <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Catalog Medicines</span>
+                        <div 
+                          onClick={() => navigateTo("/admin/products")}
+                          className="bg-white/60 border border-slate-200 rounded-2xl p-5 shadow-lg relative overflow-hidden hover:scale-[1.02] hover:shadow-xl hover:border-indigo-400 transition-all cursor-pointer group"
+                          title="Click to manage catalog medicines"
+                        >
+                          <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest block mb-1 group-hover:text-indigo-600 transition-colors">Catalog Medicines</span>
                           <span className="text-2xl font-black text-slate-900">{totalProducts}</span>
-                          <p className="text-[10px] text-indigo-400 font-bold mt-1.5 flex items-center gap-1">
-                            <Pill className="w-3 h-3" /> Fully Audited Formulas
+                          <p className="text-[10px] text-indigo-400 font-bold mt-1.5 flex items-center justify-between">
+                            <span className="flex items-center gap-1"><Pill className="w-3 h-3" /> Fully Audited Formulas</span>
+                            <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-indigo-600" />
                           </p>
                         </div>
 
-                        <div className="bg-white/60 border border-slate-200 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-                          <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Total Stock Count</span>
+                        <div 
+                          onClick={() => navigateTo("/admin/inventory")}
+                          className="bg-white/60 border border-slate-200 rounded-2xl p-5 shadow-lg relative overflow-hidden hover:scale-[1.02] hover:shadow-xl hover:border-emerald-400 transition-all cursor-pointer group"
+                          title="Click to view inventory levels"
+                        >
+                          <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest block mb-1 group-hover:text-emerald-600 transition-colors">Total Stock Count</span>
                           <span className="text-2xl font-black text-slate-900">{totalStock.toLocaleString()}</span>
-                          <p className="text-[10px] text-emerald-400 font-bold mt-1.5 flex items-center gap-1">
-                            <Boxes className="w-3 h-3" /> In-Store Reserves
+                          <p className="text-[10px] text-emerald-400 font-bold mt-1.5 flex items-center justify-between">
+                            <span className="flex items-center gap-1"><Boxes className="w-3 h-3" /> In-Store Reserves</span>
+                            <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-emerald-600" />
                           </p>
                         </div>
 
-                        <div className="bg-white/60 border border-slate-200 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-                          <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Registered Pharmacies</span>
+                        <div 
+                          onClick={() => navigateTo("/admin/pharmacies")}
+                          className="bg-white/60 border border-slate-200 rounded-2xl p-5 shadow-lg relative overflow-hidden hover:scale-[1.02] hover:shadow-xl hover:border-amber-400 transition-all cursor-pointer group"
+                          title="Click to manage registered pharmacies"
+                        >
+                          <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest block mb-1 group-hover:text-amber-600 transition-colors">Registered Pharmacies</span>
                           <span className="text-2xl font-black text-slate-900">{totalRegisteredPharmacies}</span>
-                          <p className="text-[10px] text-amber-400 font-bold mt-1.5 flex items-center gap-1">
-                            <Store className="w-3 h-3" /> Licensed Accounts
+                          <p className="text-[10px] text-amber-400 font-bold mt-1.5 flex items-center justify-between">
+                            <span className="flex items-center gap-1"><Store className="w-3 h-3" /> Licensed Accounts</span>
+                            <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-amber-600" />
                           </p>
                         </div>
 
-                        <div className="bg-white/60 border border-slate-200 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-                          <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest block mb-1">Total B2B Orders</span>
+                        <div 
+                          onClick={() => navigateTo("/admin/orders")}
+                          className="bg-white/60 border border-slate-200 rounded-2xl p-5 shadow-lg relative overflow-hidden hover:scale-[1.02] hover:shadow-xl hover:border-blue-400 transition-all cursor-pointer group"
+                          title="Click to view B2B orders"
+                        >
+                          <span className="text-[9px] uppercase font-bold text-slate-500 tracking-widest block mb-1 group-hover:text-blue-600 transition-colors">Total B2B Orders</span>
                           <span className="text-2xl font-black text-slate-900">{totalOrders}</span>
-                          <p className="text-[10px] text-blue-400 font-bold mt-1.5 flex items-center gap-1">
-                            <ShoppingCart className="w-3 h-3" /> Pipeline Procurement
+                          <p className="text-[10px] text-blue-400 font-bold mt-1.5 flex items-center justify-between">
+                            <span className="flex items-center gap-1"><ShoppingCart className="w-3 h-3" /> Pipeline Procurement</span>
+                            <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-blue-600" />
                           </p>
                         </div>
 
-                        <div className="bg-white/60 border border-slate-200 rounded-2xl p-5 shadow-lg relative overflow-hidden sm:col-span-2 md:col-span-1">
-                          <span className="text-[9px] uppercase font-bold text-rose-400 tracking-widest block mb-1">Warnings Checklist</span>
+                        <div 
+                          onClick={() => {
+                            setInventoryLowStockOnly(true);
+                            navigateTo("/admin/inventory");
+                          }}
+                          className="bg-white/60 border border-slate-200 rounded-2xl p-5 shadow-lg relative overflow-hidden sm:col-span-2 md:col-span-1 hover:scale-[1.02] hover:shadow-xl hover:border-rose-400 transition-all cursor-pointer group"
+                          title="Click to inspect low stock & expiring warnings"
+                        >
+                          <span className="text-[9px] uppercase font-bold text-rose-400 tracking-widest block mb-1 group-hover:text-rose-600 transition-colors">Warnings Checklist</span>
                           <div className="flex gap-4 mt-1">
                             <div>
                               <span className="text-lg font-black text-rose-500">{lowStockCount}</span>
@@ -1719,17 +1818,33 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
               {/* SCREEN 2: MEDICINE PRODUCT CATALOG MANAGEMENT */}
               {activeRoute === "/admin/products" && (
                 <div className="space-y-6 animate-fade-in">
+                  {/* Back Navigation Header */}
+                  <div className="flex items-center justify-between bg-white/40 border border-slate-200/80 px-4 py-3 rounded-2xl">
+                    <button
+                      onClick={() => navigateTo("/admin/dashboard")}
+                      className="flex items-center gap-2 text-xs font-bold text-slate-700 hover:text-indigo-600 transition-colors cursor-pointer group"
+                    >
+                      <div className="p-1.5 rounded-lg bg-white border border-slate-200 group-hover:border-indigo-300">
+                        <ArrowLeft className="w-4 h-4 text-slate-600 group-hover:text-indigo-600" />
+                      </div>
+                      <span>Back to Operations Control Center</span>
+                    </button>
+                    <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                      Product Catalog Management
+                    </span>
+                  </div>
+
                   {/* Action Filters Panel */}
                   <div className="bg-white/60 border border-slate-200 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
-                      <div className="relative flex-1 sm:max-w-xs">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1 flex-wrap">
+                      <div className="relative flex-1 min-w-[200px]">
                         <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                         <input
                           type="text"
-                          placeholder="Search global formulas..."
+                          placeholder="Search product name, generic formula, or category..."
                           value={prodSearch}
                           onChange={(e) => setProdSearch(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 pl-9 pr-4 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500 transition-all"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 pl-9 pr-4 text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 transition-all"
                         />
                       </div>
 
@@ -1745,6 +1860,17 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                         <option value="Injection">Injection</option>
                         <option value="Cream">Cream</option>
                         <option value="Supplement">Supplement</option>
+                      </select>
+
+                      <select
+                        value={prodStockFilter}
+                        onChange={(e) => setProdStockFilter(e.target.value as any)}
+                        className="bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                      >
+                        <option value="">All Stock Statuses</option>
+                        <option value="in_stock">In Stock (&gt; 20)</option>
+                        <option value="low_stock">Low Stock (1 - 20)</option>
+                        <option value="out_of_stock">Out of Stock (0)</option>
                       </select>
 
                       <input
@@ -2041,6 +2167,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                             <th className="p-4 font-bold">Category</th>
                             <th className="p-4 font-bold">Supplier Company</th>
                             <th className="p-4 font-bold">Strength & Pack</th>
+                            <th className="p-4 font-bold text-center">Stock Level</th>
                             <th className="p-4 font-bold text-right">MRP (৳)</th>
                             <th className="p-4 font-bold text-right">Trade Price (৳)</th>
                             <th className="p-4 font-bold text-right">Discount</th>
@@ -2048,14 +2175,50 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-850 bg-white/30">
-                          {products
-                            .filter(p => {
-                              const matchesSearch = p.name.toLowerCase().includes(prodSearch.toLowerCase()) || p.genericName.toLowerCase().includes(prodSearch.toLowerCase());
-                              const matchesCategory = !prodCategoryFilter || p.category === prodCategoryFilter;
-                              const matchesCompany = !prodCompanyFilter || p.company.toLowerCase().includes(prodCompanyFilter.toLowerCase());
-                              return matchesSearch && matchesCategory && matchesCompany;
-                            })
-                            .map((p, idx) => (
+                          {catalogLoading ? (
+                            Array.from({ length: 6 }).map((_, idx) => (
+                              <tr key={`skel-${idx}`} className="animate-pulse">
+                                <td className="p-4">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-slate-200"></div>
+                                    <div className="space-y-1.5 flex-1">
+                                      <div className="h-3 bg-slate-200 rounded w-28"></div>
+                                      <div className="h-2 bg-slate-150 rounded w-20"></div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="p-4"><div className="h-3 bg-slate-200 rounded w-16"></div></td>
+                                <td className="p-4"><div className="h-3 bg-slate-200 rounded w-24"></div></td>
+                                <td className="p-4"><div className="h-3 bg-slate-200 rounded w-20"></div></td>
+                                <td className="p-4"><div className="h-3 bg-slate-200 rounded w-12 mx-auto"></div></td>
+                                <td className="p-4"><div className="h-3 bg-slate-200 rounded w-12 ml-auto"></div></td>
+                                <td className="p-4"><div className="h-3 bg-slate-200 rounded w-12 ml-auto"></div></td>
+                                <td className="p-4"><div className="h-3 bg-slate-200 rounded w-14 ml-auto"></div></td>
+                                <td className="p-4"><div className="h-6 bg-slate-200 rounded w-12 mx-auto"></div></td>
+                               </tr>
+                            ))
+                          ) : (
+                            products
+                              .filter(p => {
+                                const q = prodSearch.toLowerCase().trim();
+                                const matchesSearch = !q || 
+                                  p.name.toLowerCase().includes(q) || 
+                                  p.genericName.toLowerCase().includes(q) || 
+                                  p.category.toLowerCase().includes(q);
+                                const matchesCategory = !prodCategoryFilter || p.category === prodCategoryFilter;
+                                const matchesCompany = !prodCompanyFilter || p.company.toLowerCase().includes(prodCompanyFilter.toLowerCase());
+                                
+                                const stock = p.availableStock ?? 0;
+                                let matchesStock = true;
+                                if (prodStockFilter === "in_stock") matchesStock = stock > 20;
+                                else if (prodStockFilter === "low_stock") matchesStock = stock > 0 && stock <= 20;
+                                else if (prodStockFilter === "out_of_stock") matchesStock = stock === 0;
+
+                                return matchesSearch && matchesCategory && matchesCompany && matchesStock;
+                              })
+                              .map((p, idx) => {
+                                const stock = p.availableStock ?? 0;
+                                return (
                               <tr key={p.id || `prod-${idx}`} className="hover:bg-slate-50/40 group">
                                 <td className="p-4">
                                   <div className="flex items-center gap-3">
@@ -2077,6 +2240,15 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                                 <td className="p-4 text-slate-500 font-medium">
                                   <span>{p.strength}</span>
                                   <span className="block text-[10px] text-slate-500">{p.packSize}</span>
+                                </td>
+                                <td className="p-4 text-center">
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                    stock === 0 ? "bg-rose-100 text-rose-700 border border-rose-200" :
+                                    stock <= 20 ? "bg-amber-100 text-amber-700 border border-amber-200" :
+                                    "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                                  }`}>
+                                    {stock === 0 ? "Out of Stock" : stock <= 20 ? `Low (${stock})` : `${stock} units`}
+                                  </span>
                                 </td>
                                 <td className="p-4 text-right text-slate-500">৳{p.mrp.toFixed(2)}</td>
                                 <td className="p-4 text-right font-bold text-slate-900">৳{p.sellingPrice.toFixed(2)}</td>
@@ -2100,9 +2272,39 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                                   </div>
                                 </td>
                               </tr>
-                            ))}
+                            );
+                          })
+                          )}
                         </tbody>
                       </table>
+                    </div>
+
+                    {/* Pagination Bar */}
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-white/80 border-t border-slate-200">
+                      <div className="text-xs text-slate-600 font-semibold">
+                        Showing <span className="font-bold text-slate-900">{catalogTotalCount === 0 ? 0 : (catalogPage - 1) * 50 + 1}</span> to{" "}
+                        <span className="font-bold text-slate-900">{Math.min(catalogPage * 50, catalogTotalCount)}</span> of{" "}
+                        <span className="font-bold text-slate-900">{catalogTotalCount}</span> medicines
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setCatalogPage(prev => Math.max(prev - 1, 1))}
+                          disabled={catalogPage <= 1}
+                          className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-bold hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all shadow-sm"
+                        >
+                          Previous
+                        </button>
+                        <span className="text-xs font-extrabold text-slate-800 px-3">
+                          Page {catalogPage} of {catalogTotalPages || 1}
+                        </span>
+                        <button
+                          onClick={() => setCatalogPage(prev => Math.min(prev + 1, catalogTotalPages))}
+                          disabled={catalogPage >= catalogTotalPages}
+                          className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-bold hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all shadow-sm"
+                        >
+                          Next
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

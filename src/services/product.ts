@@ -1,11 +1,22 @@
 import { Product } from "../types";
 
+// In-memory catalog cache for client-side fast navigation
+const clientCatalogCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL_MS = 60000; // 60 seconds TTL
+
 /**
  * MediChain Product Catalog Service
  * 
  * Handles search, filters, category routing, and favorites/bookmark operations.
  */
 export const productService = {
+  /**
+   * Clears the client-side catalog cache. Call after create/edit/delete operations.
+   */
+  clearCache(): void {
+    clientCatalogCache.clear();
+  },
+
   /**
    * Fetches the B2B wholesale product catalog with optional query, category, or deals filter parameters.
    */
@@ -21,14 +32,22 @@ export const productService = {
       q.append("limit", (params?.limit || 50).toString());
 
       const queryStr = q.toString() ? `?${q.toString()}` : "";
+      const cacheKey = `getProducts_${queryStr}`;
+      
+      const cached = clientCatalogCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+        return cached.data;
+      }
+
       const res = await fetch(`/api/products${queryStr}`);
       if (!res.ok) {
         return [];
       }
       
       const data = await res.json();
-      // Support both paginated array and direct array response depending on what server returns
-      return Array.isArray(data) ? data : (data.products || []);
+      const result = Array.isArray(data) ? data : (data.products || []);
+      clientCatalogCache.set(cacheKey, { data: result, timestamp: Date.now() });
+      return result;
     } catch (err) {
       console.warn("Failed to fetch products API:", err);
       return [];
@@ -40,11 +59,19 @@ export const productService = {
    */
   async getCategories(): Promise<string[]> {
     try {
+      const cacheKey = "getCategories";
+      const cached = clientCatalogCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS * 5) {
+        return cached.data;
+      }
+
       const res = await fetch("/api/categories");
       if (!res.ok) {
         return [];
       }
-      return await res.json();
+      const data = await res.json();
+      clientCatalogCache.set(cacheKey, { data, timestamp: Date.now() });
+      return data;
     } catch (err) {
       console.warn("Failed to fetch product categories API:", err);
       return [];
@@ -79,11 +106,20 @@ export const productService = {
       if (params.limit) q.append("limit", params.limit.toString());
       q.append("paginate", "true");
 
-      const res = await fetch(`/api/products?${q.toString()}`);
+      const queryStr = q.toString();
+      const cacheKey = `getProductsPaginated_${queryStr}`;
+      const cached = clientCatalogCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+        return cached.data;
+      }
+
+      const res = await fetch(`/api/products?${queryStr}`);
       if (!res.ok) {
         throw new Error("Failed to fetch paginated product list from MediChain catalog.");
       }
-      return await res.json();
+      const data = await res.json();
+      clientCatalogCache.set(cacheKey, { data, timestamp: Date.now() });
+      return data;
     } catch (err) {
       console.warn("Failed to fetch paginated products API:", err);
       return {
@@ -161,6 +197,25 @@ export const productService = {
     if (!res.ok) {
       throw new Error("Failed to trigger flash offer admin action.");
     }
+    return res.json();
+  },
+
+  /**
+   * [ADMIN ACTION] Updates a product via PATCH API for in-place catalog changes.
+   */
+  async updateProductPatch(id: string, updates: Partial<Product>): Promise<{ success: boolean; product: Product }> {
+    const res = await fetch(`/api/admin/products/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to update product via PATCH.");
+    }
+
+    this.clearCache();
     return res.json();
   },
 };

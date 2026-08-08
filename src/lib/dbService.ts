@@ -20,7 +20,7 @@ export const deserializeLicenseInfo = (rawText: string) => {
   if (!rawText) {
     return {
       licenseNo: "",
-      verificationStatus: "Approved",
+      verificationStatus: "Pending",
       verifiedAt: null,
       verifiedBy: null
     };
@@ -29,7 +29,7 @@ export const deserializeLicenseInfo = (rawText: string) => {
     const parsed = JSON.parse(rawText);
     return {
       licenseNo: parsed.licenseNo || "",
-      verificationStatus: parsed.verificationStatus || "Approved",
+      verificationStatus: parsed.verificationStatus || "Pending",
       verifiedAt: parsed.verifiedAt || null,
       verifiedBy: parsed.verifiedBy || null,
       ...parsed
@@ -37,7 +37,7 @@ export const deserializeLicenseInfo = (rawText: string) => {
   } catch (e) {
     return {
       licenseNo: rawText || "",
-      verificationStatus: "Approved", // Default if simple string
+      verificationStatus: "Pending", // Default if simple string
       verifiedAt: null,
       verifiedBy: null
     };
@@ -487,13 +487,14 @@ export async function updatePharmacyProfile(userId: string, data: any) {
 
   const existingLicense = existing ? deserializeLicenseInfo(existing.license_information) : {};
 
-  // Preserve status, default to Approved if not specified
-  const status = data.verificationStatus || existingLicense.verificationStatus || "Approved";
+  // Preserve status, default to Pending for new profiles if not specified
+  const status = data.verificationStatus || existingLicense.verificationStatus || "Pending";
   
   // Merge existing details with incoming data details
   const mergedLicense = {
     ...existingLicense,
     ...data,
+    verificationStatus: status,
     licenseNo: data.licenseNo !== undefined ? data.licenseNo : (existingLicense.licenseNo || "")
   };
 
@@ -547,7 +548,7 @@ export async function updatePharmacyProfile(userId: string, data: any) {
   return { data: ph, error };
 }
 
-export async function updatePharmacyStatus(pharmacyId: string, status: "Approved" | "Rejected" | "Pending" | "Suspended", adminUser: string = "Admin") {
+export async function updatePharmacyStatus(pharmacyId: string, status: string, adminUser: string = "Admin", notes?: string) {
   const { data: rawPh } = await supabaseAdmin
     .from("pharmacies")
     .select("license_information, id")
@@ -556,10 +557,21 @@ export async function updatePharmacyStatus(pharmacyId: string, status: "Approved
 
   if (!rawPh) return { error: "Pharmacy not found." };
 
+  // Normalize status value
+  let normalizedStatus = status;
+  if (status.toLowerCase() === "approved" || status.toLowerCase() === "verified") {
+    normalizedStatus = "Verified";
+  } else if (status.toLowerCase() === "suspended" || status.toLowerCase() === "rejected") {
+    normalizedStatus = "Suspended";
+  } else if (status.toLowerCase() === "pending") {
+    normalizedStatus = "Pending";
+  }
+
   const parsed = deserializeLicenseInfo(rawPh.license_information);
   const updatedLicense = {
     ...parsed,
-    verificationStatus: status,
+    verificationStatus: normalizedStatus,
+    verificationNotes: notes || parsed.verificationNotes || "",
     verifiedAt: new Date().toISOString(),
     verifiedBy: adminUser
   };
@@ -572,7 +584,7 @@ export async function updatePharmacyStatus(pharmacyId: string, status: "Approved
     .eq("id", pharmacyId);
 
   if (!error) {
-    if (status === "Approved") {
+    if (normalizedStatus === "Verified" || normalizedStatus === "Approved") {
       // Automatically create or update credit account
       await supabaseAdmin
         .from("credit_accounts")
@@ -585,10 +597,11 @@ export async function updatePharmacyStatus(pharmacyId: string, status: "Approved
 
       // Automatically send notification
       await sendNotification(rawPh.id, "Account Approved", "Your pharmacy verification account has been fully approved! ৳100,000 credit limit is now active.", "system");
-    } else if (status === "Rejected") {
-      await sendNotification(rawPh.id, "Verification Rejected", "Your pharmacy trade license details were rejected. Please update verification details.", "system");
-    } else if (status === "Pending") {
-      await sendNotification(rawPh.id, "Verification Pending", "Your pharmacy profile status is now set to Pending verification.", "system");
+    } else if (normalizedStatus === "Suspended" || normalizedStatus === "Rejected") {
+      const reasonText = notes ? ` Reason: ${notes}` : " Please contact support for details.";
+      await sendNotification(rawPh.id, "Account Suspended", `Your pharmacy account verification status is suspended.${reasonText}`, "system");
+    } else if (normalizedStatus === "Pending") {
+      await sendNotification(rawPh.id, "Verification Pending", "Your pharmacy profile status is now set to Pending review.", "system");
     }
   }
 
@@ -911,6 +924,8 @@ export async function createOrderTransaction(userId: string, pharmacyId: string,
   notes?: string;
   items: Array<{ productId: string; quantity: number }>;
   deliveryAddress?: string;
+  paymentStatus?: string;
+  transactionId?: string;
 }) {
   const backupState: any[] = []; // Stores list of functions to execute to rollback state on failure
 
@@ -1016,7 +1031,7 @@ export async function createOrderTransaction(userId: string, pharmacyId: string,
     const totalSavings = totalMrp - totalAmount;
 
     // 3. Handle credit check and deduct credit if bKash/Nagad not paid or ordered on Credit
-    let requiresCreditHold = orderPayload.paymentMethod === "Cash on Delivery" || orderPayload.paymentMethod === "Credit Account" as any;
+    let requiresCreditHold = (orderPayload.paymentMethod === "Cash on Delivery" || orderPayload.paymentMethod === "Credit Account") && orderPayload.paymentStatus !== "Paid";
     if (requiresCreditHold) {
       let { data: creditAcct } = await supabaseAdmin
         .from("credit_accounts")
@@ -1129,17 +1144,21 @@ export async function createOrderTransaction(userId: string, pharmacyId: string,
     // Let's insert the order with Postgres auto-generating the UUID, and save its ID.
     const handoverOtp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
 
+    const isPaidUpfront = orderPayload.paymentStatus === "Paid";
+    const trxNote = orderPayload.transactionId ? `[TrxID: ${orderPayload.transactionId}]` : "";
+    const notesContent = `${uniqueOrderId}.${trxNote ? " " + trxNote + "." : ""} ${orderPayload.notes || ""}`.trim();
+
     const { data: insertedOrder, error: orderErr } = await supabaseAdmin
       .from("orders")
       .insert({
         pharmacy_id: pharmacyId,
         status: "Pending",
         payment_method: orderPayload.paymentMethod,
-        payment_status: "Pending",
+        payment_status: isPaidUpfront ? "Paid" : "Pending",
         total_amount: totalAmount,
         total_savings: totalSavings,
         total_mrp: totalMrp,
-        notes: `${uniqueOrderId}. ${orderPayload.notes || ""}`, // Prefix unique readable order id in notes so we can search/display it!
+        notes: notesContent,
         delivery_address: orderPayload.deliveryAddress || pharmacy.address,
         estimated_delivery: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
         handover_otp: handoverOtp
@@ -1189,8 +1208,8 @@ export async function createOrderTransaction(userId: string, pharmacyId: string,
       .insert({
         order_id: insertedOrder.id,
         invoice_number: invoiceNumber,
-        amount_paid: 0,
-        amount_due: totalAmount,
+        amount_paid: isPaidUpfront ? totalAmount : 0,
+        amount_due: isPaidUpfront ? 0 : totalAmount,
         due_date: new Date(Date.now() + 15 * 24 * 3600 * 1000).toISOString() // 15 days net terms
       });
 
@@ -1833,3 +1852,55 @@ export async function approveReturn(returnId: string, adminId: string) {
 
   return { success: true };
 }
+
+export async function processPaymentGatewayTransaction(orderId: string, paymentMethod: string, transactionId: string, amount?: number) {
+  // Update order payment status
+  const { data: order, error: orderErr } = await supabaseAdmin.from("orders").select("*").eq("id", orderId).maybeSingle();
+  if (orderErr || !order) {
+    throw new Error(`Order ${orderId} not found`);
+  }
+
+  const payAmount = amount || parseFloat(order.total_amount) || 0;
+
+  // 1. Update order payment status
+  await supabaseAdmin
+    .from("orders")
+    .update({ payment_status: "Paid", payment_method: paymentMethod })
+    .eq("id", orderId);
+
+  // 2. Update invoice records
+  await supabaseAdmin
+    .from("invoices")
+    .update({ amount_paid: payAmount, amount_due: 0 })
+    .eq("order_id", orderId);
+
+  // 3. Restore used credit limit if order previously held credit
+  if (order.pharmacy_id) {
+    const { data: creditAcct } = await supabaseAdmin
+      .from("credit_accounts")
+      .select("*")
+      .eq("pharmacy_id", order.pharmacy_id)
+      .maybeSingle();
+
+    if (creditAcct && parseFloat(creditAcct.used_credit) > 0) {
+      const newUsed = Math.max(0, parseFloat(creditAcct.used_credit) - payAmount);
+      await supabaseAdmin
+        .from("credit_accounts")
+        .update({ used_credit: newUsed })
+        .eq("pharmacy_id", order.pharmacy_id);
+    }
+  }
+
+  // 4. Log Audit
+  await logAudit(`Payment of ৳${payAmount.toLocaleString()} verified via ${paymentMethod} Gateway (TrxID: ${transactionId}) for Order ${orderId}`, "Finance", orderId, "Pharmacy User", "PaymentGateway");
+
+  return {
+    success: true,
+    orderId,
+    transactionId,
+    amount: payAmount,
+    paymentMethod,
+    status: "Paid"
+  };
+}
+
