@@ -430,10 +430,11 @@ export async function getPharmacyById(pharmacyId: string): Promise<Pharmacy | nu
   };
 }
 
-export async function getAllPharmacies(): Promise<Pharmacy[]> {
+export async function getAllPharmacies(page = 1, limit = 100): Promise<Pharmacy[]> {
+  const offset = (page - 1) * limit;
   const { data: list } = await supabaseAdmin
     .from("pharmacies")
-    .select("id, user_id, pharmacy_name, owner_name, phone, address, city, license_information");
+    .select("id, user_id, pharmacy_name, owner_name, phone, address, city, license_information").range(offset, offset + limit - 1);
 
   if (!list || list.length === 0) return [];
   
@@ -1265,7 +1266,8 @@ export async function createOrderTransaction(userId: string, pharmacyId: string,
 // ORDERS VIEW & UPDATE
 // ==========================================
 
-export async function getOrders(pharmacyId?: string): Promise<Order[]> {
+export async function getOrders(pharmacyId?: string, page = 1, limit = 100): Promise<Order[]> {
+  const offset = (page - 1) * limit;
   try {
     let query = supabaseAdmin.from("orders").select(`
       *,
@@ -1289,7 +1291,7 @@ export async function getOrders(pharmacyId?: string): Promise<Order[]> {
       query = query.eq("pharmacy_id", pharmacyId);
     }
 
-    const { data, error } = await query.order("created_at", { ascending: false }).limit(100);
+    const { data, error } = await query.order("created_at", { ascending: false }).range(offset, offset + limit - 1);
     if (error || !data) return [];
 
     return data.map(order => {

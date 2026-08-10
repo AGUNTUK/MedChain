@@ -171,7 +171,7 @@ async function callOpenRouter(
   state.currentAiModel = model;
 
   try {
-    const response = await axios.post(
+    const response = await runWithRetry(() => axios.post(
       "https://openrouter.ai/api/v1/chat/completions",
       { model, messages: [{ role: "user", content: prompt }], temperature: 0.1 },
       {
@@ -182,7 +182,7 @@ async function callOpenRouter(
         },
         timeout: 30000
       }
-    );
+    ));
 
     const choice = response.data?.choices?.[0];
     if (!choice) throw new Error("Invalid response shape from OpenRouter");

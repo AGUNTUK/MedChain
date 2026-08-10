@@ -1,4 +1,5 @@
 import express from "express";
+import compression from "compression";
 import path from "path";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
@@ -25,7 +26,24 @@ import cron from "node-cron";
 
 dotenv.config();
 
+
+async function runWithRetry(fn, maxAttempts = 3, timeoutMs = 15000) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await Promise.race([
+        fn(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('AI Request Timeout')), timeoutMs))
+      ]);
+    } catch (err) {
+      if (attempt === maxAttempts) throw err;
+      const backoff = Math.pow(2, attempt) * 1000;
+      await new Promise(res => setTimeout(res, backoff));
+    }
+  }
+}
+
 const app = express();
+app.use(compression());
 app.set("trust proxy", 1); // Trust first proxy (necessary for secure cookie-sessions on reverse proxies like Vercel/Cloud Run)
 const PORT = 3000;
 
@@ -505,7 +523,9 @@ app.get("/api/products", async (req, res) => {
       .range(from, to);
 
     if (searchQuery) {
-      query = query.or(`name.ilike.%${searchQuery}%,generic_name.ilike.%${searchQuery}%`);
+      // Transform search query for prefix matching in tsvector (e.g., "para" -> "'para':*")
+      const formattedSearch = searchQuery.trim().split(/\s+/).map(w => `'${w}':*`).join(' & ');
+      query = query.textSearch('search_vector', formattedSearch);
     }
 
     if (category && category !== "All") {
@@ -614,77 +634,74 @@ app.post("/api/prescription/scan", requireAuth, requireVerifiedPharmacy, async (
     return res.status(400).json({ error: "No image data provided for scanning." });
   }
 
-  try {
-    const ai = new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY,
-      httpOptions: { headers: { "User-Agent": "aistudio-build" } },
-    });
 
-    const mimeType = imageBase64.startsWith("data:image/jpeg") ? "image/jpeg" :
-                     imageBase64.startsWith("data:image/webp") ? "image/webp" : "image/png";
-    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
-
-    const response = await ai.models.generateContent({
-      model: "gemini-3.6-flash",
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              mimeType,
-              data: base64Data,
-            },
-          },
-          {
-            text: `Analyze this medical prescription. Extract the list of medicines. 
-            Return ONLY a raw, minified JSON array of objects without markdown formatting. 
-            Format: [{"name": "string", "strength": "string or null", "quantity": number}]`,
-          },
-        ],
-      },
-    });
-
-    const aiText = response.text || "[]";
-    let parsedItems = [];
+  // Respond immediately
+  res.json({ success: true, status: "processing", message: "Prescription is being processed in the background", items: [] });
+  
+  // Process asynchronously
+  (async () => {
     try {
-      const cleanJson = aiText.replace(/```json/g, "").replace(/```/g, "").trim();
-      parsedItems = JSON.parse(cleanJson);
-    } catch (parseErr) {
-      console.warn("Failed to parse Gemini output as JSON:", aiText);
-      return res.status(500).json({ error: "Failed to parse optical prescription results." });
-    }
+      const ai = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+        httpOptions: { headers: { "User-Agent": "aistudio-build" } },
+      });
+      const mimeType = imageBase64.startsWith("data:image/jpeg") ? "image/jpeg" :
+                       imageBase64.startsWith("data:image/webp") ? "image/webp" : "image/png";
+      const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
 
-    // Attempt to match with existing products in the DB using searchService
-    const { data: dbProducts } = await dbService.supabaseAdmin.from("products").select("id, name, generic_name, manufacturer, strength, form, pack_size, mrp, selling_price, stock_quantity, image_url");
-    const matchedProducts = [];
-    for (const item of parsedItems) {
-      if (!item.name) continue;
-      const results = performSearch(dbProducts || [], item.name, { pageSize: 1 });
-      if (results.products && results.products.length > 0) {
-        matchedProducts.push({
-          extractedName: item.name,
-          extractedStrength: item.strength,
-          extractedQuantity: item.quantity || 1,
-          matchedProduct: results.products[0],
-        });
-      } else {
-         matchedProducts.push({
-          extractedName: item.name,
-          extractedStrength: item.strength,
-          extractedQuantity: item.quantity || 1,
-          matchedProduct: null,
-        });
+      const response = await runWithRetry(() => ai.models.generateContent({
+        model: "gemini-3.6-flash",
+        contents: {
+          parts: [
+            { inlineData: { mimeType, data: base64Data } },
+            { text: `Analyze this medical prescription. Extract the list of medicines. 
+             Return ONLY a raw, minified JSON array of objects without markdown formatting.
+             Format: [{"name": "string", "strength": "string or null", "quantity": number}]` }
+          ]
+        }
+      }));
+
+      const aiText = response.text || "[]";
+      let parsedItems = [];
+      try {
+        const cleanJson = aiText.replace(/\x60\x60\x60json/g, "").replace(/\x60\x60\x60/g, "").trim();
+        parsedItems = JSON.parse(cleanJson);
+      } catch (parseErr) {
+        console.warn("Failed to parse Gemini output as JSON:", aiText);
+        return;
       }
-    }
 
-    res.json({
-      success: true,
-      items: matchedProducts,
-    });
-  } catch (err: any) {
-    console.error("Prescription Scan API Error:", err);
-    res.status(500).json({ error: "Failed to process prescription image.", details: err.message });
-  }
+      // Attempt to match with existing products in the DB
+      const { data: dbProducts } = await dbService.supabaseAdmin.from("products").select("id, name, generic_name, manufacturer, strength, form, pack_size, mrp, selling_price, stock_quantity, image_url");
+      const matchedProducts = [];
+      for (const item of parsedItems) {
+        if (!item.name) continue;
+        const results = performSearch(dbProducts || [], item.name, { pageSize: 1 });
+        if (results.products && results.products.length > 0) {
+          matchedProducts.push({
+            extractedName: item.name,
+            extractedStrength: item.strength,
+            extractedQuantity: item.quantity || 1,
+            matchedProduct: results.products[0],
+          });
+        } else {
+           matchedProducts.push({
+            extractedName: item.name,
+            extractedStrength: item.strength,
+            extractedQuantity: item.quantity || 1,
+            matchedProduct: null,
+          });
+        }
+      }
+      
+      console.log("Background prescription processing completed.", matchedProducts.length, "items found.");
+      // Ideally we would send a websocket event or notification here.
+    } catch (err) {
+      console.error("Prescription Scan Background Error:", err);
+    }
+  })();
 });
+
 
 // --- PROCUREMENT CART (Stateless DB Synced) ---
 
@@ -1713,8 +1730,10 @@ app.get("/api/admin/dashboard", requireRole(["Admin"]), async (req, res) => {
 });
 
 app.get("/api/admin/pharmacies", requireRole(["Admin"]), async (req, res) => {
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
   try {
-    const list = await dbService.getAllPharmacies();
+    const list = await dbService.getAllPharmacies(page, limit);
     res.json({ pharmacies: list });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
