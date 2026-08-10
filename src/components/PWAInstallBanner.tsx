@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { MediChainIconOnly } from './MediChainLogo';
 import { Download, X, CheckCircle2, Smartphone } from "lucide-react";
 
 export interface BeforeInstallPromptEvent extends Event {
@@ -138,7 +139,7 @@ export const PWAInstallBanner: React.FC = () => {
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 p-1.5 flex items-center justify-center shrink-0 shadow-xs">
-                <img src="/logo.png" alt="MediChain Logo" className="w-full h-full object-contain" />
+                <MediChainIconOnly className="w-full h-full object-contain" />
               </div>
               <div className="min-w-0">
                 <h3 className="font-bold text-slate-900 text-base leading-tight">

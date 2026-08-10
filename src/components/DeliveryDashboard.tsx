@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { MediChainIconOnly } from './MediChainLogo';
 import { io } from "socket.io-client";
 import { User, Order } from "../types";
 import { Truck, CheckCircle2, AlertTriangle, LogOut, Package, Phone, X, ShieldCheck } from "lucide-react";
@@ -87,7 +88,7 @@ export default function DeliveryDashboard({ currentUser, onLogout }: DeliveryDas
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="MediChain Logo" className="w-8 h-8 object-contain" />
+            <MediChainIconOnly className="w-8 h-8 object-contain" />
             <div>
               <h1 className="text-sm font-black tracking-wider text-slate-900">MEDICHAIN</h1>
               <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Rider Portal</p>
