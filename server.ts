@@ -654,7 +654,7 @@ app.post("/api/prescription/scan", requireAuth, requireVerifiedPharmacy, async (
     }
 
     // Attempt to match with existing products in the DB using searchService
-    const { data: dbProducts } = await dbService.supabaseAdmin.from("products").select("*");
+    const { data: dbProducts } = await dbService.supabaseAdmin.from("products").select("id, name, generic_name, manufacturer, strength, form, pack_size, mrp, selling_price, stock_quantity, image_url");
     const matchedProducts = [];
     for (const item of parsedItems) {
       if (!item.name) continue;
@@ -2548,7 +2548,14 @@ app.post("/api/admin/enrichment/tick", async (req, res) => {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, {
+      maxAge: "1y",
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith(".html")) {
+          res.setHeader("Cache-Control", "no-cache");
+        }
+      }
+    }));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });

@@ -502,7 +502,7 @@ export default function SearchSystem({
                             <div onClick={() => onOpenProductDetails(p)} className="cursor-pointer">
                               {p.imageUrl && (
                                 <div className="w-full h-16 rounded-xl overflow-hidden bg-slate-50 border border-slate-100 mb-2">
-                                  <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                                  <img src={p.imageUrl} alt={p.name} loading="lazy" className="w-full h-full object-cover" />
                                 </div>
                               )}
                               <span className="text-[7.5px] bg-brand-purple/10 text-brand-purple px-1.5 py-0.5 rounded uppercase font-black tracking-wider inline-block mb-1">
@@ -669,7 +669,7 @@ export default function SearchSystem({
                         <div className="flex gap-3 items-start">
                           {p.imageUrl && (
                             <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-50 border border-slate-100 flex-shrink-0">
-                              <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                              <img src={p.imageUrl} alt={p.name} loading="lazy" className="w-full h-full object-cover" />
                             </div>
                           )}
                           <div className="flex-1 min-w-0 flex items-start justify-between gap-2">

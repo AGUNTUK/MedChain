@@ -362,7 +362,7 @@ export async function getDeliveryStaff() {
 export async function getPharmacyProfile(userId: string): Promise<Pharmacy | null> {
   const { data: ph } = await supabaseAdmin
     .from("pharmacies")
-    .select("*")
+    .select("id, user_id, pharmacy_name, owner_name, phone, address, city, license_information")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -371,7 +371,7 @@ export async function getPharmacyProfile(userId: string): Promise<Pharmacy | nul
   // Get credit metrics
   const { data: cr } = await supabaseAdmin
     .from("credit_accounts")
-    .select("*")
+    .select("pharmacy_id, credit_limit, used_credit, available_credit")
     .eq("pharmacy_id", ph.id)
     .maybeSingle();
 
@@ -398,7 +398,7 @@ export async function getPharmacyProfile(userId: string): Promise<Pharmacy | nul
 export async function getPharmacyById(pharmacyId: string): Promise<Pharmacy | null> {
   const { data: ph } = await supabaseAdmin
     .from("pharmacies")
-    .select("*")
+    .select("id, user_id, pharmacy_name, owner_name, phone, address, city, license_information")
     .eq("id", pharmacyId)
     .maybeSingle();
 
@@ -406,7 +406,7 @@ export async function getPharmacyById(pharmacyId: string): Promise<Pharmacy | nu
 
   const { data: cr } = await supabaseAdmin
     .from("credit_accounts")
-    .select("*")
+    .select("pharmacy_id, credit_limit, used_credit, available_credit")
     .eq("pharmacy_id", ph.id)
     .maybeSingle();
 
@@ -433,7 +433,7 @@ export async function getPharmacyById(pharmacyId: string): Promise<Pharmacy | nu
 export async function getAllPharmacies(): Promise<Pharmacy[]> {
   const { data: list } = await supabaseAdmin
     .from("pharmacies")
-    .select("*");
+    .select("id, user_id, pharmacy_name, owner_name, phone, address, city, license_information");
 
   if (!list || list.length === 0) return [];
   
@@ -441,7 +441,7 @@ export async function getAllPharmacies(): Promise<Pharmacy[]> {
   
   const { data: crList } = await supabaseAdmin
     .from("credit_accounts")
-    .select("*")
+    .select("pharmacy_id, credit_limit, used_credit, available_credit")
     .in("pharmacy_id", pharmacyIds);
     
   const crMap = new Map();
@@ -1289,7 +1289,7 @@ export async function getOrders(pharmacyId?: string): Promise<Order[]> {
       query = query.eq("pharmacy_id", pharmacyId);
     }
 
-    const { data, error } = await query.order("created_at", { ascending: false });
+    const { data, error } = await query.order("created_at", { ascending: false }).limit(100);
     if (error || !data) return [];
 
     return data.map(order => {
@@ -1546,7 +1546,7 @@ export async function sendNotification(pharmacyId: string | null, title: string,
 }
 
 export async function getNotifications(userId?: string) {
-  let query = supabaseAdmin.from("notifications").select("*");
+  let query = supabaseAdmin.from("notifications").select("id, title, message, type, created_at, read");
   if (userId) {
     query = query.or(`user_id.eq.${userId},user_id.is.null`);
   } else {
@@ -1556,7 +1556,7 @@ export async function getNotifications(userId?: string) {
   // Filter out system configurations / metadata
   query = query.not("type", "in", '("audit_log","import_history","export_history","price_history","alert_log","system_settings","cart")');
 
-  const { data, error } = await query.order("created_at", { ascending: false });
+  const { data, error } = await query.order("created_at", { ascending: false }).limit(100);
   if (error || !data) return [];
 
   return data.map(n => ({

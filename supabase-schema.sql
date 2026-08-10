@@ -302,10 +302,14 @@ CREATE INDEX IF NOT EXISTS idx_products_name_generic ON products(name, generic_n
 CREATE INDEX IF NOT EXISTS idx_products_rack_location ON products(rack_location);
 CREATE INDEX IF NOT EXISTS idx_inventory_product ON inventory(product_id);
 CREATE INDEX IF NOT EXISTS idx_inventory_expiry ON inventory(expiry_date); -- Critical for FEFO queries
+CREATE INDEX IF NOT EXISTS idx_pharmacies_user_id ON pharmacies(user_id);
 CREATE INDEX IF NOT EXISTS idx_orders_pharmacy ON orders(pharmacy_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_pharmacy_created ON orders(pharmacy_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_assigned_rider ON orders(assigned_rider_id);
 CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id) WHERE read = FALSE;
 CREATE INDEX IF NOT EXISTS idx_depot_dispatches_order ON depot_dispatches(order_id);
 CREATE INDEX IF NOT EXISTS idx_depot_dispatches_rider ON depot_dispatches(rider_id);

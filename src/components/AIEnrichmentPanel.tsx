@@ -41,7 +41,11 @@ export default function AIEnrichmentPanel() {
 
   useEffect(() => {
     fetchStatus();
-    const interval = setInterval(fetchStatus, 3000);
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        fetchStatus();
+      }
+    }, 4000);
     return () => clearInterval(interval);
   }, []);
 

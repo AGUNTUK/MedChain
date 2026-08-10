@@ -226,7 +226,7 @@ export default function App() {
       setCartCount(0);
       setFavouriteIds([]);
     }
-  }, [currentUser, pharmacy]);
+  }, [currentUser?.id, pharmacy?.id]);
 
   // Synchronize auth state changes to localStorage
   useEffect(() => {

@@ -14,7 +14,7 @@ interface ProductCardProps {
   layout?: "grid" | "horizontal";
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({
+const ProductCardComponent: React.FC<ProductCardProps> = ({
   product,
   cartQuantity = 0,
   onAddToCart,
@@ -88,6 +88,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               <img
                 src={imageUrl}
                 alt={product.name}
+                loading="lazy"
                 onError={() => setImageError(true)}
                 className="w-full h-full object-contain"
               />
@@ -257,6 +258,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <img
               src={imageUrl}
               alt={product.name}
+              loading="lazy"
               onError={() => setImageError(true)}
               className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-300"
             />
@@ -393,6 +395,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   );
 };
 
+export const ProductCard = React.memo(ProductCardComponent);
 export default ProductCard;
 
 

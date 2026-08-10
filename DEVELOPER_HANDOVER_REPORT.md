@@ -311,6 +311,37 @@ Orders (1:1) Invoices (1:M) Payments. Orders (1:1) Depot Dispatches.
 
 ----------------------------------------
 
+## 31. Performance Audit & Optimizations Completed
+
+### Category 1: Infinite / Runaway Data Fetching
+- **notificationService.ts**: Implemented in-memory TTL cache (10s) and request deduplication to prevent redundant concurrent fetches to `/api/notifications`.
+- **AdminPanel.tsx**: Merged competing catalog fetch and page reset effects into a single debounced search handler (300ms) to eliminate double-fetching on search/filter changes.
+- **EditProfileScreen.tsx**: Added `useRef` for `otpIntervalRef` and `useEffect` cleanup hook to clear OTP timer interval on unmount or modal close.
+- **AIEnrichmentPanel.tsx**: Updated status polling interval to check `document.hidden` and pause polling when the browser tab is inactive.
+- **App.tsx**: Updated `useEffect` dependency array from `[currentUser, pharmacy]` to primitive IDs `[currentUser?.id, pharmacy?.id]` to prevent state mutation re-fetch cascades.
+
+### Category 2: Unoptimized Database / API Queries
+- **dbService.ts**: Replaced `select("*")` in `getPharmacyProfile`, `getPharmacyById`, `getAllPharmacies` with explicit column selections (`id, pharmacy_name, owner_name, phone, address, city, license_information, user_id`).
+- **dbService.ts**: Replaced `select("*")` in `getNotifications` with explicit columns (`id, title, message, type, created_at, read`) and added `.limit(100)`.
+- **dbService.ts**: Added `.limit(100)` to `getOrders()` to prevent returning unbounded historical result sets.
+- **server.ts**: Optimized optical prescription product verification query to select only required product fields.
+- **supabase-schema.sql**: Added database index recommendations for `pharmacies(user_id)`, `orders(created_at DESC)`, `orders(pharmacy_id, created_at DESC)`, and `notifications(user_id, created_at DESC)`.
+
+### Category 3: Uncached / Unoptimized Assets
+- **server.ts**: Configured `express.static` with production Cache-Control headers (`maxAge: "1y"` for static assets, `Cache-Control: no-cache` for `index.html`).
+- **ProductCard.tsx & SearchSystem.tsx**: Added `loading="lazy"` to product catalog imagery tags to defer offscreen image loading until scrolled into view.
+- **Brand Identity & Theme Consistency**: Generated a professional modern minimalist vector logo icon ONLY for MediChain, and aliased primary UI color variables (`indigo`, `emerald`, `blue`) in `index.css` to globally map to the brand's orchid purple (`purple`) and lime green (`lime`) palette. Ensured the logo and brand theme are applied universally across the Admin Panel, Depot Dashboard, Delivery Dashboard, as well as PWA/favicon asset paths for 'MediChain' featuring a geometric icon combining a medical cross and a capsule seamlessly integrated with interlocking supply chain nodes, utilizing an orchid purple and vibrant lime green color palette. Processed the asset to provide a transparent background version using Jimp and synced assets across `/public/logo.png`, `/public/logo.jpg`, and `src/assets/images/logo.png`.
+
+### Category 5: Schema & Migration Tracking
+- **Supabase Indexes**: Added `CREATE INDEX IF NOT EXISTS` DDL statements to `supabase-schema.sql`. Note that schema files document intended production structure; DDL index commands must be executed in the Supabase SQL Editor / CLI for live database deployment.
+
+### Category 4: Unnecessary Re-renders
+- **FlyToCartContext.tsx**: Wrapped `FlyToCartContext.Provider` `value` object in `useMemo` to prevent unneeded re-renders of all cart consumers on provider update.
+- **ProductCard.tsx**: Wrapped `ProductCard` export in `React.memo` to prevent catalog item re-renders when parent state changes without prop updates.
+- **AdminPanel.tsx**: Wrapped dashboard metric calculations (`ordersPending`, `ordersProcessing`, `lowStockProducts`, `expiringProducts`) in `useMemo` to avoid re-computation on every keystroke or state change.
+
+----------------------------------------
+
 ## 30. Final AI Handover
 
 **To AI Agents:**

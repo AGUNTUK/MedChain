@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useRef, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useState, useRef, useCallback, useMemo, ReactNode } from "react";
 
 export interface FlyingItem {
   id: string;
@@ -95,20 +95,33 @@ export function FlyToCartProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const contextValue = useMemo(
+    () => ({
+      registerCartTarget,
+      triggerFlyToCart,
+      flyingItems,
+      removeFlyingItem,
+      isCartBarPulsing,
+      isBadgeSpringing,
+      isCartDrawerOpen,
+      setIsCartDrawerOpen,
+      triggerLandingFeedback
+    }),
+    [
+      registerCartTarget,
+      triggerFlyToCart,
+      flyingItems,
+      removeFlyingItem,
+      isCartBarPulsing,
+      isBadgeSpringing,
+      isCartDrawerOpen,
+      setIsCartDrawerOpen,
+      triggerLandingFeedback
+    ]
+  );
+
   return (
-    <FlyToCartContext.Provider
-      value={{
-        registerCartTarget,
-        triggerFlyToCart,
-        flyingItems,
-        removeFlyingItem,
-        isCartBarPulsing,
-        isBadgeSpringing,
-        isCartDrawerOpen,
-        setIsCartDrawerOpen,
-        triggerLandingFeedback
-      }}
-    >
+    <FlyToCartContext.Provider value={contextValue}>
       {children}
     </FlyToCartContext.Provider>
   );

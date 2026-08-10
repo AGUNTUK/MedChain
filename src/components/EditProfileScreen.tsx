@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { X, Upload, Camera, Check, ArrowLeft, MapPin, User, Mail, Phone, Shield, ShieldAlert } from "lucide-react";
 import { Pharmacy } from "../types";
 import { profileService } from "../services/profile";
@@ -10,6 +10,15 @@ interface EditProfileScreenProps {
 }
 
 export default function EditProfileScreen({ pharmacy, onClose, onSaveSuccess }: EditProfileScreenProps) {
+  const otpIntervalRef = useRef<any>(null);
+
+  useEffect(() => {
+    return () => {
+      if (otpIntervalRef.current) {
+        clearInterval(otpIntervalRef.current);
+      }
+    };
+  }, []);
   // Address divisions, districts, upazilas lists for high-fidelity interactive dropdowns
   const divisions = ["Dhaka", "Chittagong", "Rajshahi", "Khulna", "Barisal", "Sylhet", "Rangpur", "Mymensingh"];
   const districtsMap: Record<string, string[]> = {
@@ -96,10 +105,11 @@ export default function EditProfileScreen({ pharmacy, onClose, onSaveSuccess }: 
     setOtpError("");
     setOtpCode("");
     setOtpTimer(60);
-    const interval = setInterval(() => {
+    if (otpIntervalRef.current) clearInterval(otpIntervalRef.current);
+    otpIntervalRef.current = setInterval(() => {
       setOtpTimer((prev) => {
         if (prev <= 1) {
-          clearInterval(interval);
+          if (otpIntervalRef.current) clearInterval(otpIntervalRef.current);
           return 0;
         }
         return prev - 1;

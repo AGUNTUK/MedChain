@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { io } from "socket.io-client";
 import ProductEditModal from "./ProductEditModal";
 import AIEnrichmentPanel from "./AIEnrichmentPanel";
@@ -361,7 +361,21 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
     }
   }, [errorMsg]);
 
-  // Refetch catalog when page or search/category filters change
+  // Debounce search query for Admin catalog
+  const [debouncedProdSearch, setDebouncedProdSearch] = useState(prodSearch);
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedProdSearch(prodSearch);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [prodSearch]);
+
+  // Reset catalog page to 1 when search or category filter changes
+  useEffect(() => {
+    setCatalogPage(1);
+  }, [debouncedProdSearch, prodCategoryFilter]);
+
+  // Refetch catalog when page or debounced search/category filters change
   useEffect(() => {
     const fetchCatalog = async () => {
       setCatalogLoading(true);
@@ -369,7 +383,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
         const paginatedRes = await productService.getProductsPaginated({
           page: catalogPage,
           limit: 50,
-          search: prodSearch,
+          search: debouncedProdSearch,
           category: prodCategoryFilter
         });
         setProducts(paginatedRes.products || []);
@@ -385,41 +399,75 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
     if (!loading) {
       fetchCatalog();
     }
-  }, [catalogPage, prodSearch, prodCategoryFilter]);
-
-  // Reset page to 1 when filters change
-  useEffect(() => {
-    setCatalogPage(1);
-  }, [prodSearch, prodCategoryFilter]);
-
-  // Calculations for dashboard
-  const totalProducts = totalProductsCount || catalogTotalCount || products.length;
-  const totalStock = products.reduce((acc, p) => acc + (p.availableStock || 0), 0);
-  const totalRegisteredPharmacies = pharmacies.length;
-  const totalOrders = orders.length;
-
-  const ordersPending = orders.filter(o => o.status === "Pending").length;
-  const ordersProcessing = orders.filter(o => o.status === "Processing" || o.status === "Confirmed").length;
-  const ordersCompleted = orders.filter(o => o.status === "Delivered" || o.status === "Completed").length;
-  const ordersCancelled = orders.filter(o => o.status === "Cancelled").length;
+  }, [catalogPage, debouncedProdSearch, prodCategoryFilter]);
 
   const lowStockThreshold = 100;
-  const lowStockProducts = products.filter(p => p.availableStock < lowStockThreshold);
-  const lowStockCount = lowStockProducts.length;
-
-  // Near expiry: <= 180 days from now
-  const getDaysToExpiry = (dateStr: string) => {
+  const getDaysToExpiry = (dateStr?: string) => {
+    if (!dateStr) return 9999;
     const expDate = new Date(dateStr);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const diffTime = expDate.getTime() - today.getTime();
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
-  const expiringProducts = products.filter(p => {
-    const days = getDaysToExpiry(p.expiryDate);
-    return days <= 180; // expired or expiring in 6 months
-  });
-  const expiringCount = expiringProducts.length;
+
+  // Calculations for dashboard memoized
+  const {
+    totalProducts,
+    totalStock,
+    totalRegisteredPharmacies,
+    totalOrders,
+    ordersPending,
+    ordersProcessing,
+    ordersCompleted,
+    ordersCancelled,
+    lowStockProducts,
+    lowStockCount,
+    expiringProducts,
+    expiringCount
+  } = useMemo(() => {
+    const totalProducts = totalProductsCount || catalogTotalCount || products.length;
+    const totalStock = products.reduce((acc, p) => acc + (p.availableStock || 0), 0);
+    const totalRegisteredPharmacies = pharmacies.length;
+    const totalOrders = orders.length;
+
+    const ordersPending = orders.filter(o => o.status === "Pending").length;
+    const ordersProcessing = orders.filter(o => o.status === "Processing" || o.status === "Confirmed").length;
+    const ordersCompleted = orders.filter(o => o.status === "Delivered" || o.status === "Completed").length;
+    const ordersCancelled = orders.filter(o => o.status === "Cancelled").length;
+
+    const lowStockThreshold = 100;
+    const lowStockProducts = products.filter(p => (p.availableStock || 0) < lowStockThreshold);
+    const lowStockCount = lowStockProducts.length;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayMs = today.getTime();
+
+    const expiringProducts = products.filter(p => {
+      if (!p.expiryDate) return false;
+      const expDateMs = new Date(p.expiryDate).getTime();
+      const diffTime = expDateMs - todayMs;
+      const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return days <= 180;
+    });
+    const expiringCount = expiringProducts.length;
+
+    return {
+      totalProducts,
+      totalStock,
+      totalRegisteredPharmacies,
+      totalOrders,
+      ordersPending,
+      ordersProcessing,
+      ordersCompleted,
+      ordersCancelled,
+      lowStockProducts,
+      lowStockCount,
+      expiringProducts,
+      expiringCount
+    };
+  }, [totalProductsCount, catalogTotalCount, products, pharmacies, orders]);
 
   // --- Sub-Module States & Actions ---
 
