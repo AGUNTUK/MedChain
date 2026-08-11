@@ -4,7 +4,7 @@
 - **Application:** MediChain (B2B Pharmaceutical Procurement OS)
 - **Tech Stack:** React 19 + Express.js full-stack monolith (Vite middleware in dev, static production bundle)
 - **Primary Credentials Tested:**
-  - Pharmacy Owner: `<test-pharmacy-owner-account>`
+  - Pharmacy Owner: `sohelrana199813@gmail.com` / `Jhanumaal1998@`
 - **Initial Build Check:**
   - Linter (`tsc --noEmit`): Passed with 0 errors.
   - Production Build (`npm run build`): Completed cleanly in 13.24s with zero compilation errors.
