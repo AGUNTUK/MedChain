@@ -1,6 +1,11 @@
 import axios from "axios";
 import { supabaseAdmin } from "./supabaseAdmin.js";
 
+// Firecrawl configuration
+const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY;
+const FIRECRAWL_BASE_URL = 'https://api.firecrawl.dev/v2';
+
+
 export interface EnrichmentFilter {
   missingType: "mrp" | "image" | "both" | "all";
   manufacturer?: string;
@@ -148,121 +153,33 @@ function addLog(state: EnrichmentState, log: Omit<EnrichmentLog, "timestamp">) {
   }
 }
 
-const OPENROUTER_MODELS = [
-  "qwen/qwen3-30b-a3b:free",
-  "qwen/qwen-2.5-72b-instruct:free",
-  "meta-llama/llama-3.3-70b-instruct:free",
-  "google/gemini-2.0-flash-exp:free"
-];
-
-async function callOpenRouter(
-  state: EnrichmentState,
-  prompt: string,
-  retries = 0
-): Promise<{ content: string; model: string }> {
-  const apiKey = process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "OPENROUTER_API_KEY is not set in the environment. Add it in Render > Environment, then redeploy."
-    );
-  }
-
-  const model = OPENROUTER_MODELS[Math.min(retries, OPENROUTER_MODELS.length - 1)];
-  state.currentAiModel = model;
-
-  try {
-    const response = await runWithRetry(() => axios.post(
-      "https://openrouter.ai/api/v1/chat/completions",
-      { model, messages: [{ role: "user", content: prompt }], temperature: 0.1 },
-      {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "HTTP-Referer": process.env.APP_URL || "https://medichain.com",
-          "X-Title": "MediChain Enrichment"
-        },
-        timeout: 30000
-      }
-    ));
-
-    const choice = response.data?.choices?.[0];
-    if (!choice) throw new Error("Invalid response shape from OpenRouter");
-    return { content: choice.message.content, model };
-  } catch (error: any) {
-    const status = error.response?.status;
-    if ((status === 429 || status === 503 || status === 404) && retries < OPENROUTER_MODELS.length - 1) {
-      console.warn(`OpenRouter model ${model} unavailable (HTTP ${status}), falling back to next free model...`);
-      return callOpenRouter(state, prompt, retries + 1);
-    }
-    throw error;
-  }
-}
-
-async function searchWeb(query: string) {
-  const cx = process.env.GOOGLE_SEARCH_CX;
-  const key = process.env.GOOGLE_SEARCH_API_KEY;
-  if (!cx || !key) return null;
-
-  try {
-    const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
-      params: { key, cx, q: query, num: 3 },
-      timeout: 10000
-    });
-    return res.data.items || [];
-  } catch (e) {
-    console.error("Google Custom Search error:", e);
-    return null;
-  }
-}
 
 async function processProduct(state: EnrichmentState, productId: string) {
   const config = state.config!;
   const { data: products, error } = await supabaseAdmin.from("products").select("*").eq("id", productId);
-
   if (error || !products || products.length === 0) {
     addLog(state, { productId, productName: "Unknown", action: "Fetch", status: "error", details: "Product not found in DB" });
     state.failedCount++;
     return;
   }
-
   const product = products[0];
   state.currentProduct = product.name;
-
+  
   try {
     const needsMrp = config.overwriteExisting || !product.mrp || product.mrp === 0;
     const needsImage = config.overwriteExisting || !product.image_url;
-
+    
     if (!needsMrp && !needsImage) {
       addLog(state, { productId, productName: product.name, action: "Check", status: "skipped", details: "Already enriched" });
       state.skippedCount++;
       return;
     }
 
-    let searchContext = "";
-    let searchImages: string[] = [];
-    const query = `${product.name} ${product.generic_name || ""} ${product.strength || ""} ${product.company || ""} medicine price Bangladesh`;
-    
-    const searchResults = await searchWeb(query);
-
-    if (searchResults) {
-      searchContext = searchResults.map((item: any) => `Title: ${item.title}\nSnippet: ${item.snippet}\nLink: ${item.link}`).join("\n\n");
-      if (needsImage) {
-        try {
-          const imgRes = await axios.get("https://www.googleapis.com/customsearch/v1", {
-            params: {
-              key: process.env.GOOGLE_SEARCH_API_KEY,
-              cx: process.env.GOOGLE_SEARCH_CX,
-              q: query,
-              searchType: "image",
-              num: 3
-            },
-            timeout: 10000
-          });
-          if (imgRes.data.items) searchImages = imgRes.data.items.map((img: any) => img.link);
-        } catch {
-          /* image search is best-effort */
-        }
-      }
+    if (!FIRECRAWL_API_KEY) {
+      throw new Error("FIRECRAWL_API_KEY is missing in environment variables. Please add it and restart the server.");
     }
+    
+    state.currentAiModel = "Firecrawl (Medex.com.bd)";
 
     if (config.dryRun) {
       addLog(state, {
@@ -270,105 +187,136 @@ async function processProduct(state: EnrichmentState, productId: string) {
         productName: product.name,
         action: "Dry Run",
         status: "success",
-        details: `Would enrich (MRP: ${needsMrp}, Image: ${needsImage})`
+        details: `Would enrich via Firecrawl (MRP: ${needsMrp}, Image: ${needsImage})`
       });
       state.updatedCount++;
       return;
     }
 
-    const prompt = `You are a pharmaceutical data enrichment AI focused on the Bangladesh market.
-
-Target Product:
-Name: ${product.name}
-Generic: ${product.generic_name || "N/A"}
-Manufacturer: ${product.company || "N/A"}
-Strength: ${product.strength || "N/A"}
-Pack Size: ${product.pack_size || "N/A"}
-Goal:
-Extract the current Maximum Retail Price (MRP) in BDT if possible.
-Select the best product package image URL from the candidates.
-${
-  searchContext
-    ? `Search Context:\n${searchContext}\n`
-    : "No web search context is available for this request — use your own general knowledge of Bangladeshi pharmaceutical products and typical pricing, and lower your confidence score if you are not certain.\n"
-}
-Candidate Image URLs:
-${searchImages.join("\n") || "None found."}
-Respond ONLY with valid JSON in this exact structure, with no markdown code fences:
-{"mrp": number or null, "imageUrl": string or null, "confidenceScore": number (0 to 100), "reasoning": "brief explanation"}`;
-
-    const aiRes = await callOpenRouter(state, prompt);
-
-    let extracted: any;
+    // Step 1: Use Firecrawl map to find the medex page for this product
+    const searchQuery = `${product.name} ${product.strength || ""} ${product.company || ""}`.trim();
+    
+    let scrapeUrl = null;
     try {
-      const jsonStr = aiRes.content.replace(/```json/g, "").replace(/```/g, "").trim();
-      extracted = JSON.parse(jsonStr);
-    } catch {
-      addLog(state, {
-        productId,
-        productName: product.name,
-        action: "AI Parse",
-        status: "error",
-        details: `Failed to parse JSON from ${aiRes.model}`
+      const mapRes = await axios.post(`${FIRECRAWL_BASE_URL}/map`, {
+        url: 'https://medex.com.bd/brands',
+        search: searchQuery,
+        limit: 3
+      }, {
+        headers: {
+          'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 20000
       });
-      state.failedCount++;
-      return;
+      
+      const links = mapRes.data?.links || [];
+      const brandLink = links.find((l: any) => l.url.includes('/brands/') && !l.url.endsWith('/brands'));
+      
+      if (brandLink) {
+        scrapeUrl = brandLink.url;
+      }
+    } catch (e: any) {
+      console.error("Firecrawl map error:", e.response?.data || e.message);
     }
-
-    const CONFIDENCE_THRESHOLD = 70;
-    if (typeof extracted.confidenceScore !== "number" || extracted.confidenceScore < CONFIDENCE_THRESHOLD) {
+    
+    if (!scrapeUrl) {
       addLog(state, {
         productId,
         productName: product.name,
-        action: "Enrichment",
+        action: "Map Search",
         status: "needs_review",
-        details: `Low confidence (${extracted.confidenceScore ?? "?"}%) from ${aiRes.model}`
+        details: "No matching Medex page found via Firecrawl Map"
       });
       state.needsReviewCount++;
       return;
     }
 
+    // Step 2: Use Firecrawl scrape with extraction to get MRP and Image URL
+    let extracted: any = null;
+    try {
+      const scrapeRes = await axios.post(`${FIRECRAWL_BASE_URL}/scrape`, {
+        url: scrapeUrl,
+        formats: [{
+          type: "json",
+          prompt: `Extract the current Maximum Retail Price (MRP) in BDT as a number if possible. Also extract the best product package image URL (starting with http) if available. The product is ${product.name}.`,
+          schema: {
+            type: "object",
+            properties: {
+              mrp: { type: "number" },
+              imageUrl: { type: "string" }
+            }
+          }
+        }]
+      }, {
+        headers: {
+          'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000
+      });
+      
+      extracted = scrapeRes.data?.data?.json;
+    } catch (e: any) {
+      console.error("Firecrawl scrape error:", e.response?.data || e.message);
+      throw new Error("Failed to extract data using Firecrawl: " + (e.response?.data?.error || e.message));
+    }
+    
+    if (!extracted || (!extracted.mrp && !extracted.imageUrl)) {
+      addLog(state, {
+        productId,
+        productName: product.name,
+        action: "Enrichment",
+        status: "needs_review",
+        details: `Firecrawl extracted empty data for ${scrapeUrl}`
+      });
+      state.needsReviewCount++;
+      return;
+    }
+    
     const updates: any = {};
+    
     if (needsMrp && typeof extracted.mrp === "number" && extracted.mrp > 0) {
       updates.mrp = extracted.mrp;
       if (!product.selling_price || product.selling_price === 0) {
         updates.selling_price = extracted.mrp;
       }
     }
-
+    
     if (needsImage && extracted.imageUrl && typeof extracted.imageUrl === "string" && extracted.imageUrl.startsWith("http")) {
       try {
         const imgResponse = await axios.get(extracted.imageUrl, { responseType: "arraybuffer", timeout: 10000 });
         const buffer = Buffer.from(imgResponse.data, "binary");
         if (buffer.length > 5 * 1024 * 1024) throw new Error("Image too large");
         if (buffer.length < 5000) throw new Error("Image too small (likely thumbnail or broken)");
-
+        
         const ext = extracted.imageUrl.split(".").pop()?.split("?")[0] || "jpg";
         const cleanName = product.name.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
         const filePath = `products/enriched_${cleanName}_${Date.now()}.${ext}`;
-
+        
         const { error: uploadErr } = await supabaseAdmin.storage
           .from("product-images")
           .upload(filePath, buffer, { contentType: imgResponse.headers["content-type"] as string || `image/${ext}`, upsert: true });
-
+          
         if (uploadErr) throw new Error("Storage upload failed: " + uploadErr.message);
-
+        
         const { data: pubUrl } = supabaseAdmin.storage.from("product-images").getPublicUrl(filePath);
         updates.image_url = pubUrl.publicUrl;
       } catch (imgErr: any) {
         addLog(state, { productId, productName: product.name, action: "Image processing", status: "error", details: imgErr.message });
       }
     }
-
+    
     if (Object.keys(updates).length > 0) {
       const { error: updateErr } = await supabaseAdmin.from("products").update(updates).eq("id", productId);
       if (updateErr) throw updateErr;
+      
       addLog(state, {
         productId,
         productName: product.name,
         action: "Update DB",
         status: "success",
-        details: `Updated ${Object.keys(updates).join(", ")} via ${aiRes.model}`
+        details: `Updated ${Object.keys(updates).join(", ")} via Firecrawl`
       });
       state.updatedCount++;
     } else {
@@ -379,7 +327,6 @@ Respond ONLY with valid JSON in this exact structure, with no markdown code fenc
   } catch (error: any) {
     addLog(state, { productId, productName: product.name, action: "Process", status: "error", details: error.message });
     state.failedCount++;
-
     if (config.autoRetry && state.retriesCount < Math.min(100, state.totalProducts * 2)) {
       state.retriesCount++;
       state.pendingIds.push(productId);
@@ -388,7 +335,6 @@ Respond ONLY with valid JSON in this exact structure, with no markdown code fenc
     }
   }
 }
-
 async function processOneBatch(): Promise<EnrichmentState> {
   const state = await loadState();
   if (state.status !== "running" || !state.config) {
