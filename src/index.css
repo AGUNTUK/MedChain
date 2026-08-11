@@ -72,3 +72,18 @@ body {
 .animate-glow {
   animation: pulseGlow 3s infinite ease-in-out;
 }
+
+@layer components {
+  .app-logo {
+    @apply object-contain w-full h-full max-w-full;
+  }
+  .nav-logo {
+    @apply h-[40px] md:h-[48px] w-auto flex-shrink-0 flex items-center justify-center;
+  }
+  .splash-logo {
+    @apply w-full max-w-[180px] md:max-w-[220px] h-auto flex-shrink-0 flex items-center justify-center;
+  }
+  .icon-logo {
+    @apply w-[24px] h-[24px] flex-shrink-0 flex items-center justify-center;
+  }
+}

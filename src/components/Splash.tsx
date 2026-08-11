@@ -49,7 +49,7 @@ export default function Splash({ onComplete }: SplashProps) {
         >
           {/* Subtle pulse/glow effect underneath */}
           <div className="absolute inset-0 bg-brand-purple/10 blur-xl rounded-full scale-90 animate-pulse" />
-          <MediChainFullLogo size={144} className="relative z-10" />
+          <MediChainFullLogo size="splash-logo" className="relative z-10" />
         </motion.div>
 
         {/* Brand Name */}

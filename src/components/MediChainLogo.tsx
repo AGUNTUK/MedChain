@@ -1,53 +1,55 @@
 import React, { useState } from "react";
-import officialLogo from "../assets/images/logo.png";
 
 export function MediChainOfficialLogo({ 
-  className = "h-16 w-auto object-contain", 
+  className = "", 
   style, 
   size 
 }: { 
   className?: string; 
   style?: React.CSSProperties; 
-  size?: number 
+  size?: number | string 
 }) {
   const [imgError, setImgError] = useState(false);
-  const widthHeight = size ? { width: size, height: size } : {};
+  const widthHeight = typeof size === 'number' ? { width: size, height: size } : {};
+  const presetClass = typeof size === 'string' ? size : "";
 
   if (imgError) {
     return <InlineSVGLogo className={className} style={{ ...style, ...widthHeight }} />;
   }
 
   return (
-    <img 
-      src={officialLogo || "/logo.png"} 
-      alt="MediChain Logo" 
-      className={className} 
-      style={{ ...style, ...widthHeight }}
-      onError={() => setImgError(true)}
-    />
+    <div className={`${className} ${presetClass}`} style={{ ...style, ...widthHeight }}>
+      <img 
+        src={"/logo.png"} 
+        alt="MediChain Logo" 
+        className="app-logo"
+        onError={() => setImgError(true)}
+      />
+    </div>
   );
 }
 
-export function MediChainFullLogo({ className = "", size = 120 }: { className?: string; size?: number }) {
+export function MediChainFullLogo({ className = "", size = 120 }: { className?: string; size?: number | string }) {
   return <MediChainOfficialLogo className={`object-contain ${className}`} size={size} />;
 }
 
-export function MediChainIconOnly({ className = "", size }: { className?: string; size?: number }) {
+export function MediChainIconOnly({ className = "", size }: { className?: string; size?: number | string }) {
   const [imgError, setImgError] = useState(false);
-
+  const presetClass = typeof size === 'string' ? size : "";
+  const widthHeight = typeof size === 'number' ? { width: size, height: size } : {};
   return (
-    <div className={`relative inline-flex items-center justify-center shrink-0 ${className}`}>
+    <div className={`relative inline-flex items-center justify-center shrink-0 ${className} ${presetClass}`} style={widthHeight}>
       {imgError ? (
         <InlineSVGLogo 
-          className="object-contain h-full w-full max-h-full max-w-full" 
-          style={size ? { width: size, height: size } : {}}
+          className="app-logo" 
+          
         />
       ) : (
         <img 
-          src={officialLogo || "/logo.png"} 
+          src={"/logo.png"} 
           alt="MediChain Logo" 
-          className="object-contain h-full w-full max-h-full max-w-full" 
-          style={size ? { width: size, height: size } : {}}
+          className="app-logo" 
+          
           onError={() => setImgError(true)}
         />
       )}
@@ -87,10 +89,10 @@ export default function MediChainLogo({
   orientation = "horizontal",
 }: LogoProps) {
   const sizeMap = {
-    sm: { px: 40, text: "text-lg", subtitle: "text-[8px]" },
+    sm: { px: "nav-logo", text: "text-lg", subtitle: "text-[8px]" },
     md: { px: 72, text: "text-2xl", subtitle: "text-[10px]" },
     lg: { px: 130, text: "text-4xl", subtitle: "text-xs" },
-    xl: { px: 190, text: "text-5xl", subtitle: "text-sm" },
+    xl: { px: "splash-logo", text: "text-5xl", subtitle: "text-sm" },
   };
 
   const currentSize = sizeMap[size];

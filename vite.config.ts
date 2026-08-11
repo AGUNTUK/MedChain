@@ -70,6 +70,7 @@ export default defineConfig(() => {
             },
             {
               urlPattern: /\/api\/.*/i,
+              method: 'GET',
               handler: 'NetworkFirst',
               options: {
                 cacheName: 'api-cache',
