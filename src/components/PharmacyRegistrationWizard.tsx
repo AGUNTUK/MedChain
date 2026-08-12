@@ -222,7 +222,7 @@ export default function PharmacyRegistrationWizard({
             <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500 max-w-sm mb-6 text-left space-y-1">
               <p className="font-semibold text-slate-700">What happens next?</p>
               <p>1. DGDA license validation against national drug database.</p>
-              <p>2. Credit line assignment (Up to ৳100,000 BDT wholesale credit).</p>
+              <p>2. Credit line assignment (Up to ৳20,000 BDT wholesale credit).</p>
               <p>3. Express wholesale medicine dispatch enabled.</p>
             </div>
             <button
@@ -517,7 +517,7 @@ export default function PharmacyRegistrationWizard({
                     <div>
                       <p className="font-semibold">Instant Verification Perks</p>
                       <p className="text-[11px] text-emerald-700 mt-0.5">
-                        Verified partners enjoy up to ৳100,000 credit limit with 15-day payment cycle and priority express delivery across Bangladesh.
+                        Verified partners enjoy up to ৳20,000 credit limit with 15-day payment cycle and priority express delivery across Bangladesh.
                       </p>
                     </div>
                   </div>

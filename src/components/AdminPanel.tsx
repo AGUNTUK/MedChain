@@ -945,9 +945,9 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
         address: "House 42, Road 9A, Dhanmondi",
         city: "Dhaka",
         licenseNo: "DC-PH-2025-1194",
-        creditLimit: 150000,
-        usedCredit: 35400,
-        availableCredit: 114600
+        creditLimit: 20000,
+        usedCredit: 0,
+        availableCredit: 20000
       };
 
       setSelectedInvoice({

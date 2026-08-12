@@ -32,7 +32,7 @@ export default function PharmacyVerificationPanel({
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | "Pending" | "Verified" | "Suspended">("All");
   const [selectedPharmacy, setSelectedPharmacy] = useState<Pharmacy | null>(null);
-  const [creditLimitInput, setCreditLimitInput] = useState<string>("50000");
+  const [creditLimitInput, setCreditLimitInput] = useState<string>("20000");
   const [rejectionReason, setRejectionReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [actionSuccess, setActionSuccess] = useState("");
@@ -255,7 +255,7 @@ export default function PharmacyVerificationPanel({
                     <div className="flex items-center justify-between pt-1 border-t border-slate-200">
                       <span className="text-slate-400">Approved Credit:</span>
                       <span className="font-bold text-emerald-700">
-                        ৳{(pharm.creditLimit || 50000).toLocaleString()} BDT
+                        ৳{(pharm.creditLimit || 20000).toLocaleString()} BDT
                       </span>
                     </div>
                   </div>
@@ -265,7 +265,7 @@ export default function PharmacyVerificationPanel({
                   <button
                     onClick={() => {
                       setSelectedPharmacy(pharm);
-                      setCreditLimitInput((pharm.creditLimit || 50000).toString());
+                      setCreditLimitInput((pharm.creditLimit || 20000).toString());
                     }}
                     className="flex-1 py-2 px-3 bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
@@ -275,7 +275,7 @@ export default function PharmacyVerificationPanel({
 
                   {isPending && (
                     <button
-                      onClick={() => handleUpdateStatus(pharm.id, "Verified", 50000)}
+                      onClick={() => handleUpdateStatus(pharm.id, "Verified", 20000)}
                       className="py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-1 transition-colors cursor-pointer"
                       title="Quick Approve"
                     >
@@ -336,7 +336,7 @@ export default function PharmacyVerificationPanel({
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
                 <p className="text-[10px] text-slate-500 mt-1">
-                  Default credit line for pharmacy procurement orders is ৳50,000 BDT.
+                  Default credit line for pharmacy procurement orders is ৳20,000 BDT.
                 </p>
               </div>
 
@@ -374,7 +374,7 @@ export default function PharmacyVerificationPanel({
               <button
                 disabled={actionLoading}
                 onClick={() =>
-                  handleUpdateStatus(selectedPharmacy.id, "Verified", parseFloat(creditLimitInput) || 50000)
+                  handleUpdateStatus(selectedPharmacy.id, "Verified", parseFloat(creditLimitInput) || 20000)
                 }
                 className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl flex items-center gap-1 shadow-md cursor-pointer"
               >

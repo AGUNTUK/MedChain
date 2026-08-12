@@ -32,7 +32,8 @@ interface FloatingCartBarProps {
   isVisible?: boolean;
 }
 
-const FREE_DELIVERY_THRESHOLD = 2000;
+const FREE_DELIVERY_THRESHOLD = 10000;
+const DELIVERY_FEE = 30;
 
 export default function FloatingCartBar({
   cartData,
@@ -337,14 +338,14 @@ export default function FloatingCartBar({
                   <div className="flex justify-between text-slate-500 font-medium">
                     <span>Express Depot Delivery</span>
                     <span className="font-mono font-bold text-emerald-600">
-                      {isFreeDelivery ? "FREE" : "৳50"}
+                      {isFreeDelivery ? "FREE" : "৳30"}
                     </span>
                   </div>
 
                   <div className="flex justify-between font-black text-brand-charcoal pt-2 border-t border-slate-100 text-sm">
                     <span>Total Procurement Amount</span>
                     <span className="text-brand-purple font-mono text-lg font-black">
-                      ৳{(totalAmount + (isFreeDelivery ? 0 : 50)).toLocaleString()}
+                      ৳{(totalAmount + (isFreeDelivery ? 0 : 30)).toLocaleString()}
                     </span>
                   </div>
                 </div>

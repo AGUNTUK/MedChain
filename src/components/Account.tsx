@@ -3,6 +3,7 @@ import { User as UserIcon, Heart, Shield, RefreshCcw, LogOut, FileText, Check, S
 import { Product, Pharmacy, User } from "../types";
 import { paymentService } from "../services/payment";
 import { productService } from "../services/product";
+import { orderService } from "../services/order";
 import EditProfileScreen from "./EditProfileScreen";
 import KYCVerificationHub from "./KYCVerificationHub";
 
@@ -26,6 +27,7 @@ export default function Account({
   const [analytics, setAnalytics] = useState<any>(null);
   const [favProducts, setFavProducts] = useState<Product[]>([]);
   const [successId, setSuccessId] = useState<string | null>(null);
+  const [totalPurchased, setTotalPurchased] = useState(0);
 
   // Overlay state triggers
   const [showEditProfile, setShowEditProfile] = useState(false);
@@ -40,6 +42,13 @@ export default function Account({
       // Fetch favourites
       const dataFav = await productService.getFavourites();
       setFavProducts(dataFav);
+
+      // Fetch completed orders to calculate credit line eligibility
+      const orders = await orderService.getOrders();
+      const completedTotal = orders
+        .filter(o => o.status === 'Delivered' || o.status === 'Completed' || o.paymentStatus === 'Paid')
+        .reduce((sum, order) => sum + order.totalAmount, 0);
+      setTotalPurchased(completedTotal);
     } catch (err) {
       console.warn("Analytics/Fav fetch warning:", err);
     }
@@ -182,17 +191,38 @@ export default function Account({
           <div className="flex items-center gap-2">
             <Shield className="w-5 h-5 text-brand-purple" />
             <div>
-              <h4 className="font-extrabold text-white text-xs tracking-tight">Active Wholesale Credit Line</h4>
+              <h4 className="font-extrabold text-white text-xs tracking-tight">Wholesale Credit Line</h4>
               <p className="text-[8.5px] text-slate-400 font-semibold font-mono">DGDA License Compliant Accounts Only</p>
             </div>
           </div>
           <span className={`text-[8px] font-black px-2 py-0.5 rounded-full border ${
-            isVerified
+            totalPurchased >= 300000 && isVerified
               ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25 animate-pulse"
-              : "bg-rose-500/10 text-rose-400 border-rose-500/25"
+              : "bg-amber-500/10 text-amber-400 border-amber-500/25"
           }`}>
-            {isVerified ? "Active Unlocked" : "Locked - Requires KYC Verification"}
+            {totalPurchased >= 300000 && isVerified ? "Eligible / Unlocked" : "In Progress"}
           </span>
+        </div>
+
+        {/* Progress Bar Section */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-end">
+            <div>
+              <span className="text-[9px] text-slate-400 block font-bold uppercase tracking-wider">Purchase Goal</span>
+              <span className="text-sm font-black text-white font-mono mt-0.5 block">
+                Total Purchased: ৳{totalPurchased.toLocaleString()} / ৳3,00,000
+              </span>
+            </div>
+            <span className="text-xs font-black text-brand-lime font-mono">
+              {Math.min(100, (totalPurchased / 300000) * 100).toFixed(1)}%
+            </span>
+          </div>
+          <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-brand-lime rounded-full transition-all duration-1000"
+              style={{ width: `${Math.min(100, (totalPurchased / 300000) * 100)}%` }}
+            ></div>
+          </div>
         </div>
 
         {/* Financial Metrics */}
@@ -200,7 +230,7 @@ export default function Account({
           <div className="bg-white/5 rounded-2xl p-2.5 border border-white/[0.04]">
             <span className="text-[8.5px] text-slate-400 block font-bold uppercase tracking-wider">Total Limit</span>
             <span className="text-sm font-black text-white font-mono mt-1 block">
-              ৳{pharmacy && isVerified ? pharmacy.creditLimit.toLocaleString() : "0"}
+              ৳{totalPurchased >= 300000 && isVerified ? "20,000" : "0"}
             </span>
           </div>
           <div className="bg-white/5 rounded-2xl p-2.5 border border-white/[0.04]">
@@ -212,23 +242,9 @@ export default function Account({
           <div className="bg-brand-purple/10 rounded-2xl p-2.5 border border-brand-purple/20">
             <span className="text-[8.5px] text-brand-purple block font-black uppercase tracking-wider">Available</span>
             <span className="text-sm font-black text-brand-lime font-mono mt-1 block">
-              ৳{pharmacy && isVerified ? (pharmacy.creditLimit - pharmacy.usedCredit).toLocaleString() : "0"}
+              ৳{totalPurchased >= 300000 && isVerified ? (20000 - (pharmacy?.usedCredit || 0)).toLocaleString() : "0"}
             </span>
           </div>
-        </div>
-
-        {/* Depot Manager Support Direct Line Button */}
-        <div className="pt-2 border-t border-slate-800/60 flex flex-col sm:flex-row gap-2 justify-between items-center">
-          <span className="text-[9px] text-slate-400 font-semibold leading-relaxed">
-            Need temporary credit line expansion?
-          </span>
-          <a
-            href="tel:+880191234567"
-            className="w-full sm:w-auto bg-brand-purple text-white hover:bg-brand-purple/90 border border-brand-purple/35 py-1.5 px-3 rounded-xl text-[9px] font-black flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-sm flex-shrink-0 animate-pulse"
-          >
-            <LifeBuoy className="w-3.5 h-3.5 text-brand-lime" />
-            Depot Manager Direct Line
-          </a>
         </div>
       </div>
 
@@ -305,10 +321,6 @@ export default function Account({
         </h3>
         
         <div className="text-xs space-y-2 leading-relaxed font-semibold text-slate-600">
-          <div className="flex justify-between">
-            <span className="text-slate-400">Depot Manager:</span>
-            <span>019-MEDICHAIN</span>
-          </div>
           <div className="flex justify-between">
             <span className="text-slate-400">Support Hours:</span>
             <span>24 Hours / 7 Days</span>

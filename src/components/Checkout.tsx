@@ -10,9 +10,10 @@ interface CheckoutProps {
 }
 
 export default function Checkout({ onBackToCart, onOrderPlaced, pharmacy }: CheckoutProps) {
-  const [paymentMethod, setPaymentMethod] = useState<"Cash on Delivery" | "bKash" | "Nagad">("Cash on Delivery");
+  const [paymentMethod, setPaymentMethod] = useState<"Cash on Delivery" | "bKash" | "Nagad" | "Wholesale Credit Line">("Cash on Delivery");
   const [notes, setNotes] = useState("");
   const [cartSummary, setCartSummary] = useState<any>(null);
+  const [totalPurchased, setTotalPurchased] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -22,11 +23,22 @@ export default function Checkout({ onBackToCart, onOrderPlaced, pharmacy }: Chec
   const [pinInput, setPinInput] = useState("12345");
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
+  const availableCredit = (totalPurchased >= 300000 && pharmacy?.verificationStatus === "Approved") ? 20000 - (pharmacy?.usedCredit || 0) : 0;
+  const isCreditEnough = cartSummary?.totalAmount <= availableCredit;
+
   useEffect(() => {
     const fetchSummary = async () => {
       try {
-        const data = await orderService.getCart();
+        const [data, ordersData] = await Promise.all([
+          orderService.getCart(),
+          orderService.getOrders()
+        ]);
         setCartSummary(data);
+
+        const completedOrders = ordersData
+          .filter(o => o.status === 'Delivered' || o.status === 'Completed' || o.paymentStatus === 'Paid')
+          .reduce((sum, order) => sum + order.totalAmount, 0);
+        setTotalPurchased(completedOrders);
       } catch (err) {
         console.error(err);
       }
@@ -46,14 +58,14 @@ export default function Checkout({ onBackToCart, onOrderPlaced, pharmacy }: Chec
     setError("");
 
     try {
-      const generatedTrxId = paymentMethod !== "Cash on Delivery"
+      const generatedTrxId = (paymentMethod !== "Cash on Delivery" && paymentMethod !== "Wholesale Credit Line")
         ? `PGW-${paymentMethod.toUpperCase()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
         : undefined;
 
       const data = await orderService.createOrder({
         paymentMethod,
         notes,
-        paymentStatus: paymentMethod !== "Cash on Delivery" ? "Paid" : "Pending",
+        paymentStatus: paymentMethod === "Wholesale Credit Line" ? "Paid" : paymentMethod !== "Cash on Delivery" ? "Paid" : "Pending",
         transactionId: generatedTrxId,
         ...({ deliveryAddress: pharmacy?.address || "Dhanmondi, Dhaka" } as any)
       } as any);
@@ -132,6 +144,43 @@ export default function Checkout({ onBackToCart, onOrderPlaced, pharmacy }: Chec
           </h3>
 
           <div className="space-y-2">
+            {/* Wholesale Credit Line (If Eligible) */}
+            {totalPurchased >= 300000 && pharmacy?.verificationStatus === "Approved" && (
+              <label className={`flex items-center justify-between p-3.5 rounded-xl border-2 transition-all ${
+                isCreditEnough ? "cursor-pointer" : "opacity-50 cursor-not-allowed grayscale"
+              } ${
+                paymentMethod === "Wholesale Credit Line"
+                  ? "border-emerald-500 bg-emerald-500/5"
+                  : "border-slate-100 bg-slate-50/50 hover:bg-slate-50"
+              }`}>
+                <div className="flex items-center gap-2.5 text-xs font-bold text-slate-800">
+                  <input
+                    type="radio"
+                    name="payment"
+                    disabled={!isCreditEnough}
+                    checked={paymentMethod === "Wholesale Credit Line"}
+                    onChange={() => isCreditEnough && setPaymentMethod("Wholesale Credit Line")}
+                    className="accent-emerald-500 cursor-pointer"
+                  />
+                  <div className="text-left">
+                    <span>Wholesale Credit Line</span>
+                    <p className="text-[9px] text-slate-400 mt-0.5 font-medium leading-tight">
+                      Available Credit: ৳{availableCredit.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                {isCreditEnough ? (
+                  <div className="bg-emerald-100 text-emerald-800 text-[9px] font-black px-2 py-0.5 rounded-md uppercase">
+                    Eligible
+                  </div>
+                ) : (
+                  <div className="bg-rose-100 text-rose-800 text-[9px] font-black px-2 py-0.5 rounded-md uppercase">
+                    Insufficient
+                  </div>
+                )}
+              </label>
+            )}
+
             {/* Cash on Delivery */}
             <label className={`flex items-center justify-between p-3.5 rounded-xl border-2 transition-all cursor-pointer ${
               paymentMethod === "Cash on Delivery"
@@ -277,12 +326,14 @@ export default function Checkout({ onBackToCart, onOrderPlaced, pharmacy }: Chec
 
         <button
           onClick={handlePlaceOrder}
-          disabled={loading}
+          disabled={loading || (paymentMethod === "Wholesale Credit Line" && !isCreditEnough)}
           className={`w-full py-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 ${
             paymentMethod === "bKash"
               ? "bg-[#E2125D] hover:bg-[#c80f51] text-white shadow-lg shadow-[#E2125D]/20"
               : paymentMethod === "Nagad"
               ? "bg-[#F15A22] hover:bg-[#d84d1a] text-white shadow-lg shadow-[#F15A22]/20"
+              : paymentMethod === "Wholesale Credit Line"
+              ? "bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20"
               : "bg-brand-lime hover:bg-brand-lime-dark text-slate-900 hover:shadow-lg hover:shadow-brand-lime/20"
           }`}
         >
@@ -292,6 +343,8 @@ export default function Checkout({ onBackToCart, onOrderPlaced, pharmacy }: Chec
             <>
               {paymentMethod === "Cash on Delivery"
                 ? `Confirm & Place Order (৳${cartSummary.totalAmount.toLocaleString()})`
+                : paymentMethod === "Wholesale Credit Line"
+                ? `Pay using Credit Line (৳${cartSummary.totalAmount.toLocaleString()})`
                 : `Pay via ${paymentMethod} Gateway (৳${cartSummary.totalAmount.toLocaleString()})`}
               <ShieldCheck className="w-4 h-4 shrink-0" />
             </>

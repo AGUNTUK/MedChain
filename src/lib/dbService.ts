@@ -389,9 +389,9 @@ export async function getPharmacyProfile(userId: string): Promise<Pharmacy | nul
     licenseNo: license.licenseNo,
     verificationStatus: license.verificationStatus as any,
     verificationNotes: "",
-    creditLimit: cr ? parseFloat(cr.credit_limit) : 100000,
+    creditLimit: cr ? parseFloat(cr.credit_limit) : 20000,
     usedCredit: cr ? parseFloat(cr.used_credit) : 0,
-    availableCredit: cr ? parseFloat(cr.available_credit) : 100000
+    availableCredit: cr ? parseFloat(cr.available_credit) : 20000
   };
 }
 
@@ -424,9 +424,9 @@ export async function getPharmacyById(pharmacyId: string): Promise<Pharmacy | nu
     licenseNo: license.licenseNo,
     verificationStatus: license.verificationStatus as any,
     verificationNotes: "",
-    creditLimit: cr ? parseFloat(cr.credit_limit) : 100000,
+    creditLimit: cr ? parseFloat(cr.credit_limit) : 20000,
     usedCredit: cr ? parseFloat(cr.used_credit) : 0,
-    availableCredit: cr ? parseFloat(cr.available_credit) : 100000
+    availableCredit: cr ? parseFloat(cr.available_credit) : 20000
   };
 }
 
@@ -470,9 +470,9 @@ export async function getAllPharmacies(page = 1, limit = 100): Promise<Pharmacy[
       licenseNo: license.licenseNo,
       verificationStatus: license.verificationStatus as any,
       verificationNotes: "",
-      creditLimit: cr ? parseFloat(cr.credit_limit) : 100000,
+      creditLimit: cr ? parseFloat(cr.credit_limit) : 20000,
       usedCredit: cr ? parseFloat(cr.used_credit) : 0,
-      availableCredit: cr ? parseFloat(cr.available_credit) : 100000
+      availableCredit: cr ? parseFloat(cr.available_credit) : 20000
     });
   }
   return out;
@@ -541,7 +541,7 @@ export async function updatePharmacyProfile(userId: string, data: any) {
       .upsert({
         id: `ca_${ph.id}`,
         pharmacy_id: ph.id,
-        credit_limit: 100000.00,
+        credit_limit: 20000.00,
         used_credit: 0.00
       }, { onConflict: "pharmacy_id" });
   }
@@ -592,7 +592,7 @@ export async function updatePharmacyStatus(pharmacyId: string, status: string, a
         .upsert({
           id: `ca_${pharmacyId}`,
           pharmacy_id: pharmacyId,
-          credit_limit: 100000.00,
+          credit_limit: 20000.00,
           used_credit: 0.00
         }, { onConflict: "pharmacy_id" });
 
@@ -1029,11 +1029,28 @@ export async function createOrderTransaction(userId: string, pharmacyId: string,
       });
     }
 
+    const deliveryCharge = totalAmount < 10000 ? 30 : 0;
+    const finalTotalAmount = totalAmount + deliveryCharge;
     const totalSavings = totalMrp - totalAmount;
 
     // 3. Handle credit check and deduct credit if bKash/Nagad not paid or ordered on Credit
     let requiresCreditHold = (orderPayload.paymentMethod === "Cash on Delivery" || orderPayload.paymentMethod === "Credit Account") && orderPayload.paymentStatus !== "Paid";
     if (requiresCreditHold) {
+      // Check cumulative spend for eligibility
+      const { data: pastOrders } = await supabaseAdmin
+        .from("orders")
+        .select("total_amount, status")
+        .eq("pharmacy_id", pharmacyId)
+        .in("status", ["Delivered", "Completed", "Pending", "Processing", "Packed", "Shipped"]);
+      
+      let cumulativeSpend = (pastOrders || []).reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+      const ELIGIBILITY_THRESHOLD = 300000;
+      const CREDIT_CYCLE_LIMIT = 20000;
+
+      if (cumulativeSpend < ELIGIBILITY_THRESHOLD) {
+        throw new Error(`Credit facility not unlocked. ৳${(ELIGIBILITY_THRESHOLD - cumulativeSpend).toLocaleString()} more cumulative purchases required.`);
+      }
+
       let { data: creditAcct } = await supabaseAdmin
         .from("credit_accounts")
         .select("*")
@@ -1041,16 +1058,14 @@ export async function createOrderTransaction(userId: string, pharmacyId: string,
         .maybeSingle();
 
       if (!creditAcct) {
-        // Automatically create credit account with 100k credit limit on-the-fly
         await supabaseAdmin
           .from("credit_accounts")
           .insert({
             id: `ca_${pharmacyId}`,
             pharmacy_id: pharmacyId,
-            credit_limit: 100000.00,
+            credit_limit: CREDIT_CYCLE_LIMIT,
             used_credit: 0.00
           });
-
         const { data: newCreditAcct } = await supabaseAdmin
           .from("credit_accounts")
           .select("*")
@@ -1059,22 +1074,25 @@ export async function createOrderTransaction(userId: string, pharmacyId: string,
         creditAcct = newCreditAcct;
       }
 
-      let creditLimit = creditAcct ? parseFloat(creditAcct.credit_limit) : 100000.00;
+      let creditLimit = creditAcct ? parseFloat(creditAcct.credit_limit) : CREDIT_CYCLE_LIMIT;
       let usedCredit = creditAcct ? parseFloat(creditAcct.used_credit) : 0.00;
-      let availableCredit = creditLimit - usedCredit;
-
-      if (availableCredit < totalAmount) {
-        // Automatically increase credit limit to avoid blocking orders
-        creditLimit += totalAmount * 2;
-        await supabaseAdmin
-          .from("credit_accounts")
-          .update({ credit_limit: creditLimit })
-          .eq("pharmacy_id", pharmacyId);
-        availableCredit = creditLimit - usedCredit;
+      
+      // Auto-replenish if fully settled
+      if (usedCredit <= 0 && creditLimit !== CREDIT_CYCLE_LIMIT) {
+          creditLimit = CREDIT_CYCLE_LIMIT;
+          await supabaseAdmin
+            .from("credit_accounts")
+            .update({ credit_limit: creditLimit, used_credit: 0 })
+            .eq("pharmacy_id", pharmacyId);
       }
 
-      // Update used_credit in PostgreSQL
-      const newUsedCredit = usedCredit + totalAmount;
+      let availableCredit = creditLimit - usedCredit;
+
+      if (availableCredit < finalTotalAmount) {
+        throw new Error(`Credit limit exceeded (Available: ৳${availableCredit.toLocaleString()}). Please settle your dues or choose another payment method.`);
+      }
+
+      const newUsedCredit = usedCredit + finalTotalAmount;
       const { error: creditErr } = await supabaseAdmin
         .from("credit_accounts")
         .update({ used_credit: newUsedCredit })
@@ -1082,7 +1100,6 @@ export async function createOrderTransaction(userId: string, pharmacyId: string,
 
       if (creditErr) throw new Error("Failed to reserve credit line limits.");
 
-      // Setup rollback for credit deduction
       backupState.push(async () => {
         await supabaseAdmin
           .from("credit_accounts")
@@ -1156,7 +1173,7 @@ export async function createOrderTransaction(userId: string, pharmacyId: string,
         status: "Pending",
         payment_method: orderPayload.paymentMethod,
         payment_status: isPaidUpfront ? "Paid" : "Pending",
-        total_amount: totalAmount,
+        total_amount: finalTotalAmount,
         total_savings: totalSavings,
         total_mrp: totalMrp,
         notes: notesContent,

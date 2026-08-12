@@ -307,7 +307,7 @@ export default function KYCVerificationHub({ pharmacy, onClose, onSaveSuccess }:
                 <h4 className="text-base font-black text-slate-800">DGDA Compliant B2B Account</h4>
                 <p className="text-xs text-slate-400 font-semibold font-mono">License State: DC-PHARMACY-VERIFIED</p>
                 <p className="text-xs text-slate-500 leading-relaxed font-medium pt-2">
-                  All systems operating securely. This verified status enables ৳100,000 credit limits, custom multi-box discounts, and priority same-day depot distributions.
+                  All systems operating securely. This verified status enables ৳20,000 credit limits, custom multi-box discounts, and priority same-day depot distributions.
                 </p>
               </div>
 
