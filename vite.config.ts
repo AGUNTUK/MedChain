@@ -11,7 +11,7 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.png', 'apple-touch-icon.png', 'logo.png', 'icon-192.png', 'icon-512.png'],
+        includeAssets: ['favicon.png', 'apple-touch-icon.png', 'logo.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-512-maskable.png'],
         manifest: {
           name: "MediChain - Healthcare Platform",
           short_name: "MediChain",
@@ -23,19 +23,19 @@ export default defineConfig(() => {
           orientation: "portrait",
           icons: [
             {
-              src: '/icon-192.png',
+              src: '/icons/icon-192.png',
               sizes: '192x192',
               type: 'image/png',
               purpose: 'any'
             },
             {
-              src: '/icon-512.png',
+              src: '/icons/icon-512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any'
             },
             {
-              src: '/icon-512.png',
+              src: '/icons/icon-512-maskable.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable'
