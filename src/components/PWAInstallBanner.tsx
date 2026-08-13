@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
-import { MediChainIconOnly } from './MediChainLogo';
-import { Download, X, CheckCircle2, Smartphone } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Download, X, CheckCircle2, Smartphone, Share, PlusSquare } from "lucide-react";
+import MediChainLogo, { MediChainIconOnly } from "./MediChainLogo";
 
+// Type definitions for the BeforeInstallPromptEvent
 export interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
   readonly userChoice: Promise<{
@@ -49,20 +50,33 @@ export const PWAInstallBanner: React.FC = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(globalDeferredPrompt);
   const [showBanner, setShowBanner] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
-    const isDismissed = sessionStorage.getItem("medichain_pwa_dismissed");
+    // Check if app is already installed/running in standalone mode
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+    if (isStandalone) return;
+
+    // Detect iOS (Safari doesn't support beforeinstallprompt)
+    const _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    setIsIOS(_isIOS);
+
+    const checkShouldShow = () => {
+      const dismissedAt = localStorage.getItem("installPromptDismissedAt");
+      if (!dismissedAt) return true;
+      const hoursSince = (Date.now() - parseInt(dismissedAt, 10)) / (1000 * 60 * 60);
+      return hoursSince > 24;
+    };
 
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       const promptEvent = e as BeforeInstallPromptEvent;
       globalDeferredPrompt = promptEvent;
       setDeferredPrompt(promptEvent);
-
       installListeners.forEach((listener) => listener(true));
 
-      if (!isDismissed) {
-        setShowBanner(true);
+      if (checkShouldShow()) {
+        setTimeout(() => setShowBanner(true), 2500); // 2.5s delay
       }
     };
 
@@ -71,7 +85,7 @@ export const PWAInstallBanner: React.FC = () => {
       setDeferredPrompt(null);
       setShowBanner(false);
       installListeners.forEach((listener) => listener(false));
-
+      
       // Display success toast upon installation
       setShowSuccessToast(true);
       setTimeout(() => {
@@ -89,6 +103,11 @@ export const PWAInstallBanner: React.FC = () => {
     };
     window.addEventListener("medichain-trigger-pwa-install", handleCustomTrigger);
 
+    // If iOS and not standalone, show the custom iOS banner after 2.5s if not dismissed recently
+    if (_isIOS && checkShouldShow()) {
+      setTimeout(() => setShowBanner(true), 2500);
+    }
+
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
       window.removeEventListener("appinstalled", handleAppInstalled);
@@ -97,6 +116,12 @@ export const PWAInstallBanner: React.FC = () => {
   }, []);
 
   const handleInstallClick = async () => {
+    if (isIOS) {
+      // For iOS, just dismiss the banner as they need to follow instructions
+      handleDismiss();
+      return;
+    }
+
     const promptToUse = deferredPrompt || globalDeferredPrompt;
     if (!promptToUse) return;
 
@@ -107,6 +132,8 @@ export const PWAInstallBanner: React.FC = () => {
         console.log("User accepted the PWA install prompt");
       } else {
         console.log("User dismissed the PWA install prompt");
+        // Only set localStorage if dismissed to bug them again tomorrow
+        localStorage.setItem("installPromptDismissedAt", Date.now().toString());
       }
     } catch (err) {
       console.error("Error triggering install prompt:", err);
@@ -120,32 +147,32 @@ export const PWAInstallBanner: React.FC = () => {
 
   const handleDismiss = () => {
     setShowBanner(false);
-    sessionStorage.setItem("medichain_pwa_dismissed", "true");
+    localStorage.setItem("installPromptDismissedAt", Date.now().toString());
   };
 
   return (
     <>
       {/* Success Toast when App is Installed */}
       {showSuccessToast && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[110] bg-emerald-900 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-emerald-500/30 animate-in fade-in slide-in-from-top-5 duration-300">
-          <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[110] bg-brand-purple text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-brand-purple-dark/50 animate-in fade-in slide-in-from-top-5 duration-300">
+          <CheckCircle2 className="w-5 h-5 text-brand-lime shrink-0" />
           <span className="text-sm font-semibold">MediChain App installed successfully!</span>
         </div>
       )}
 
       {/* Floating Bottom PWA Install Banner */}
       {showBanner && (
-        <div className="fixed bottom-16 sm:bottom-6 left-4 right-4 max-w-md mx-auto z-[100] bg-white rounded-2xl shadow-2xl border border-slate-200/80 p-4 animate-in slide-in-from-bottom-5 duration-300">
+        <div className="fixed bottom-16 sm:bottom-6 left-4 right-4 max-w-md mx-auto z-[100] bg-[#14161B] rounded-2xl shadow-2xl shadow-black/50 border border-white/10 p-4 animate-in slide-in-from-bottom-5 duration-300">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 p-1.5 flex items-center justify-center shrink-0 shadow-xs">
+              <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 p-1.5 flex items-center justify-center shrink-0 shadow-xs">
                 <MediChainIconOnly className="w-full h-full object-contain" />
               </div>
               <div className="min-w-0">
-                <h3 className="font-bold text-slate-900 text-base leading-tight">
+                <h3 className="font-bold text-white text-base leading-tight">
                   Install MediChain App
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5 leading-snug">
+                <p className="text-xs text-slate-400 mt-0.5 leading-snug">
                   Add to home screen for fast pharmacy ordering & offline access
                 </p>
               </div>
@@ -153,30 +180,48 @@ export const PWAInstallBanner: React.FC = () => {
             <button
               onClick={handleDismiss}
               type="button"
-              className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors shrink-0 cursor-pointer"
+              className="p-1.5 text-slate-400 hover:text-white rounded-full hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
               aria-label="Dismiss banner"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
-
-          <div className="mt-3.5 flex items-center gap-2">
-            <button
-              onClick={handleDismiss}
-              type="button"
-              className="flex-1 py-2 px-3 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer text-center"
-            >
-              Not Now
-            </button>
-            <button
-              onClick={handleInstallClick}
-              type="button"
-              className="flex-1 py-2 px-3 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Install Now</span>
-            </button>
-          </div>
+          
+          {isIOS ? (
+            <div className="mt-3.5 flex flex-col gap-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-300 bg-white/5 p-2.5 rounded-xl">
+                <span>1. Tap</span> <Share className="w-4 h-4 text-brand-purple" /> <span>in Safari menu</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-300 bg-white/5 p-2.5 rounded-xl">
+                <span>2. Select</span> <PlusSquare className="w-4 h-4 text-brand-lime" /> <span>Add to Home Screen</span>
+              </div>
+              <button
+                onClick={handleDismiss}
+                type="button"
+                className="w-full py-2.5 px-3 text-xs font-bold text-slate-300 hover:text-white bg-transparent hover:bg-white/5 rounded-xl transition-colors cursor-pointer text-center mt-1"
+              >
+                Got it, close
+              </button>
+            </div>
+          ) : (
+            <div className="mt-3.5 flex items-center gap-2">
+              <button
+                onClick={handleDismiss}
+                type="button"
+                className="flex-1 py-2.5 px-3 text-xs font-semibold text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition-colors cursor-pointer text-center"
+              >
+                Later
+              </button>
+              <button
+                onClick={handleInstallClick}
+                type="button"
+                className="flex-1 py-2.5 px-3 text-xs font-bold text-slate-900 bg-brand-lime hover:bg-brand-lime-dark rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Install App</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
     </>
@@ -196,14 +241,14 @@ export const PWAInstallButton: React.FC<{ className?: string; variant?: "badge" 
       <button
         onClick={promptInstall}
         type="button"
-        className={`flex flex-col items-center gap-1 cursor-pointer transition-all text-emerald-600 hover:text-emerald-700 ${className}`}
+        className={`flex flex-col items-center gap-1 cursor-pointer transition-all text-brand-purple hover:text-brand-purple-dark ${className}`}
         title="Install MediChain App"
       >
         <div className="relative">
           <Smartphone className="w-5 h-5 animate-pulse" />
           <span className="absolute -top-1 -right-1 flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-lime opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#4ade80]"></span>
           </span>
         </div>
         <span className="text-[10px] font-black">Install</span>
@@ -216,7 +261,7 @@ export const PWAInstallButton: React.FC<{ className?: string; variant?: "badge" 
       <button
         onClick={promptInstall}
         type="button"
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/60 shadow-2xs transition-all cursor-pointer ${className}`}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-900 bg-brand-lime hover:bg-brand-lime-dark shadow-2xs transition-all cursor-pointer ${className}`}
       >
         <Download className="w-3.5 h-3.5" />
         <span>Install App</span>
@@ -228,7 +273,7 @@ export const PWAInstallButton: React.FC<{ className?: string; variant?: "badge" 
     <button
       onClick={promptInstall}
       type="button"
-      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-extrabold tracking-wide uppercase text-emerald-700 bg-emerald-100/90 hover:bg-emerald-200 transition-colors cursor-pointer border border-emerald-300/50 ${className}`}
+      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-extrabold tracking-wide uppercase text-slate-900 bg-brand-lime/90 hover:bg-brand-lime transition-colors cursor-pointer border border-brand-lime-dark/50 ${className}`}
     >
       <Download className="w-3 h-3" />
       <span>Install App</span>
