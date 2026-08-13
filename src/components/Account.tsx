@@ -196,11 +196,11 @@ export default function Account({
             </div>
           </div>
           <span className={`text-[8px] font-black px-2 py-0.5 rounded-full border ${
-            totalPurchased >= 300000 && isVerified
+            totalPurchased >= 0 && isVerified
               ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25 animate-pulse"
               : "bg-amber-500/10 text-amber-400 border-amber-500/25"
           }`}>
-            {totalPurchased >= 300000 && isVerified ? "Eligible / Unlocked" : "In Progress"}
+            {totalPurchased >= 0 && isVerified ? "Eligible / Unlocked" : "In Progress"}
           </span>
         </div>
 
@@ -210,17 +210,17 @@ export default function Account({
             <div>
               <span className="text-[9px] text-slate-400 block font-bold uppercase tracking-wider">Purchase Goal</span>
               <span className="text-sm font-black text-white font-mono mt-0.5 block">
-                Total Purchased: ৳{totalPurchased.toLocaleString()} / ৳3,00,000
+                Total Purchased: ৳{totalPurchased.toLocaleString()} / ৳0
               </span>
             </div>
             <span className="text-xs font-black text-brand-lime font-mono">
-              {Math.min(100, (totalPurchased / 300000) * 100).toFixed(1)}%
+              {Math.min(100, (totalPurchased / 1) * 100).toFixed(1)}%
             </span>
           </div>
           <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
             <div 
               className="h-full bg-brand-lime rounded-full transition-all duration-1000"
-              style={{ width: `${Math.min(100, (totalPurchased / 300000) * 100)}%` }}
+              style={{ width: `${Math.min(100, (totalPurchased / 1) * 100)}%` }}
             ></div>
           </div>
         </div>
@@ -230,7 +230,7 @@ export default function Account({
           <div className="bg-white/5 rounded-2xl p-2.5 border border-white/[0.04]">
             <span className="text-[8.5px] text-slate-400 block font-bold uppercase tracking-wider">Total Limit</span>
             <span className="text-sm font-black text-white font-mono mt-1 block">
-              ৳{totalPurchased >= 300000 && isVerified ? "20,000" : "0"}
+              ৳{totalPurchased >= 0 && isVerified ? "20,000" : "0"}
             </span>
           </div>
           <div className="bg-white/5 rounded-2xl p-2.5 border border-white/[0.04]">
@@ -242,7 +242,7 @@ export default function Account({
           <div className="bg-brand-purple/10 rounded-2xl p-2.5 border border-brand-purple/20">
             <span className="text-[8.5px] text-brand-purple block font-black uppercase tracking-wider">Available</span>
             <span className="text-sm font-black text-brand-lime font-mono mt-1 block">
-              ৳{totalPurchased >= 300000 && isVerified ? (20000 - (pharmacy?.usedCredit || 0)).toLocaleString() : "0"}
+              ৳{totalPurchased >= 0 && isVerified ? (20000 - (pharmacy?.usedCredit || 0)).toLocaleString() : "0"}
             </span>
           </div>
         </div>

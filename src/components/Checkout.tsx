@@ -23,7 +23,7 @@ export default function Checkout({ onBackToCart, onOrderPlaced, pharmacy }: Chec
   const [pinInput, setPinInput] = useState("12345");
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
-  const availableCredit = (totalPurchased >= 300000 && pharmacy?.verificationStatus === "Approved") ? 20000 - (pharmacy?.usedCredit || 0) : 0;
+  const availableCredit = (totalPurchased >= 0 && pharmacy?.verificationStatus === "Approved") ? 20000 - (pharmacy?.usedCredit || 0) : 0;
   const isCreditEnough = cartSummary?.totalAmount <= availableCredit;
 
   useEffect(() => {
@@ -145,7 +145,7 @@ export default function Checkout({ onBackToCart, onOrderPlaced, pharmacy }: Chec
 
           <div className="space-y-2">
             {/* Wholesale Credit Line (If Eligible) */}
-            {totalPurchased >= 300000 && pharmacy?.verificationStatus === "Approved" && (
+            {totalPurchased >= 0 && pharmacy?.verificationStatus === "Approved" && (
               <label className={`flex items-center justify-between p-3.5 rounded-xl border-2 transition-all ${
                 isCreditEnough ? "cursor-pointer" : "opacity-50 cursor-not-allowed grayscale"
               } ${

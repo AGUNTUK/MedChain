@@ -282,6 +282,9 @@ export default function App() {
   const handleLogout = async () => {
     try {
       await authService.logout();
+    } catch (err) {
+      console.error(err);
+    } finally {
       setPharmacy(null);
       setPhone("");
       setCurrentUser(null);
@@ -289,8 +292,6 @@ export default function App() {
       localStorage.removeItem("medichain_pharmacy");
       localStorage.removeItem("medichain_phone");
       setAppStep("login");
-    } catch (err) {
-      console.error(err);
     }
   };
 

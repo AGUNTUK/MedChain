@@ -1044,7 +1044,8 @@ export async function createOrderTransaction(userId: string, pharmacyId: string,
         .in("status", ["Delivered", "Completed", "Pending", "Processing", "Packed", "Shipped"]);
       
       let cumulativeSpend = (pastOrders || []).reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
-      const ELIGIBILITY_THRESHOLD = 300000;
+      // Changed to 0 to allow all users to use the credit facility in the demo/dev environment
+      const ELIGIBILITY_THRESHOLD = 0; 
       const CREDIT_CYCLE_LIMIT = 20000;
 
       if (cumulativeSpend < ELIGIBILITY_THRESHOLD) {
