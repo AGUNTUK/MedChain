@@ -65,7 +65,8 @@ export const PWAInstallBanner: React.FC = () => {
       const dismissedAt = localStorage.getItem("installPromptDismissedAt");
       if (!dismissedAt) return true;
       const hoursSince = (Date.now() - parseInt(dismissedAt, 10)) / (1000 * 60 * 60);
-      return hoursSince > 24;
+      // Lowered to 1 minute (0.016 hours) for easier testing
+      return hoursSince > 0.016;
     };
 
     const handleBeforeInstallPrompt = (e: Event) => {
