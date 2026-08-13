@@ -16,7 +16,7 @@ export default defineConfig(() => {
           name: "MediChain - Healthcare Platform",
           short_name: "MediChain",
           description: "Healthcare & B2B Medicine Procurement Platform",
-          theme_color: "#14161B",
+          theme_color: "#A3E635",
           background_color: "#14161B",
           display: "standalone",
           start_url: "/",
