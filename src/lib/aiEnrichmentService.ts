@@ -1,5 +1,6 @@
 import axios from "axios";
 import { supabaseAdmin } from "./supabaseAdmin.js";
+import { ENRICHMENT_SOURCES, EnrichmentSourceKey } from "./enrichmentSources";
 
 // Firecrawl configuration
 const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY || "fc-ccc5bfe9944141948d4179fa25f4bffa";
@@ -31,6 +32,7 @@ export interface EnrichmentLog {
   action: string;
   status: "success" | "error" | "needs_review" | "skipped";
   details: string;
+  source?: string;
 }
 
 export interface EnrichmentState {
@@ -131,7 +133,7 @@ async function saveState(state: EnrichmentState): Promise<void> {
 }
 
 function addLog(state: EnrichmentState, log: Omit<EnrichmentLog, "timestamp">) {
-  const fullLog = { ...log, timestamp: new Date().toISOString() };
+  const fullLog = { ...log, timestamp: new Date().toISOString(), source: log.source || state.config?.source || "medex" };
   cachedLogs.unshift(fullLog);
   if (cachedLogs.length > MAX_IN_MEMORY_LOGS) cachedLogs.pop();
   state.logs = cachedLogs;
@@ -179,7 +181,10 @@ async function processProduct(state: EnrichmentState, productId: string) {
       throw new Error("FIRECRAWL_API_KEY is missing in environment variables. Please add it and restart the server.");
     }
     
-    state.currentAiModel = "Firecrawl (Medex.com.bd)";
+    const sourceKey = (config.source as EnrichmentSourceKey) || "medex";
+    const sourceConfig = ENRICHMENT_SOURCES[sourceKey] || ENRICHMENT_SOURCES.medex;
+    
+    state.currentAiModel = `Firecrawl (${sourceConfig.name})`;
 
     if (config.dryRun) {
       addLog(state, {
@@ -187,19 +192,19 @@ async function processProduct(state: EnrichmentState, productId: string) {
         productName: product.name,
         action: "Dry Run",
         status: "success",
-        details: `Would enrich via Firecrawl (MRP: ${needsMrp}, Image: ${needsImage})`
+        details: `Would enrich via Firecrawl from ${sourceConfig.name} (MRP: ${needsMrp}, Image: ${needsImage})`
       });
       state.updatedCount++;
       return;
     }
 
-    // Step 1: Use Firecrawl map to find the medex page for this product
+    // Step 1: Use Firecrawl map to find the page for this product
     const searchQuery = `${product.name} ${product.strength || ""} ${product.company || ""}`.trim();
     
     let scrapeUrl = null;
     try {
       const mapRes = await axios.post(`${FIRECRAWL_BASE_URL}/map`, {
-        url: 'https://medex.com.bd/brands',
+        url: sourceConfig.mapUrl,
         search: searchQuery,
         limit: 3
       }, {
@@ -211,10 +216,13 @@ async function processProduct(state: EnrichmentState, productId: string) {
       });
       
       const links = mapRes.data?.links || [];
-      const brandLink = links.find((l: any) => l.url.includes('/brands/') && !l.url.endsWith('/brands'));
+      const brandLink = links.find((l: any) => {
+        const urlStr = typeof l === 'string' ? l : l.url;
+        return urlStr && sourceConfig.mapFilter(urlStr);
+      });
       
       if (brandLink) {
-        scrapeUrl = brandLink.url;
+        scrapeUrl = typeof brandLink === 'string' ? brandLink : brandLink.url;
       }
     } catch (e: any) {
       console.error("Firecrawl map error:", e.response?.data || e.message);
@@ -226,7 +234,7 @@ async function processProduct(state: EnrichmentState, productId: string) {
         productName: product.name,
         action: "Map Search",
         status: "needs_review",
-        details: "No matching Medex page found via Firecrawl Map"
+        details: `No matching page found on ${sourceConfig.name} via Firecrawl Map`
       });
       state.needsReviewCount++;
       return;
@@ -235,11 +243,12 @@ async function processProduct(state: EnrichmentState, productId: string) {
     // Step 2: Use Firecrawl scrape with extraction to get MRP and Image URL
     let extracted: any = null;
     try {
+      const promptString = sourceConfig.promptTemplate.replace("{PRODUCT_NAME}", product.name);
       const scrapeRes = await axios.post(`${FIRECRAWL_BASE_URL}/scrape`, {
         url: scrapeUrl,
-        formats: [{
-          type: "json",
-          prompt: `Extract the current Maximum Retail Price (MRP) in BDT as a number if possible. Also extract the best product package image URL (starting with http) if available. The product is ${product.name}.`,
+        formats: ["extract"],
+        extract: {
+          prompt: promptString,
           schema: {
             type: "object",
             properties: {
@@ -247,7 +256,7 @@ async function processProduct(state: EnrichmentState, productId: string) {
               imageUrl: { type: "string" }
             }
           }
-        }]
+        }
       }, {
         headers: {
           'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
@@ -256,7 +265,7 @@ async function processProduct(state: EnrichmentState, productId: string) {
         timeout: 30000
       });
       
-      extracted = scrapeRes.data?.data?.json;
+      extracted = scrapeRes.data?.data?.extract || scrapeRes.data?.data?.json;
     } catch (e: any) {
       console.error("Firecrawl scrape error:", e.response?.data || e.message);
       throw new Error("Failed to extract data using Firecrawl: " + (e.response?.data?.error || e.message));

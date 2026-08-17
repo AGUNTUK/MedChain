@@ -166,6 +166,19 @@ export default function AIEnrichmentPanel() {
             </div>
             <div className="p-5 space-y-4">
               <div>
+                <label className="text-[10px] uppercase font-bold text-slate-500 mb-1.5 block">Data Source</label>
+                <select 
+                  disabled={!isIdle}
+                  value={config.source || "medex"}
+                  onChange={(e) => setConfig({...config, source: e.target.value})}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 transition-colors disabled:opacity-50"
+                >
+                  <option value="medex">Medex (medex.com.bd)</option>
+                  <option value="osudpotro">Osudpotro (osudpotro.com)</option>
+                </select>
+              </div>
+
+              <div>
                 <label className="text-[10px] uppercase font-bold text-slate-500 mb-1.5 block">Target Scope</label>
                 <select 
                   disabled={!isIdle}
@@ -359,8 +372,13 @@ export default function AIEnrichmentPanel() {
               </div>
               <div>
                 <h4 className="text-[10px] uppercase font-bold text-indigo-400 tracking-wider mb-0.5">Currently Processing</h4>
-                <p className="text-sm font-bold text-slate-900 max-w-[200px] sm:max-w-md truncate">
+                <p className="text-sm font-bold text-slate-900 max-w-[200px] sm:max-w-md truncate flex items-center gap-2">
                   {isRunning ? (state.currentProduct || "Initializing Batch...") : "Idle"}
+                  {isRunning && state.config?.source && (
+                    <span className="text-[9px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">
+                      {state.config.source}
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
@@ -395,6 +413,11 @@ export default function AIEnrichmentPanel() {
                       <div className="flex items-center gap-2 truncate">
                         <span className="opacity-50 text-[10px] shrink-0">{new Date(log.timestamp).toLocaleTimeString()}</span>
                         <span className="font-bold truncate">{log.productName}</span>
+                        {(log as any).source && (
+                          <span className="text-[9px] bg-slate-200/50 text-slate-500 px-1.5 py-0.5 rounded uppercase tracking-wider font-bold shrink-0">
+                            {(log as any).source}
+                          </span>
+                        )}
                       </div>
                       <span className={`shrink-0 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold ${
                         log.status === "success" ? "bg-emerald-500/20 text-emerald-400" :
