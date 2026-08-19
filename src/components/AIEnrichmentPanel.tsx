@@ -9,9 +9,9 @@ export default function AIEnrichmentPanel() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   
   const [config, setConfig] = useState<EnrichmentConfig>({
-    batchSize: 50,
-    delayMs: 2000,
-    concurrencyLimit: 5,
+    batchSize: 10,
+    delayMs: 12000,
+    concurrencyLimit: 1,
     dryRun: false,
     autoRetry: true,
     overwriteExisting: false,
@@ -218,7 +218,7 @@ export default function AIEnrichmentPanel() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-850">
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-200">
                 <div>
                   <label className="text-[10px] uppercase font-bold text-slate-500 mb-1.5 flex items-center gap-1"><Cloud className="w-3 h-3"/> Concurrency</label>
                   <input 
@@ -242,6 +242,13 @@ export default function AIEnrichmentPanel() {
                   />
                 </div>
               </div>
+
+              {config.delayMs / config.concurrencyLimit < 12000 && (
+                <div className="bg-amber-50 text-amber-600 p-2.5 rounded-lg border border-amber-200 text-xs flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <p><strong>Warning:</strong> High rate. Firecrawl Free Tier allows 10 req/min (1 item every ~12s). Exceeding this may cause the queue to pause automatically.</p>
+                </div>
+              )}
 
               <div className="space-y-3 pt-2 border-t border-slate-850">
                 <label className="flex items-center gap-3 cursor-pointer group">

@@ -225,7 +225,11 @@ async function processProduct(state: EnrichmentState, productId: string) {
         scrapeUrl = typeof brandLink === 'string' ? brandLink : brandLink.url;
       }
     } catch (e: any) {
-      console.error("Firecrawl map error:", e.response?.data || e.message);
+      const errorMessage = e.response?.data?.error || e.message;
+      console.error("Firecrawl map error:", errorMessage);
+      if (errorMessage?.includes('Rate limit exceeded') || errorMessage?.includes('Insufficient credits')) {
+        throw new Error(`FIRECRAWL_RATE_LIMIT:${errorMessage}`);
+      }
     }
     
     if (!scrapeUrl) {
@@ -271,8 +275,12 @@ async function processProduct(state: EnrichmentState, productId: string) {
       
       extracted = scrapeRes.data?.data?.json;
     } catch (e: any) {
-      console.error("Firecrawl scrape error:", e.response?.data || e.message);
-      throw new Error("Failed to extract data using Firecrawl: " + (e.response?.data?.error || e.message));
+      const errorMessage = e.response?.data?.error || e.message;
+      console.error("Firecrawl scrape error:", errorMessage);
+      if (errorMessage.includes('Rate limit exceeded') || errorMessage.includes('Insufficient credits')) {
+        throw new Error(`FIRECRAWL_RATE_LIMIT:${errorMessage}`);
+      }
+      throw new Error("Failed to extract data using Firecrawl: " + errorMessage);
     }
     
     if (!extracted || (!extracted.mrp && !extracted.imageUrl)) {
@@ -338,8 +346,19 @@ async function processProduct(state: EnrichmentState, productId: string) {
     }
 
   } catch (error: any) {
-    addLog(state, { productId, productName: product.name, action: "Process", status: "error", details: error.message });
+    const isRateLimit = error.message.includes('FIRECRAWL_RATE_LIMIT');
+    const displayError = isRateLimit ? error.message.split('FIRECRAWL_RATE_LIMIT:')[1] : error.message;
+    
+    addLog(state, { productId, productName: product.name, action: "Process", status: "error", details: displayError });
     state.failedCount++;
+    
+    if (isRateLimit) {
+      state.status = "paused";
+      state.pendingIds.unshift(productId); // Put it back at the front to retry later
+      state.failedCount--; // Don't count as a permanent failure
+      return;
+    }
+    
     if (config.autoRetry && state.retriesCount < Math.min(100, state.totalProducts * 2)) {
       state.retriesCount++;
       state.pendingIds.push(productId);
@@ -356,7 +375,8 @@ async function processOneBatch(): Promise<EnrichmentState> {
 
   if (state.lastTickAt) {
     const elapsed = Date.now() - new Date(state.lastTickAt).getTime();
-    if (elapsed >= 0 && elapsed < TICK_LOCK_MS) {
+    const lockMs = state.config?.delayMs || TICK_LOCK_MS;
+    if (elapsed >= 0 && elapsed < lockMs) {
       return state;
     }
   }
@@ -457,7 +477,16 @@ export const aiEnrichmentService = {
   },
 
   async retryFailed(): Promise<EnrichmentState> {
-    return loadState();
+    const state = await loadState();
+    if (state.failedCount === 0 || state.status === "running") return state;
+    
+    // In our simplified state, we don't have a specific failedIds array,
+    // but we can just trigger a restart with the exact same config.
+    // However, if we want to just restart the engine:
+    state.status = "running";
+    state.failedCount = 0;
+    await saveState(state);
+    return processOneBatch();
   },
 
   tick: processOneBatch
