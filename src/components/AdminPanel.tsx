@@ -4,6 +4,7 @@ const AdminCharts = lazy(() => import("./AdminCharts"));
 import { io } from "socket.io-client";
 import ProductEditModal from "./ProductEditModal";
 import AIEnrichmentPanel from "./AIEnrichmentPanel";
+import BulkDealsAdmin from "./BulkDealsAdmin";
 import { 
   LayoutDashboard, 
   Pill, 
@@ -65,7 +66,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
     "/admin/orders" | 
     "/admin/pharmacies" | 
     "/admin/notifications" | 
-    "/admin/settings" | "/admin/ai-enrichment"
+    "/admin/settings" | "/admin/ai-enrichment" | "/admin/bulk-deals"
   >("/admin/dashboard");
 
   // Sync state with URL if user visits directly or refreshes
@@ -81,7 +82,8 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
         "/admin/pharmacies",
         "/admin/notifications",
         "/admin/settings",
-        "/admin/ai-enrichment"
+        "/admin/ai-enrichment",
+        "/admin/bulk-deals"
       ];
       if (validRoutes.includes(matched)) {
         setActiveRoute(matched);
@@ -1418,6 +1420,16 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
             </button>
 
             <button
+              onClick={() => navigateTo("/admin/bulk-deals")}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all ${
+                activeRoute === "/admin/bulk-deals" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Bulk Deals</span>
+            </button>
+
+            <button
               onClick={() => navigateTo("/admin/settings")}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all ${
                 activeRoute === "/admin/settings" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
@@ -1461,6 +1473,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
               {activeRoute === "/admin/audit-logs" && "SYSTEM TRANSACTION AUDIT LOGS"}
               {activeRoute === "/admin/settings" && "SYSTEM PLATFORM SCHEMAS"}
               {activeRoute === "/admin/ai-enrichment" && "AI PRODUCT ENRICHMENT ENGINE"}
+              {activeRoute === "/admin/bulk-deals" && "BULK DEALS MANAGER"}
             </h2>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end">
@@ -2722,6 +2735,10 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
               {/* SCREEN 8: AI ENRICHMENT */}
               {activeRoute === "/admin/ai-enrichment" && (
                 <AIEnrichmentPanel />
+              )}
+
+              {activeRoute === "/admin/bulk-deals" && (
+                <BulkDealsAdmin />
               )}
 
               {/* SCREEN 7: SYSTEM PLATFORM SCHEMAS */}

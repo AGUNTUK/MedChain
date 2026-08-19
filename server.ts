@@ -2646,6 +2646,23 @@ cron.schedule("* * * * *", async () => {
   }
 });
 
+// Auto-expire Bulk Campaigns every hour
+cron.schedule("0 * * * *", async () => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("bulk_campaigns")
+      .update({ status: "Expired" })
+      .eq("status", "Live")
+      .lt("end_at", new Date().toISOString());
+      
+    if (error) {
+      console.error("[bulk-deals] Failed to auto-expire campaigns:", error);
+    }
+  } catch (err) {
+    console.error("[bulk-deals] cron tick failed:", err);
+  }
+});
+
 if (!process.env.VERCEL) {
   startServer();
 }

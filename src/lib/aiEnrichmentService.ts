@@ -23,6 +23,7 @@ export interface EnrichmentConfig {
   autoRetry: boolean;
   overwriteExisting: boolean;
   filters: EnrichmentFilter;
+  source?: string;
 }
 
 export interface EnrichmentLog {

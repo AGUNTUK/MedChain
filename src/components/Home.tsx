@@ -38,6 +38,7 @@ interface HomeProps {
   onUpdateCartQty?: (productId: string, currentQty: number, change: number) => Promise<void>;
   onOpenCart?: () => void;
   cartCount?: number;
+  onOpenBulkDeals?: (campaignId?: string) => void;
 }
 
 export default function Home({
@@ -52,7 +53,8 @@ export default function Home({
   cartQuantities = {},
   onUpdateCartQty,
   onOpenCart,
-  cartCount = 0
+  cartCount = 0,
+  onOpenBulkDeals
 }: HomeProps) {
   const [bestDeals, setBestDeals] = useState<Product[]>([]);
   const [frequentProducts, setFrequentProducts] = useState<Product[]>([]);
@@ -61,6 +63,7 @@ export default function Home({
   const [dbCategories, setDbCategories] = useState<string[]>([]);
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [liveCampaign, setLiveCampaign] = useState<any>(null);
 
   const categoryIconMap: Record<string, string> = {
     "Tablet": "💊",
@@ -127,6 +130,11 @@ export default function Home({
       // 2. Fetch Frequently ordered
       const dataFreq = await productService.getProducts({ filter: "frequent" });
       setFrequentProducts(dataFreq.slice(0, 4));
+
+      // 3. Fetch Live Campaign
+      const { bulkDealsService } = await import("../services");
+      const activeCampaign = await bulkDealsService.getLiveCampaign();
+      setLiveCampaign(activeCampaign);
     } catch (err) {
       console.error(err);
     }
@@ -350,25 +358,50 @@ export default function Home({
         )}
 
         {/* B2B Today's Promotional Banner */}
-        <div className="bg-gradient-to-r from-brand-purple to-brand-purple-dark rounded-3xl p-4.5 text-white shadow-lg relative overflow-hidden">
-          <div className="absolute top-[-20%] right-[-10%] w-32 h-32 bg-white/5 rounded-full blur-2xl" />
-          <span className="bg-brand-lime text-slate-950 text-[8px] font-black uppercase px-2 py-0.5 rounded-lg tracking-wider">
-            Super Bulk Savings
-          </span>
-          <h3 className="text-sm font-black mt-2 leading-snug">
-            Up to 25% Off Beximco & Square Consignments!
-          </h3>
-          <p className="text-[10px] text-white/80 mt-1 font-medium leading-relaxed">
-            Order standard bulk cartons today and unlock immediate 24-hour delivery directly to your pharmacy.
-          </p>
-          <button
-            onClick={() => onTriggerSearch("Napa")}
-            className="mt-3.5 bg-brand-lime text-slate-900 font-extrabold py-1.5 px-3.5 rounded-xl text-[10px] flex items-center gap-0.5 hover:shadow-md cursor-pointer transition-all"
-          >
-            Order Napa Bulk Specials
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        {liveCampaign && (
+          <div className={`${liveCampaign.banner_color || 'bg-brand-purple'} rounded-3xl p-4.5 text-white shadow-lg relative overflow-hidden`}>
+            <div className="absolute top-[-20%] right-[-10%] w-32 h-32 bg-white/5 rounded-full blur-2xl" />
+            <span className="bg-brand-lime text-slate-950 text-[8px] font-black uppercase px-2 py-0.5 rounded-lg tracking-wider">
+              {liveCampaign.title || "Super Bulk Savings"}
+            </span>
+            <h3 className="text-sm font-black mt-2 leading-snug">
+              {liveCampaign.subtext || "Unlock bulk pricing on key consignments!"}
+            </h3>
+            {liveCampaign.end_at && (
+              <p className="text-[9px] text-white/90 mt-1 font-bold">
+                Ends {new Date(liveCampaign.end_at).toLocaleDateString()}
+              </p>
+            )}
+            <button
+              onClick={() => onOpenBulkDeals && onOpenBulkDeals(liveCampaign.id)}
+              className="mt-3.5 bg-brand-lime text-slate-900 font-extrabold py-1.5 px-3.5 rounded-xl text-[10px] flex items-center gap-0.5 hover:shadow-md cursor-pointer transition-all"
+            >
+              {liveCampaign.cta_text || "Shop Bulk Deals"}
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+        {!liveCampaign && (
+          <div className="bg-gradient-to-r from-brand-purple to-brand-purple-dark rounded-3xl p-4.5 text-white shadow-lg relative overflow-hidden">
+            <div className="absolute top-[-20%] right-[-10%] w-32 h-32 bg-white/5 rounded-full blur-2xl" />
+            <span className="bg-brand-lime text-slate-950 text-[8px] font-black uppercase px-2 py-0.5 rounded-lg tracking-wider">
+              Super Bulk Savings
+            </span>
+            <h3 className="text-sm font-black mt-2 leading-snug">
+              Up to 25% Off Beximco & Square Consignments!
+            </h3>
+            <p className="text-[10px] text-white/80 mt-1 font-medium leading-relaxed">
+              Order standard bulk cartons today and unlock immediate 24-hour delivery directly to your pharmacy.
+            </p>
+            <button
+              onClick={() => onTriggerSearch("Napa")}
+              className="mt-3.5 bg-brand-lime text-slate-900 font-extrabold py-1.5 px-3.5 rounded-xl text-[10px] flex items-center gap-0.5 hover:shadow-md cursor-pointer transition-all"
+            >
+              Order Napa Bulk Specials
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Today's Best Deals list */}
         <div className="space-y-2.5">

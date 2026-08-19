@@ -12,3 +12,4 @@ export * from "./profile";
 export * from "./payment";
 export * from "./notificationService";
 export * from "./storage";
+export * from "./bulkDeals";

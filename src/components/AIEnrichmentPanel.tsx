@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Play, Pause, Square, RefreshCw, Download, Settings, AlertCircle, Database, CheckCircle2, ChevronDown, Cpu, Activity, Info, Link, Cloud } from "lucide-react";
 import * as XLSX from "xlsx";
-import { EnrichmentState, EnrichmentConfig } from "../lib/aiEnrichmentService";
+import type { EnrichmentState, EnrichmentConfig } from "../lib/aiEnrichmentService";
 
 export default function AIEnrichmentPanel() {
   const [state, setState] = useState<EnrichmentState | null>(null);

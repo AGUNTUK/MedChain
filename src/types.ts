@@ -171,3 +171,31 @@ export interface ImportHistoryEvent {
   status: "Completed" | "With Errors";
 }
 
+
+export interface BulkCampaign {
+  id: string;
+  title: string;
+  subtext: string;
+  banner_color: string;
+  banner_image_url: string;
+  cta_text: string;
+  status: "Draft" | "Live" | "Expired";
+  start_at?: string;
+  end_at?: string;
+  created_at: string;
+}
+
+export interface BulkTier {
+  minQty: number;
+  discountPercent: number;
+}
+
+export interface BulkCampaignProduct {
+  id: string;
+  campaign_id: string;
+  product_id: string;
+  tiers: BulkTier[];
+  created_at: string;
+  product?: Product;
+}
+

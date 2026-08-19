@@ -21,6 +21,7 @@ import DeliveryDashboard from "./components/DeliveryDashboard";
 import FloatingCartBar from "./components/FloatingCartBar";
 import FlyToCartOverlay from "./components/FlyToCartOverlay";
 import PWAInstallBanner, { PWAInstallButton } from "./components/PWAInstallBanner";
+import BulkDealsLanding from "./components/BulkDealsLanding";
 import { FlyToCartProvider } from "./context/FlyToCartContext";
 import { Product, Pharmacy, Order, Notification, User } from "./types";
 import { Home as HomeIcon, Search as SearchIcon, Package as PackageIcon, FileText as FileIcon, ClipboardList as ListIcon, User as UserIcon, Shield, Smartphone } from "lucide-react";
@@ -78,8 +79,9 @@ try {
 
 export default function App() {
   // Mobile app navigation state
-  const [appStep, setAppStep] = useState<"splash" | "login" | "setup" | "main" | "cart" | "checkout" | "success" | "tracking">("splash");
+  const [appStep, setAppStep] = useState<"splash" | "login" | "setup" | "main" | "cart" | "checkout" | "success" | "tracking" | "bulk_deals">("splash");
   const [activeTab, setActiveTab] = useState<"home" | "search" | "history" | "account">("home");
+  const [activeBulkCampaignId, setActiveBulkCampaignId] = useState<string | undefined>();
 
   // Core Data State
   const [pharmacy, setPharmacy] = useState<Pharmacy | null>(() => {
@@ -396,6 +398,16 @@ export default function App() {
             onBack={() => setAppStep("main")}
             onCheckoutTrigger={() => setAppStep("checkout")}
             onRefreshCartCounter={refreshCartCounter}
+          />
+        );
+      case "bulk_deals":
+        return (
+          <BulkDealsLanding
+            onBack={() => setAppStep("main")}
+            onAddToCart={handleAddToCart}
+            cartQuantities={cartQuantities}
+            onUpdateCartQty={handleUpdateCartQty}
+            campaignId={activeBulkCampaignId}
           />
         );
       case "checkout":
