@@ -544,7 +544,7 @@ export default function App() {
       <Analytics />
       <SpeedInsights />
       <div className="flex h-screen w-screen bg-slate-50 font-sans select-none overflow-hidden justify-center items-center">
-        <div className="w-full h-full max-w-md bg-white shadow-2xl relative flex flex-col overflow-hidden">
+        <div className="w-full h-full lg:max-w-7xl lg:border-x lg:border-slate-200 bg-white shadow-2xl relative flex flex-col overflow-hidden">
           {/* Screen Content */}
           <div className="flex-1 overflow-hidden relative">
             {renderMobileContent()}
@@ -595,7 +595,7 @@ export default function App() {
 
           {/* Bottom persistent Nav Bar */}
           {appStep === "main" && (
-            <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 shadow-lg px-6 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] flex items-center justify-between md:max-w-md md:left-1/2 md:-translate-x-1/2">
+            <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 shadow-lg px-6 lg:px-12 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] flex items-center justify-between lg:max-w-7xl lg:left-1/2 lg:-translate-x-1/2">
               <button
                 onClick={() => setActiveTab("home")}
                 className={`flex flex-col items-center gap-1 cursor-pointer transition-all ${

@@ -244,7 +244,7 @@ export default function Home({
           </div>
           
           {showAllCategories ? (
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-2">
               {visibleCategories.map(cat => (
                 <button
                   key={cat.name}
@@ -403,7 +403,7 @@ export default function Home({
               Highest Discount Products
             </h3>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
             {highestDiscounts.map((p) => (
               <ProductCard
                 key={p.id}

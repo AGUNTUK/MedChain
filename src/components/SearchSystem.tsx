@@ -491,7 +491,7 @@ export default function SearchSystem({
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 px-1">
                       <TrendingUp className="w-4 h-4 text-brand-purple" /> Frequently Procured Medicines
                     </span>
-                    <div className="grid grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5">
                       {frequentProducts.map(p => {
                         const currentQty = quantities[p.id] || 1;
                         return (
