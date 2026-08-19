@@ -246,17 +246,21 @@ async function processProduct(state: EnrichmentState, productId: string) {
       const promptString = sourceConfig.promptTemplate.replace("{PRODUCT_NAME}", product.name);
       const scrapeRes = await axios.post(`${FIRECRAWL_BASE_URL}/scrape`, {
         url: scrapeUrl,
-        formats: ["extract"],
-        extract: {
-          prompt: promptString,
-          schema: {
-            type: "object",
-            properties: {
-              mrp: { type: "number" },
-              imageUrl: { type: "string" }
+        formats: [
+          {
+            type: "json",
+            prompt: promptString,
+            schema: {
+              type: "object",
+              properties: {
+                mrp: { type: "number" },
+                imageUrl: { type: "string" }
+              },
+              required: ["mrp"]
             }
           }
-        }
+        ],
+        waitFor: 3000
       }, {
         headers: {
           'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
@@ -265,7 +269,7 @@ async function processProduct(state: EnrichmentState, productId: string) {
         timeout: 30000
       });
       
-      extracted = scrapeRes.data?.data?.extract || scrapeRes.data?.data?.json;
+      extracted = scrapeRes.data?.data?.json;
     } catch (e: any) {
       console.error("Firecrawl scrape error:", e.response?.data || e.message);
       throw new Error("Failed to extract data using Firecrawl: " + (e.response?.data?.error || e.message));
