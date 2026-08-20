@@ -4,6 +4,7 @@ const AdminCharts = lazy(() => import("./AdminCharts"));
 import { io } from "socket.io-client";
 import ProductEditModal from "./ProductEditModal";
 import AIEnrichmentPanel from "./AIEnrichmentPanel";
+import AdminHeroCarouselManager from "./AdminHeroCarouselManager";
 import BulkDealsAdmin from "./BulkDealsAdmin";
 import { 
   LayoutDashboard, 

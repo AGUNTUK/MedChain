@@ -13,3 +13,4 @@ export * from "./payment";
 export * from "./notificationService";
 export * from "./storage";
 export * from "./bulkDeals";
+export * from "./heroCarouselService";

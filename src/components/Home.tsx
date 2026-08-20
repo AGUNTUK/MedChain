@@ -24,6 +24,7 @@ import ProductCard from "./ProductCard";
 import { formatProductPriceLabel } from "../lib/utils";
 import { useFlyToCart } from "../context/FlyToCartContext";
 import PrescriptionScanner from "./PrescriptionScanner";
+import HeroCarousel from "./HeroCarousel";
 
 interface HomeProps {
   onTriggerSearch: (query?: string, category?: string) => void;
@@ -182,12 +183,7 @@ export default function Home({
       <div className="bg-white px-4 py-3 border-b border-slate-100 flex items-center justify-between sticky top-0 z-10 shadow-sm flex-shrink-0">
         <div className="flex items-center gap-2">
           <MediChainLogo size="sm" withText={false} />
-          <div>
-            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Logged Pharmacy</span>
-            <h1 className="text-xs font-black text-brand-charcoal truncate max-w-[160px] leading-tight">
-              {pharmacyName}
-            </h1>
-          </div>
+          
         </div>
 
         {/* Notifications and status */}
@@ -212,6 +208,7 @@ export default function Home({
       </div>
 
       {/* Main Body */}
+      <HeroCarousel pharmacyName={pharmacyName} onOpenScanner={() => setIsScannerOpen(true)} onBrowseCatalog={() => onTriggerSearch()} onOpenBulkDeals={onOpenBulkDeals} />
       <div className="p-4 space-y-4 pb-32">
         {/* Search & Scan Actions */}
         <div className="flex gap-2">
@@ -357,51 +354,9 @@ export default function Home({
           </div>
         )}
 
-        {/* B2B Today's Promotional Banner */}
-        {liveCampaign && (
-          <div className={`${liveCampaign.banner_color || 'bg-brand-purple'} rounded-3xl p-4.5 text-white shadow-lg relative overflow-hidden`}>
-            <div className="absolute top-[-20%] right-[-10%] w-32 h-32 bg-white/5 rounded-full blur-2xl" />
-            <span className="bg-brand-lime text-slate-950 text-[8px] font-black uppercase px-2 py-0.5 rounded-lg tracking-wider">
-              {liveCampaign.title || "Super Bulk Savings"}
-            </span>
-            <h3 className="text-sm font-black mt-2 leading-snug">
-              {liveCampaign.subtext || "Unlock bulk pricing on key consignments!"}
-            </h3>
-            {liveCampaign.end_at && (
-              <p className="text-[9px] text-white/90 mt-1 font-bold">
-                Ends {new Date(liveCampaign.end_at).toLocaleDateString()}
-              </p>
-            )}
-            <button
-              onClick={() => onOpenBulkDeals && onOpenBulkDeals(liveCampaign.id)}
-              className="mt-3.5 bg-brand-lime text-slate-900 font-extrabold py-1.5 px-3.5 rounded-xl text-[10px] flex items-center gap-0.5 hover:shadow-md cursor-pointer transition-all"
-            >
-              {liveCampaign.cta_text || "Shop Bulk Deals"}
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
-        {!liveCampaign && (
-          <div className="bg-gradient-to-r from-brand-purple to-brand-purple-dark rounded-3xl p-4.5 text-white shadow-lg relative overflow-hidden">
-            <div className="absolute top-[-20%] right-[-10%] w-32 h-32 bg-white/5 rounded-full blur-2xl" />
-            <span className="bg-brand-lime text-slate-950 text-[8px] font-black uppercase px-2 py-0.5 rounded-lg tracking-wider">
-              Super Bulk Savings
-            </span>
-            <h3 className="text-sm font-black mt-2 leading-snug">
-              Up to 25% Off Beximco & Square Consignments!
-            </h3>
-            <p className="text-[10px] text-white/80 mt-1 font-medium leading-relaxed">
-              Order standard bulk cartons today and unlock immediate 24-hour delivery directly to your pharmacy.
-            </p>
-            <button
-              onClick={() => onTriggerSearch("Napa")}
-              className="mt-3.5 bg-brand-lime text-slate-900 font-extrabold py-1.5 px-3.5 rounded-xl text-[10px] flex items-center gap-0.5 hover:shadow-md cursor-pointer transition-all"
-            >
-              Order Napa Bulk Specials
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
+        
+        
+        
 
         {/* Today's Best Deals list */}
         <div className="space-y-2.5">
