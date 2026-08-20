@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from "react";
+const fs = require('fs');
+
+const code = `import React, { useEffect, useState } from "react";
 import { Download, X, Share, PlusSquare, Smartphone } from "lucide-react";
 
 export interface BeforeInstallPromptEvent extends Event {
@@ -147,7 +149,7 @@ export const PWAInstallBanner: React.FC = () => {
     <>
       {/* Floating Top PWA Install Banner */}
       {showBanner && !showIOSInstructions && (
-        <div className="fixed top-2 left-2 right-2 sm:left-1/2 sm:-translate-x-1/2 sm:w-96 z-[100] pt-[env(safe-area-inset-top)] animate-in slide-in-from-top-10 fade-in duration-300">
+        <div className="fixed top-2 left-2 right-2 sm:left-1/2 sm:-translate-x-1/2 sm:w-96 z-[100] pt-safe animate-in slide-in-from-top-10 fade-in duration-300">
           <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-3 pr-4 flex items-center gap-3 relative overflow-hidden group">
             
             <button
@@ -186,7 +188,7 @@ export const PWAInstallBanner: React.FC = () => {
       {/* iOS Instructions Modal */}
       {showIOSInstructions && (
         <div 
-          className="fixed inset-0 z-[110] flex items-end justify-center bg-slate-900/40 backdrop-blur-sm sm:items-center p-4 pb-[env(safe-area-inset-bottom)] animate-in fade-in duration-200"
+          className="fixed inset-0 z-[110] flex items-end justify-center bg-slate-900/40 backdrop-blur-sm sm:items-center p-4 pb-safe animate-in fade-in duration-200"
           onClick={() => {
             setShowIOSInstructions(false);
             handleDismiss();
@@ -267,7 +269,7 @@ export const PWAInstallButton: React.FC<{ className?: string; variant?: "badge" 
       <button
         onClick={promptInstall}
         type="button"
-        className={`flex flex-col items-center gap-1 cursor-pointer transition-all text-brand-purple hover:text-brand-purple-dark ${className}`}
+        className={\`flex flex-col items-center gap-1 cursor-pointer transition-all text-brand-purple hover:text-brand-purple-dark \${className}\`}
         title="Install MediChain App"
       >
         <div className="relative">
@@ -287,7 +289,7 @@ export const PWAInstallButton: React.FC<{ className?: string; variant?: "badge" 
       <button
         onClick={promptInstall}
         type="button"
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-900 bg-brand-lime hover:bg-brand-lime-dark shadow-2xs transition-all cursor-pointer ${className}`}
+        className={\`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-900 bg-brand-lime hover:bg-brand-lime-dark shadow-2xs transition-all cursor-pointer \${className}\`}
       >
         <Download className="w-3.5 h-3.5" />
         <span>Install App</span>
@@ -299,7 +301,7 @@ export const PWAInstallButton: React.FC<{ className?: string; variant?: "badge" 
     <button
       onClick={promptInstall}
       type="button"
-      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-extrabold tracking-wide uppercase text-slate-900 bg-brand-lime/90 hover:bg-brand-lime transition-colors cursor-pointer border border-brand-lime-dark/50 ${className}`}
+      className={\`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-extrabold tracking-wide uppercase text-slate-900 bg-brand-lime/90 hover:bg-brand-lime transition-colors cursor-pointer border border-brand-lime-dark/50 \${className}\`}
     >
       <Download className="w-3 h-3" />
       <span>Install App</span>
@@ -308,3 +310,6 @@ export const PWAInstallButton: React.FC<{ className?: string; variant?: "badge" 
 };
 
 export default PWAInstallBanner;
+`;
+
+fs.writeFileSync('src/components/PWAInstallBanner.tsx', code);
