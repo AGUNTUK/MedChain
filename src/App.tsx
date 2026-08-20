@@ -20,6 +20,7 @@ import DepotDashboard from "./components/DepotDashboard";
 import DeliveryDashboard from "./components/DeliveryDashboard";
 import FloatingCartBar from "./components/FloatingCartBar";
 import FlyToCartOverlay from "./components/FlyToCartOverlay";
+import { PWAInstallPrompt } from "./pwa/PWAInstallPrompt";
 import BulkDealsLanding from "./components/BulkDealsLanding";
 import { FlyToCartProvider } from "./context/FlyToCartContext";
 import { Product, Pharmacy, Order, Notification, User } from "./types";
@@ -601,7 +602,7 @@ export default function App() {
 
           {/* Dynamic Fly-To-Cart Parabolic Overlay */}
           <FlyToCartOverlay />
-
+          <PWAInstallPrompt />
 
           {/* Bottom persistent Nav Bar */}
           {appStep === "main" && (
