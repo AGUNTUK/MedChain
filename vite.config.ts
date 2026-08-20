@@ -2,97 +2,12 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
-import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(() => {
   return {
     plugins: [
       react(), 
-      tailwindcss(),
-      VitePWA({
-        registerType: 'autoUpdate',
-        includeAssets: ['favicon.png', 'apple-touch-icon.png', 'logo.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-512-maskable.png'],
-        manifest: {
-          name: "MediChain - Healthcare Platform",
-          short_name: "MediChain",
-          description: "Healthcare & B2B Medicine Procurement Platform",
-          theme_color: "#A3E635",
-          background_color: "#14161B",
-          display: "standalone",
-          start_url: "/",
-          orientation: "portrait",
-          icons: [
-            {
-              src: '/icons/icon-192.png',
-              sizes: '192x192',
-              type: 'image/png',
-              purpose: 'any'
-            },
-            {
-              src: '/icons/icon-512.png',
-              sizes: '512x512',
-              type: 'image/png',
-              purpose: 'any'
-            },
-            {
-              src: '/icons/icon-512-maskable.png',
-              sizes: '512x512',
-              type: 'image/png',
-              purpose: 'maskable'
-            }
-          ]
-        },
-        workbox: {
-          maximumFileSizeToCacheInBytes: 5000000,
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-          runtimeCaching: [
-            {
-              urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'google-fonts-cache',
-                expiration: {
-                  maxEntries: 10,
-                  maxAgeSeconds: 60 * 60 * 24 * 365
-                },
-                cacheableResponse: {
-                  statuses: [0, 200]
-                }
-              }
-            },
-            {
-              urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'gstatic-fonts-cache',
-                expiration: {
-                  maxEntries: 10,
-                  maxAgeSeconds: 60 * 60 * 24 * 365
-                },
-                cacheableResponse: {
-                  statuses: [0, 200]
-                }
-              }
-            },
-            {
-              urlPattern: /\/api\/.*/i,
-              method: 'GET',
-              handler: 'NetworkFirst',
-              options: {
-                cacheName: 'api-cache',
-                networkTimeoutSeconds: 10,
-                expiration: {
-                  maxEntries: 50,
-                  maxAgeSeconds: 60 * 60 * 24 // 1 day
-                },
-                cacheableResponse: {
-                  statuses: [0, 200]
-                }
-              }
-            }
-          ]
-        }
-      })
+      tailwindcss()
     ],
     resolve: {
       alias: {

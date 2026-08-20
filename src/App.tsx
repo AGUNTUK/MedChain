@@ -20,7 +20,6 @@ import DepotDashboard from "./components/DepotDashboard";
 import DeliveryDashboard from "./components/DeliveryDashboard";
 import FloatingCartBar from "./components/FloatingCartBar";
 import FlyToCartOverlay from "./components/FlyToCartOverlay";
-import PWAInstallBanner, { PWAInstallButton } from "./components/PWAInstallBanner";
 import BulkDealsLanding from "./components/BulkDealsLanding";
 import { FlyToCartProvider } from "./context/FlyToCartContext";
 import { Product, Pharmacy, Order, Notification, User } from "./types";
@@ -603,7 +602,6 @@ export default function App() {
           {/* Dynamic Fly-To-Cart Parabolic Overlay */}
           <FlyToCartOverlay />
 
-          <PWAInstallBanner />
 
           {/* Bottom persistent Nav Bar */}
           {appStep === "main" && (
@@ -642,7 +640,6 @@ export default function App() {
                 <span className="text-[10px] font-bold">Orders</span>
               </button>
 
-              <PWAInstallButton variant="nav" />
               
               <button
                 onClick={() => setActiveTab("account")}
