@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useDebounce } from "../hooks/useDebounce";
 import {
   Search,
   ShoppingCart,
@@ -26,6 +27,7 @@ import { Product, Order } from "../types";
 import { productService } from "../services";
 import { formatRefId, formatProductPriceLabel } from "../lib/utils";
 import { useFlyToCart } from "../context/FlyToCartContext";
+import ProductCardSkeleton from "./ProductCardSkeleton";
 
 interface SearchSystemProps {
   onAddToCart: (productId: string, qty: number) => Promise<boolean>;
@@ -52,7 +54,10 @@ export default function SearchSystem({
 }: SearchSystemProps) {
   // Input states
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const rawDebouncedSearch = useDebounce(search, 400);
+  // Instant cleanup/reset when search is cleared
+  const debouncedSearch = search === "" ? "" : rawDebouncedSearch;
+
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -116,15 +121,10 @@ export default function SearchSystem({
       .catch(err => console.error("Error loading frequent products:", err));
   }, []);
 
-  // 2. Debounce Search Input
+  // 2. Reset page when search or filters change
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(search);
-      setPage(1); // Reset to page 1 on search string change
-    }, 300);
-
-    return () => clearTimeout(handler);
-  }, [search]);
+    setPage(1);
+  }, [debouncedSearch, selectedCategory, selectedFilter]);
 
   // Infinite scrolling observer ref
   const observer = useRef<IntersectionObserver | null>(null);
@@ -141,6 +141,8 @@ export default function SearchSystem({
 
   // 3. Fetch products dynamically when state parameters change
   useEffect(() => {
+    let isActive = true;
+
     const fetchResults = async () => {
       // Only set loading if it's the first page to not flash empty screen on scroll
       if (page === 1) setIsLoading(true);
@@ -152,6 +154,8 @@ export default function SearchSystem({
           page,
           limit: 50
         });
+
+        if (!isActive) return; // Ignore outdated response
 
         if (page === 1) {
           setProducts(response.products);
@@ -172,13 +176,18 @@ export default function SearchSystem({
           saveRecentSearch(debouncedSearch.trim());
         }
       } catch (err) {
+        if (!isActive) return;
         console.error("Error querying products catalog:", err);
       } finally {
-        setIsLoading(false);
+        if (isActive) setIsLoading(false);
       }
     };
 
     fetchResults();
+
+    return () => {
+      isActive = false; // Cleanup to prevent race conditions
+    };
   }, [debouncedSearch, selectedCategory, selectedFilter, page]);
 
   // Helper to save a query to recent searches list
@@ -263,6 +272,8 @@ export default function SearchSystem({
     e?: React.MouseEvent<HTMLElement>,
     imageSrc?: string
   ) => {
+    if (cartAdding[productId]) return; // Throttling safeguard
+
     if (e) {
       e.stopPropagation();
     }
@@ -391,7 +402,6 @@ export default function SearchSystem({
                   <button
                     onClick={() => {
                       setSearch("");
-                      setDebouncedSearch("");
                     }}
                     className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer mr-1"
                   >
@@ -473,18 +483,10 @@ export default function SearchSystem({
         </div>
 
         <div className="p-4 pb-24 space-y-4">
-        {/* Loading Spinner */}
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <RefreshCw className="w-8 h-8 text-brand-purple animate-spin mb-3" />
-            <span className="text-xs font-bold text-slate-500">Searching MediChain Ledger...</span>
-          </div>
-        ) : true ? (
-          /* Search results matching state */
-          <>
-            {/* Quick Order Cockpit Hub - Shown only when there is no search query */}
-            {!debouncedSearch && (
-              <div className="space-y-4 mb-5 animate-fade-in">
+
+          {/* Quick Order Cockpit Hub - Shown only when there is no search query */}
+          {!debouncedSearch && (
+            <div className="space-y-4 mb-5 animate-fade-in">
                 {/* Quick Procurement (Frequently Ordered) */}
                 {frequentProducts.length > 0 && (
                   <div className="space-y-2">
@@ -559,7 +561,7 @@ export default function SearchSystem({
                                     }`}
                                   >
                                     {addedSuccess[p.id] ? <Check className="w-3 h-3 text-white" /> : <ShoppingCart className="w-3 h-3" />}
-                                    {addedSuccess[p.id] ? "✓ Added" : "Buy"}
+                                    {addedSuccess[p.id] ? "✓ Added" : cartAdding[p.id] ? "Adding..." : "Buy"}
                                   </button>
                                 </div>
                               );
@@ -626,7 +628,13 @@ export default function SearchSystem({
               </span>
             </div>
 
-            {products.length === 0 ? (
+            {isLoading && page === 1 ? (
+              <div className="space-y-3.5">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <ProductCardSkeleton key={`search-skel-${i}`} layout="horizontal" />
+                ))}
+              </div>
+            ) : products.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center bg-white rounded-2xl border border-slate-100 p-6">
                 <AlertCircle className="w-8 h-8 text-slate-300 mb-2" />
                 <p className="text-xs font-bold text-slate-700">No matching medicine found</p>
@@ -814,6 +822,11 @@ export default function SearchSystem({
                                       <Check className="w-4 h-4 text-white" />
                                       ✓ Added to Cart!
                                     </>
+                                  ) : cartAdding[p.id] ? (
+                                    <>
+                                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                      Adding...
+                                    </>
                                   ) : (
                                     <>
                                       <ShoppingCart className="w-3.5 h-3.5" />
@@ -838,9 +851,7 @@ export default function SearchSystem({
                 )}
               </div>
             )}
-          </>
-        ) : null}
-      </div>
+        </div>
       </div>
     </div>
   );

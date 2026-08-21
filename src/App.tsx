@@ -23,6 +23,7 @@ import FlyToCartOverlay from "./components/FlyToCartOverlay";
 import { PWAInstallPrompt } from "./pwa/PWAInstallPrompt";
 import BulkDealsLanding from "./components/BulkDealsLanding";
 import { FlyToCartProvider } from "./context/FlyToCartContext";
+import ErrorBoundary from "./components/ErrorBoundary";
 import { Product, Pharmacy, Order, Notification, User } from "./types";
 import { Home as HomeIcon, Search as SearchIcon, Package as PackageIcon, FileText as FileIcon, ClipboardList as ListIcon, User as UserIcon, Shield, Smartphone } from "lucide-react";
 import { authService, productService, orderService, profileService, notificationService } from "./services";
@@ -552,11 +553,12 @@ export default function App() {
   }
 
   return (
-    <FlyToCartProvider>
-      <Analytics />
-      <SpeedInsights />
-      <div className="flex h-screen w-screen bg-slate-50 font-sans select-none overflow-hidden justify-center items-center">
-        <div className="w-full h-full lg:max-w-7xl lg:border-x lg:border-slate-200 bg-white shadow-2xl relative flex flex-col overflow-hidden">
+    <ErrorBoundary>
+      <FlyToCartProvider>
+        <Analytics />
+        <SpeedInsights />
+        <div className="flex h-screen w-screen bg-slate-50 font-sans select-none overflow-hidden justify-center items-center">
+          <div className="w-full h-full lg:max-w-7xl lg:border-x lg:border-slate-200 bg-white shadow-2xl relative flex flex-col overflow-hidden">
           {/* Screen Content */}
           <div className="flex-1 overflow-hidden relative">
             {renderMobileContent()}
@@ -655,6 +657,7 @@ export default function App() {
           )}
         </div>
       </div>
-    </FlyToCartProvider>
+      </FlyToCartProvider>
+    </ErrorBoundary>
   );
 }

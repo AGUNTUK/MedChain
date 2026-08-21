@@ -51,7 +51,13 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         setMode("login");
       }
     } catch (err: any) {
-      setError(err.message || "Authentication failed. Please check your credentials.");
+      if (err.fields) {
+        setError(Object.values(err.fields).join(" "));
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Authentication failed. Please check your credentials.");
+      }
     } finally {
       setLoading(false);
     }

@@ -69,8 +69,30 @@ body {
   }
 }
 
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
 .animate-glow {
   animation: pulseGlow 3s infinite ease-in-out;
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s infinite linear;
+  background: linear-gradient(
+    90deg,
+    rgba(241, 245, 249, 1) 0%,
+    rgba(248, 250, 252, 1) 20%,
+    rgba(226, 232, 240, 1) 50%,
+    rgba(248, 250, 252, 1) 80%,
+    rgba(241, 245, 249, 1) 100%
+  );
+  background-size: 200% 100%;
 }
 
 @layer components {

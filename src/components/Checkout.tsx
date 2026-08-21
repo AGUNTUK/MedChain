@@ -76,7 +76,13 @@ export default function Checkout({ onBackToCart, onOrderPlaced, pharmacy }: Chec
 
       onOrderPlaced(data.orderId);
     } catch (err: any) {
-      setError(err.message || "Failed to place order.");
+      if (err.fields) {
+        setError(Object.values(err.fields).join(" "));
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Failed to place order.");
+      }
     } finally {
       setLoading(false);
       setIsProcessingPayment(false);

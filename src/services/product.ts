@@ -1,8 +1,5 @@
 import { Product } from "../types";
-
-// In-memory catalog cache for client-side fast navigation
-const clientCatalogCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL_MS = 60000; // 60 seconds TTL
+import { apiCache } from "../lib/apiCache";
 
 /**
  * MediChain Product Catalog Service
@@ -14,68 +11,42 @@ export const productService = {
    * Clears the client-side catalog cache. Call after create/edit/delete operations.
    */
   clearCache(): void {
-    clientCatalogCache.clear();
+    apiCache.clear();
   },
 
   /**
    * Fetches the B2B wholesale product catalog with optional query, category, or deals filter parameters.
    */
   async getProducts(params?: { search?: string; category?: string; filter?: "deals" | "frequent" | "low_stock"; page?: number; limit?: number }): Promise<Product[]> {
-    try {
-      const q = new URLSearchParams();
-      if (params?.search) q.append("search", params.search);
-      if (params?.category) q.append("category", params.category);
-      if (params?.filter) q.append("filter", params.filter);
-      
-      // Always enforce pagination limits to prevent payload overflow
-      q.append("page", (params?.page || 1).toString());
-      q.append("limit", (params?.limit || 50).toString());
+    const q = new URLSearchParams();
+    if (params?.search) q.append("search", params.search);
+    if (params?.category) q.append("category", params.category);
+    if (params?.filter) q.append("filter", params.filter);
+    
+    // Always enforce pagination limits to prevent payload overflow
+    q.append("page", (params?.page || 1).toString());
+    q.append("limit", (params?.limit || 50).toString());
 
-      const queryStr = q.toString() ? `?${q.toString()}` : "";
-      const cacheKey = `getProducts_${queryStr}`;
-      
-      const cached = clientCatalogCache.get(cacheKey);
-      if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-        return cached.data;
-      }
+    const queryStr = q.toString() ? `?${q.toString()}` : "";
+    const cacheKey = `products_${queryStr}`;
 
+    return apiCache.swr(cacheKey, async () => {
       const res = await fetch(`/api/products${queryStr}`);
-      if (!res.ok) {
-        return [];
-      }
-      
+      if (!res.ok) return [];
       const data = await res.json();
-      const result = Array.isArray(data) ? data : (data.products || []);
-      clientCatalogCache.set(cacheKey, { data: result, timestamp: Date.now() });
-      return result;
-    } catch (err) {
-      console.warn("Failed to fetch products API:", err);
-      return [];
-    }
+      return Array.isArray(data) ? data : (data.products || []);
+    });
   },
 
   /**
    * Fetches the distinct product categories from the catalog.
    */
   async getCategories(): Promise<string[]> {
-    try {
-      const cacheKey = "getCategories";
-      const cached = clientCatalogCache.get(cacheKey);
-      if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS * 5) {
-        return cached.data;
-      }
-
+    return apiCache.swr("categories", async () => {
       const res = await fetch("/api/categories");
-      if (!res.ok) {
-        return [];
-      }
-      const data = await res.json();
-      clientCatalogCache.set(cacheKey, { data, timestamp: Date.now() });
-      return data;
-    } catch (err) {
-      console.warn("Failed to fetch product categories API:", err);
-      return [];
-    }
+      if (!res.ok) return [];
+      return res.json();
+    });
   },
 
   /**
@@ -97,41 +68,24 @@ export const productService = {
     originalQuery: string;
     correctedQuery?: string;
   }> {
-    try {
-      const q = new URLSearchParams();
-      if (params.search) q.append("search", params.search);
-      if (params.category) q.append("category", params.category);
-      if (params.filter) q.append("filter", params.filter);
-      if (params.page) q.append("page", params.page.toString());
-      if (params.limit) q.append("limit", params.limit.toString());
-      q.append("paginate", "true");
+    const q = new URLSearchParams();
+    if (params.search) q.append("search", params.search);
+    if (params.category) q.append("category", params.category);
+    if (params.filter) q.append("filter", params.filter);
+    if (params.page) q.append("page", params.page.toString());
+    if (params.limit) q.append("limit", params.limit.toString());
+    q.append("paginate", "true");
 
-      const queryStr = q.toString();
-      const cacheKey = `getProductsPaginated_${queryStr}`;
-      const cached = clientCatalogCache.get(cacheKey);
-      if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-        return cached.data;
-      }
+    const queryStr = q.toString();
+    const cacheKey = `products_paginated_${queryStr}`;
 
+    return apiCache.swr(cacheKey, async () => {
       const res = await fetch(`/api/products?${queryStr}`);
       if (!res.ok) {
         throw new Error("Failed to fetch paginated product list from MediChain catalog.");
       }
-      const data = await res.json();
-      clientCatalogCache.set(cacheKey, { data, timestamp: Date.now() });
-      return data;
-    } catch (err) {
-      console.warn("Failed to fetch paginated products API:", err);
-      return {
-        products: [],
-        total: 0,
-        page: 1,
-        pageSize: params.limit || 50,
-        pages: 0,
-        suggestions: [],
-        originalQuery: params.search || "",
-      };
-    }
+      return res.json();
+    });
   },
 
   /**

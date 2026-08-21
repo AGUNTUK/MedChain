@@ -20,7 +20,10 @@ import { Product } from "../types";
 import { productService } from "../services";
 import NotificationBell from "./NotificationBell";
 import ProductCard from "./ProductCard";
+import ProductCardSkeleton from "./ProductCardSkeleton";
+import ErrorState from "./ErrorState";
 import { formatProductPriceLabel } from "../lib/utils";
+import { apiCache } from "../lib/apiCache";
 import { useFlyToCart } from "../context/FlyToCartContext";
 import PrescriptionScanner from "./PrescriptionScanner";
 import HeroCarousel from "./HeroCarousel";
@@ -64,6 +67,9 @@ export default function Home({
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [liveCampaign, setLiveCampaign] = useState<any>(null);
+  // If categories are already cached, we can skip the initial loading skeleton flash
+  const [isLoading, setIsLoading] = useState(!apiCache.get("categories"));
+  const [error, setError] = useState<string | null>(null);
 
   const categoryIconMap: Record<string, string> = {
     "Tablet": "💊",
@@ -113,6 +119,10 @@ export default function Home({
 
   const fetchHomeWidgets = async () => {
     try {
+      if (!apiCache.get("categories")) {
+        setIsLoading(true);
+      }
+      setError(null);
       // 0. Fetch Categories
       const categoriesData = await productService.getCategories();
       if (categoriesData.length > 0) {
@@ -137,6 +147,9 @@ export default function Home({
       setLiveCampaign(activeCampaign);
     } catch (err) {
       console.error(err);
+      setError("Failed to load dashboard data. Please check your connection.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -206,9 +219,18 @@ export default function Home({
       </div>
 
       {/* Main Body */}
-      <HeroCarousel pharmacyName={pharmacyName} onOpenScanner={() => setIsScannerOpen(true)} onBrowseCatalog={() => onTriggerSearch()} onOpenBulkDeals={onOpenBulkDeals} />
-      <div className="p-4 space-y-4 pb-32">
-        {/* Search & Scan Actions */}
+      {error ? (
+        <div className="flex-1 overflow-hidden relative">
+          <ErrorState 
+            message={error} 
+            onRetry={fetchHomeWidgets} 
+          />
+        </div>
+      ) : (
+        <>
+          <HeroCarousel pharmacyName={pharmacyName} onOpenScanner={() => setIsScannerOpen(true)} onBrowseCatalog={() => onTriggerSearch()} onOpenBulkDeals={onOpenBulkDeals} />
+          <div className="p-4 space-y-4 pb-32">
+            {/* Search & Scan Actions */}
         <div className="flex gap-2">
           <div
             onClick={() => onTriggerSearch()}
@@ -280,7 +302,7 @@ export default function Home({
         </div>
 
         {/* Frequent / Recently Ordered */}
-        {frequentProducts.length > 0 && (
+        {(frequentProducts.length > 0 || isLoading) && (
           <div className="space-y-2.5">
             <div className="flex justify-between items-center">
               <h3 className="text-[10px] uppercase font-bold text-slate-400 tracking-wider flex items-center gap-1">
@@ -289,7 +311,11 @@ export default function Home({
               </h3>
             </div>
             <div className="flex gap-3 overflow-x-auto pb-2 pr-4 -mr-4 pl-1">
-              {frequentProducts.map(p => {
+              {isLoading
+                ? Array.from({ length: 4 }).map((_, i) => (
+                    <ProductCardSkeleton key={`freq-skel-${i}`} layout="frequent" />
+                  ))
+                : frequentProducts.map(p => {
                 const inCartQty = cartQuantities[p.id] || 0;
                 return (
                   <div
@@ -365,7 +391,11 @@ export default function Home({
             </h3>
           </div>
           <div className="space-y-2.5">
-            {bestDeals.map((p) => (
+            {isLoading 
+              ? Array.from({ length: 3 }).map((_, i) => (
+                  <ProductCardSkeleton key={`deal-skel-${i}`} layout="horizontal" />
+                ))
+              : bestDeals.map((p) => (
               <ProductCard
                 key={p.id}
                 product={p}
@@ -390,7 +420,11 @@ export default function Home({
             </h3>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-            {highestDiscounts.map((p) => (
+            {isLoading
+              ? Array.from({ length: 4 }).map((_, i) => (
+                  <ProductCardSkeleton key={`discount-skel-${i}`} layout="grid" />
+                ))
+              : highestDiscounts.map((p) => (
               <ProductCard
                 key={p.id}
                 product={p}
@@ -406,6 +440,8 @@ export default function Home({
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }

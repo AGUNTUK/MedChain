@@ -142,7 +142,13 @@ export default function PharmacyRegistrationWizard({
         onComplete(payload);
       }
     } catch (err: any) {
-      setError(err.message || "Failed to submit pharmacy registration. Please try again.");
+      if (err.fields) {
+        setError(Object.values(err.fields).join(" "));
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Failed to submit pharmacy registration. Please try again.");
+      }
     } finally {
       setLoading(false);
     }

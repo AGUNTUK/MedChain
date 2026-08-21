@@ -49,7 +49,7 @@ export const orderService = {
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.error || "Failed to finalize checkout and place order.");
+      if (errData.fields) { throw { message: errData.error || "Validation failed", fields: errData.fields }; } throw new Error(errData.error || "Failed to finalize checkout and place order.");
     }
 
     return response.json();

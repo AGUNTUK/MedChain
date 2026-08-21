@@ -1,61 +1,70 @@
 import { supabase } from "../lib/supabaseClient";
 import { BulkCampaign, BulkCampaignProduct } from "../types";
+import { apiCache } from "../lib/apiCache";
 
 export const bulkDealsService = {
   async getCampaigns(): Promise<BulkCampaign[]> {
-    const { data, error } = await supabase
-      .from("bulk_campaigns")
-      .select("*")
-      .order("created_at", { ascending: false });
+    return apiCache.swr("bulk_campaigns", async () => {
+      const { data, error } = await supabase
+        .from("bulk_campaigns")
+        .select("*")
+        .order("created_at", { ascending: false });
       
-    if (error) {
-      console.error("Error fetching bulk campaigns:", error);
-      return [];
-    }
-    return data as BulkCampaign[];
+      if (error) {
+        console.error("Error fetching bulk campaigns:", error);
+        return [];
+      }
+      return data as BulkCampaign[];
+    });
   },
 
   async getLiveCampaign(): Promise<BulkCampaign | null> {
-    const { data, error } = await supabase
-      .from("bulk_campaigns")
-      .select("*")
-      .eq("status", "Live")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    return apiCache.swr("live_campaign", async () => {
+      const { data, error } = await supabase
+        .from("bulk_campaigns")
+        .select("*")
+        .eq("status", "Live")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
       
-    if (error) {
-      console.error("Error fetching live campaign:", error);
-      return null;
-    }
-    return data as BulkCampaign | null;
+      if (error) {
+        console.error("Error fetching live campaign:", error);
+        return null;
+      }
+      return data as BulkCampaign | null;
+    });
   },
 
   async getCampaignById(id: string): Promise<BulkCampaign | null> {
-    const { data, error } = await supabase
-      .from("bulk_campaigns")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
+    return apiCache.swr(`campaign_${id}`, async () => {
+      const { data, error } = await supabase
+        .from("bulk_campaigns")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
       
-    if (error) {
-      console.error("Error fetching campaign by id:", error);
-      return null;
-    }
-    return data as BulkCampaign | null;
+      if (error) {
+        console.error("Error fetching campaign by id:", error);
+        return null;
+      }
+      return data as BulkCampaign | null;
+    });
   },
 
   async getCampaignProducts(campaignId: string): Promise<BulkCampaignProduct[]> {
-    const { data, error } = await supabase
-      .from("bulk_campaign_products")
-      .select("*, product:products(*)")
-      .eq("campaign_id", campaignId);
+    return apiCache.swr(`campaign_products_${campaignId}`, async () => {
+      const { data, error } = await supabase
+        .from("bulk_campaign_products")
+        .select("*, product:products(*)")
+        .eq("campaign_id", campaignId);
       
-    if (error) {
-      console.error("Error fetching campaign products:", error);
-      return [];
-    }
-    return data as BulkCampaignProduct[];
+      if (error) {
+        console.error("Error fetching campaign products:", error);
+        return [];
+      }
+      return data as BulkCampaignProduct[];
+    });
   },
 
   async createCampaign(campaign: Partial<BulkCampaign>): Promise<BulkCampaign | null> {

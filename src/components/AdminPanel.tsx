@@ -580,6 +580,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
         // Update product row in place without full page refetch
         setProducts(prev => prev.map(p => p.id === selectedProductForEdit.id ? updatedProduct : p));
         setSuccessMsg("Medicine details updated successfully (saved via PATCH).");
+        productService.clearCache();
       } else {
         const res = await fetch("/api/admin/products", {
           method: "POST",
@@ -593,6 +594,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
         }
 
         setSuccessMsg("New medicine added to platform catalog.");
+        productService.clearCache();
         refreshAllData();
       }
 
@@ -617,6 +619,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
       }
 
       setSuccessMsg("Medicine removed from catalog.");
+      productService.clearCache();
       refreshAllData();
     } catch (err: any) {
       setErrorMsg(err.message || "An error occurred.");
@@ -2847,8 +2850,13 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
         isOpen={isProductModalOpen}
         onClose={() => setIsProductModalOpen(false)}
         onSave={async (productData) => {
-          const res = await fetch("/api/admin/products", {
-            method: "POST",
+          const method = selectedProductForEdit ? "PATCH" : "POST";
+          const url = selectedProductForEdit 
+            ? `/api/admin/products/${selectedProductForEdit.id}` 
+            : "/api/admin/products";
+          
+          const res = await fetch(url, {
+            method,
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(productData)
           });
@@ -2859,6 +2867,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
           }
 
           setSuccessMsg(selectedProductForEdit ? "Medicine details updated successfully." : "New medicine added to platform catalog.");
+          productService.clearCache();
           setIsProductModalOpen(false);
           refreshAllData();
         }}

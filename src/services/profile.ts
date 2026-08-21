@@ -1,4 +1,5 @@
 import { Pharmacy } from "../types";
+import { apiCache } from "../lib/apiCache";
 
 /**
  * MediChain Pharmacy Profile Service
@@ -11,7 +12,7 @@ export const profileService = {
    * Retrieves the physical trade profile and credit metrics for the current pharmacy owner.
    */
   async getPharmacyProfile(): Promise<Pharmacy | null> {
-    try {
+    return apiCache.swr("pharmacy_profile", async () => {
       const res = await fetch("/api/pharmacy/profile");
       if (res.status === 401 || res.status === 404) {
         return null;
@@ -19,11 +20,8 @@ export const profileService = {
       if (!res.ok) {
         return null;
       }
-      return await res.json();
-    } catch (err) {
-      console.warn("Failed to load pharmacy profile details (network error):", err);
-      return null;
-    }
+      return res.json();
+    });
   },
 
   /**
@@ -38,9 +36,12 @@ export const profileService = {
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.error || "Failed to update pharmacy verification profile.");
+      if (errData.fields) { throw { message: errData.error || "Validation failed", fields: errData.fields }; } throw new Error(errData.error || "Failed to update pharmacy verification profile.");
     }
 
-    return response.json();
+    const data = await response.json();
+    // Invalidate the cached profile so the next fetch gets the fresh one
+    apiCache.invalidate("pharmacy_profile");
+    return data;
   },
 };

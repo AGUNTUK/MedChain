@@ -74,7 +74,7 @@ export const authService = {
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || "Failed local offline registration.");
+        if (errData.fields) { throw { message: errData.error || "Validation failed", fields: errData.fields }; } throw new Error(errData.error || "Failed local offline registration.");
       }
 
       return response.json();
@@ -148,7 +148,7 @@ export const authService = {
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || "Failed local offline login.");
+        if (errData.fields) { throw { message: errData.error || "Validation failed", fields: errData.fields }; } throw new Error(errData.error || "Failed local offline login.");
       }
 
       return response.json();

@@ -80,43 +80,13 @@ app.use((req: any, res: any, next: any) => {
   next();
 });
 
-// --- RATE LIMITER MIDDLEWARE ---
+import { authLimiter, orderLimiter, publicLimiter, schemas, validateBody, sanitizeInput } from "./src/lib/security.js";
 
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+// Global input sanitization
+app.use(sanitizeInput);
 
-function rateLimiter(options: { windowMs: number; max: number; message: string }) {
-  return (req: any, res: any, next: any) => {
-    const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "global";
-    const key = `${req.path}:${ip}`;
-    const now = Date.now();
-
-    const record = rateLimitStore.get(key);
-
-    if (!record || now > record.resetAt) {
-      rateLimitStore.set(key, { count: 1, resetAt: now + options.windowMs });
-      return next();
-    }
-
-    if (record.count >= options.max) {
-      return res.status(429).json({ error: options.message });
-    }
-
-    record.count++;
-    next();
-  };
-}
-
-const loginLimiter = rateLimiter({
-  windowMs: 60 * 1000,
-  max: 15,
-  message: "Too many login attempts. Please try again after 1 minute."
-});
-
-const importLimiter = rateLimiter({
-  windowMs: 60 * 1000,
-  max: 10,
-  message: "Too many catalog imports. Please try again after 1 minute."
-});
+const loginLimiter = authLimiter;
+const importLimiter = authLimiter; // Reuse auth limiter for import for now
 
 // --- LOCAL USER FALLBACK DATA STORE (SECURELY HASHED) ---
 
@@ -260,7 +230,7 @@ app.post("/api/diagnostic/verify-cart-products", requireAuth, async (req, res) =
 
 // --- AUTHENTICATION & SESSION ENDPOINTS ---
 
-app.post("/api/auth/local-signup", loginLimiter, async (req, res) => {
+app.post("/api/auth/local-signup", loginLimiter, validateBody(schemas.signup), async (req, res) => {
   const { email, password, name, role } = req.body;
   if (!email || !password || !name) {
     return res.status(400).json({ error: "Missing required registration parameters (email, password, name)." });
@@ -315,7 +285,7 @@ app.post("/api/auth/local-signup", loginLimiter, async (req, res) => {
   }
 });
 
-app.post("/api/auth/local-login", loginLimiter, async (req, res) => {
+app.post("/api/auth/local-login", loginLimiter, validateBody(schemas.login), async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: "Email and password are required." });
@@ -449,7 +419,7 @@ app.get("/api/pharmacy/profile", requireAuth, async (req, res) => {
   }
 });
 
-app.post("/api/pharmacy/profile", requireAuth, async (req, res) => {
+app.post("/api/pharmacy/profile", requireAuth, validateBody(schemas.pharmacyProfile), async (req, res) => {
   try {
     const { data: ph, error } = await dbService.updatePharmacyProfile(req.user.id, req.body);
 
@@ -500,7 +470,7 @@ app.get("/api/categories", async (req, res) => {
 
 const productCache: Record<string, { data: any, time: number }> = {};
 
-app.get("/api/products", async (req, res) => {
+app.get("/api/products", publicLimiter, async (req, res) => {
   const { search, category, filter, page, limit, paginate } = req.query;
 
   const pageNum = parseInt(page as string) || 1;
@@ -973,7 +943,7 @@ app.get("/api/orders", requireAuth, async (req, res) => {
   }
 });
 
-app.post("/api/orders", requireAuth, async (req, res) => {
+app.post("/api/orders", requireAuth, orderLimiter, validateBody(schemas.orderCreate), async (req, res) => {
   const { paymentMethod, notes, deliveryAddress, paymentStatus, transactionId } = req.body;
 
   try {
@@ -2119,7 +2089,7 @@ app.post("/api/admin/export-history", requireRole(["Admin"]), async (req, res) =
   }
 });
 
-app.post("/api/admin/products", requireRole(["Admin"]), async (req, res) => {
+app.post("/api/admin/products", requireRole(["Admin"]), validateBody(schemas.adminProduct), async (req, res) => {
   const productData = req.body;
   const validation = validateProduct(productData);
   if (!validation.isValid) {
@@ -2175,7 +2145,7 @@ app.post("/api/admin/products", requireRole(["Admin"]), async (req, res) => {
   }
 });
 
-app.patch("/api/admin/products/:id", requireRole(["Admin"]), async (req, res) => {
+app.patch("/api/admin/products/:id", requireRole(["Admin"]), validateBody(schemas.adminProduct), async (req, res) => {
   try {
     const existing = await dbService.getProductById(req.params.id);
     if (!existing) {

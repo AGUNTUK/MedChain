@@ -7,8 +7,8 @@ import { useFlyToCart } from "../context/FlyToCartContext";
 interface ProductCardProps {
   product: Product;
   cartQuantity?: number;
-  onAddToCart?: (productId: string, quantity: number) => void;
-  onUpdateCartQty?: (productId: string, currentQty: number, delta: number) => void;
+  onAddToCart?: (productId: string, quantity: number) => Promise<boolean | void> | void;
+  onUpdateCartQty?: (productId: string, currentQty: number, delta: number) => Promise<boolean | void> | void;
   onOpenDetails?: (product: Product) => void;
   className?: string;
   layout?: "grid" | "horizontal";
@@ -26,6 +26,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
   const { triggerFlyToCart } = useFlyToCart();
   const [orderQty, setOrderQty] = useState(1);
   const [isAdded, setIsAdded] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
   const [imageError, setImageError] = useState(false);
 
   const imageUrl = product.imageUrl || product.image_url;
@@ -38,24 +39,32 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
       ? Math.round(((product.mrp - product.sellingPrice) / product.mrp) * 100)
       : product.discountPercentage || 0;
 
-  const handleAddToCart = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleAddToCart = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-    if (isOutOfStock) return;
+    if (isOutOfStock || isAdding) return;
 
-    if (e.currentTarget) {
-      triggerFlyToCart(e.currentTarget, imageUrl);
+    setIsAdding(true);
+
+    try {
+      if (onAddToCart) {
+        await onAddToCart(product.id, orderQty);
+      } else if (onUpdateCartQty) {
+        await onUpdateCartQty(product.id, cartQuantity, orderQty);
+      }
+
+      if (e.currentTarget) {
+        triggerFlyToCart(e.currentTarget, imageUrl);
+      }
+
+      setIsAdded(true);
+      setTimeout(() => {
+        setIsAdded(false);
+      }, 1500);
+    } catch (error) {
+      console.error("Failed to add to cart:", error);
+    } finally {
+      setIsAdding(false);
     }
-
-    if (onAddToCart) {
-      onAddToCart(product.id, orderQty);
-    } else if (onUpdateCartQty) {
-      onUpdateCartQty(product.id, cartQuantity, orderQty);
-    }
-
-    setIsAdded(true);
-    setTimeout(() => {
-      setIsAdded(false);
-    }, 1500);
   };
 
   const handleIncrementOrderQty = (e: React.MouseEvent) => {
@@ -187,11 +196,11 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
               <button
                 type="button"
                 onClick={handleAddToCart}
-                disabled={isOutOfStock}
+                disabled={isOutOfStock || isAdding}
                 className={`py-1.5 px-3.5 rounded-xl text-xs font-black transition-all flex items-center gap-1 cursor-pointer shrink-0 ${
                   isAdded
                     ? "bg-emerald-600 text-white shadow-md"
-                    : isOutOfStock
+                    : isOutOfStock || isAdding
                     ? "bg-slate-100 text-slate-400 cursor-not-allowed"
                     : "bg-brand-lime hover:bg-brand-lime-dark text-slate-950 shadow-xs hover:shadow-md"
                 }`}
@@ -201,6 +210,8 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
                     <Check className="w-3.5 h-3.5" />
                     <span>Added</span>
                   </>
+                ) : isAdding ? (
+                  <span>Adding...</span>
                 ) : isOutOfStock ? (
                   <span>Out of Stock</span>
                 ) : (
@@ -365,11 +376,11 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
             <button
               type="button"
               onClick={handleAddToCart}
-              disabled={isOutOfStock}
+              disabled={isOutOfStock || isAdding}
               className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs ${
                 isAdded
                   ? "bg-emerald-600 text-white shadow-md"
-                  : isOutOfStock
+                  : isOutOfStock || isAdding
                   ? "bg-slate-100 text-slate-400 cursor-not-allowed"
                   : "bg-brand-lime hover:bg-brand-lime-dark text-slate-950 hover:shadow-md"
               }`}
@@ -379,6 +390,8 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
                   <Check className="w-3.5 h-3.5" />
                   <span>Added!</span>
                 </>
+              ) : isAdding ? (
+                <span>Adding...</span>
               ) : isOutOfStock ? (
                 <span>Out of Stock</span>
               ) : (

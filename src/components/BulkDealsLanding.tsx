@@ -23,6 +23,7 @@ export default function BulkDealsLanding({
   const [products, setProducts] = useState<BulkCampaignProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedManufacturer, setSelectedManufacturer] = useState<string>("All");
+  const [cartAdding, setCartAdding] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     loadCampaign();
@@ -175,11 +176,15 @@ export default function BulkDealsLanding({
                 const activeDiscount = activeTier ? activeTier.discountPercent : 0;
                 const currentPrice = product.sellingPrice * (1 - (activeDiscount / 100));
 
-                const handleAddToCartClick = (e: React.MouseEvent) => {
+                const handleAddToCartClick = async (e: React.MouseEvent) => {
                   e.stopPropagation();
+                  if (cartAdding[product.id]) return;
+
+                  setCartAdding(prev => ({ ...prev, [product.id]: true }));
                   // Default to first tier min quantity if adding new
                   const addQty = ascendingTiers.length > 0 ? ascendingTiers[0].minQty : 5;
-                  onAddToCart(product.id, addQty);
+                  await onAddToCart(product.id, addQty);
+                  setCartAdding(prev => ({ ...prev, [product.id]: false }));
                 };
 
                 return (
@@ -274,10 +279,17 @@ export default function BulkDealsLanding({
                       ) : (
                         <button
                           onClick={handleAddToCartClick}
-                          className="w-full py-2.5 bg-brand-charcoal text-brand-lime font-bold text-xs rounded-xl hover:bg-slate-800 transition-colors flex items-center justify-center gap-2"
+                          disabled={cartAdding[product.id]}
+                          className="w-full py-2.5 bg-brand-charcoal text-brand-lime font-bold text-xs rounded-xl hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                         >
-                          <ShoppingCart className="w-4 h-4" />
-                          Start Bulk Order
+                          {cartAdding[product.id] ? (
+                            <span className="animate-pulse">Adding...</span>
+                          ) : (
+                            <>
+                              <ShoppingCart className="w-4 h-4" />
+                              Start Bulk Order
+                            </>
+                          )}
                         </button>
                       )}
                     </div>
