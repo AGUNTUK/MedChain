@@ -873,8 +873,8 @@ app.get("/api/analytics", requireAuth, async (req, res) => {
 
     res.json({
       totalPurchase,
-      activeCredit: pharmacy.usedCredit,
-      dueAmount: pharmacy.usedCredit,
+      activeCredit: 0,
+      dueAmount: 0,
       totalSavings,
       ordersTrend
     });
@@ -915,8 +915,8 @@ app.get("/api/pharmacy/dashboard-summary", requireAuth, async (req, res) => {
     res.json({
       totalOrders,
       monthlyPurchase,
-      creditLimit: pharmacy.creditLimit,
-      outstandingDue: pharmacy.usedCredit,
+      creditLimit: 0,
+      outstandingDue: 0,
       savedAmount
     });
   } catch (err: any) {
@@ -1727,27 +1727,6 @@ app.post("/api/admin/pharmacies/:id/status", requireRole(["Admin"]), async (req,
   }
 });
 
-app.post("/api/admin/pharmacies/:id/credit", requireRole(["Admin"]), async (req, res) => {
-  const { creditLimit } = req.body;
-  if (creditLimit === undefined) {
-    return res.status(400).json({ error: "Missing creditLimit parameter." });
-  }
-  const numericLimit = parseFloat(creditLimit);
-  if (isNaN(numericLimit) || numericLimit < 0) {
-    return res.status(400).json({ error: "Invalid credit limit value." });
-  }
-
-  try {
-    const { error } = await dbService.adjustPharmacyCredit(req.params.id, numericLimit);
-    if (error) return res.status(400).json({ error: error.message });
-
-    const updated = await dbService.getPharmacyById(req.params.id);
-    await dbService.logAudit(`Adjusted credit limit of pharmacy ID ${req.params.id} to ৳${numericLimit.toLocaleString()}`, "Finance", req.params.id, req.user.email, req.user.role);
-    res.json({ success: true, pharmacy: updated });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 app.get("/api/admin/pharmacies/pending", requireRole(["Admin"]), async (req, res) => {
   try {
@@ -2404,7 +2383,7 @@ app.get("/api/admin/finance/summary", requireRole(["Admin"]), async (req, res) =
       .reduce((sum, o) => sum + o.totalAmount, 0);
 
     const pharmacies = await dbService.getAllPharmacies();
-    const totalOutstandingCredit = pharmacies.reduce((sum, ph) => sum + (ph.usedCredit || 0), 0);
+    const totalOutstandingCredit = 0;
 
     const paymentHistory = orders
       .filter(o => o.paymentStatus === "Paid" || o.paymentStatus === "Refunded")

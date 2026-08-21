@@ -38,7 +38,7 @@ export default function AuditLogPanel({
       action: "PHARMACY_VERIFIED",
       module: "Pharmacy Verification",
       referenceId: "#PHARM-8042",
-      details: "Approved DGDA Drug License #DL-DHAKA-10294. Assigned ৳50,000 credit line.",
+      details: "Approved DGDA Drug License #DL-DHAKA-10294. Assigned B2B status.",
       status: "Success",
       ipAddress: "103.114.172.10"
     },

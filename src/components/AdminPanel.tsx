@@ -174,7 +174,6 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
 
   // Pharmacy Management Search Filters
   const [pharmacySearchStatus, setPharmacySearchStatus] = useState<"All" | "Pending" | "Verified" | "Suspended">("All");
-  const [creditAdjustmentLimit, setCreditAdjustmentLimit] = useState<string>("");
 
   const fetchPriceHistory = async (productId: string) => {
     try {
@@ -950,10 +949,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
         phone: "01712345678",
         address: "House 42, Road 9A, Dhanmondi",
         city: "Dhaka",
-        licenseNo: "DC-PH-2025-1194",
-        creditLimit: 20000,
-        usedCredit: 0,
-        availableCredit: 20000
+        licenseNo: "DC-PH-2025-1194"
       };
 
       setSelectedInvoice({
@@ -1183,27 +1179,6 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
     } catch (err) {
       console.error(err);
       setErrorMsg("Failed to update pharmacy verification status.");
-    }
-  };
-
-  const handleAdjustPharmacyCredit = async (pharmacyId: string, creditLimit: string) => {
-    try {
-      const res = await fetch(`/api/admin/pharmacies/${pharmacyId}/credit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ creditLimit })
-      });
-      if (res.ok) {
-        setSuccessMsg("Credit limit adjusted successfully.");
-        setCreditAdjustmentLimit("");
-        refreshAllData();
-      } else {
-        const err = await res.json();
-        setErrorMsg(err.error || "Failed to adjust credit limit.");
-      }
-    } catch (err) {
-      console.error(err);
-      setErrorMsg("Failed to adjust credit limit.");
     }
   };
 
@@ -1473,7 +1448,7 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
               {activeRoute === "/admin/orders" && "B2B WHOLESALE PROCUREMENTS"}
               {activeRoute === "/admin/pharmacies" && "B2B PHARMACY REGISTRY"}
               {activeRoute === "/admin/notifications" && "ALERTS BROADCAST RADAR"}
-              {activeRoute === "/admin/finance" && "FINANCE & CREDIT ACCOUNTING"}
+              {activeRoute === "/admin/finance" && "FINANCE ACCOUNTING"}
               {activeRoute === "/admin/audit-logs" && "SYSTEM TRANSACTION AUDIT LOGS"}
               {activeRoute === "/admin/settings" && "SYSTEM PLATFORM SCHEMAS"}
               {activeRoute === "/admin/ai-enrichment" && "AI PRODUCT ENRICHMENT ENGINE"}
@@ -1733,7 +1708,6 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                                     </div>
                                   </div>
                                   <div className="text-right">
-                                    <p className="font-bold text-emerald-400 text-[10px]">৳{ph.availableCredit.toLocaleString()} Credit</p>
                                     <p className="text-[9px] text-slate-500">{ph.city}</p>
                                   </div>
                                 </div>
@@ -2610,39 +2584,30 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                 />
               )}
 
-              {/* SCREEN: FINANCE & CREDIT ACCOUNTING */}
+              {/* SCREEN: FINANCE ACCOUNTING */}
               {activeRoute === "/admin/finance" && (
                 <div className="space-y-6 animate-fade-in text-slate-700">
-                  {/* Summary Cards */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-xl font-bold tracking-tight text-slate-900">Financial Ledger</h2>
+                      <p className="text-xs text-slate-500 mt-0.5">Aggregate tracking of all processed wholesale transactions and revenue streams.</p>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="bg-white/60 border border-slate-200 p-4 sm:p-5 rounded-2xl space-y-2">
-                      <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Total Credit Limits Authorized</p>
-                      <h3 className="text-xl font-black text-slate-900">৳{financeSummary?.totalCreditLimit?.toLocaleString() || "0"}</h3>
-                      <p className="text-[9px] text-slate-500">Aggregated credit caps across registry</p>
-                    </div>
-                    <div className="bg-white/60 border border-slate-200 p-4 sm:p-5 rounded-2xl space-y-2">
-                      <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Outstanding Balances (Receivables)</p>
-                      <h3 className="text-xl font-black text-rose-400">৳{financeSummary?.totalOutstanding?.toLocaleString() || "0"}</h3>
-                      <p className="text-[9px] text-slate-500">Aggregated credit balances currently utilized</p>
-                    </div>
-                    <div className="bg-white/60 border border-slate-200 p-4 sm:p-5 rounded-2xl space-y-2">
-                      <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Aggregated Available Credit</p>
-                      <h3 className="text-xl font-black text-emerald-400">৳{financeSummary?.totalAvailableCredit?.toLocaleString() || "0"}</h3>
-                      <p className="text-[9px] text-slate-500 font-medium text-emerald-500/80">Liquidity safety headroom buffer</p>
-                    </div>
-                    <div className="bg-white/60 border border-slate-200 p-4 sm:p-5 rounded-2xl space-y-2">
-                      <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Total Revenue Paid</p>
-                      <h3 className="text-xl font-black text-indigo-400">৳{financeSummary?.totalPaidAmount?.toLocaleString() || "0"}</h3>
-                      <p className="text-[9px] text-slate-500">Aggregated invoice payouts recorded</p>
+                      <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Gross Revenue Processed</p>
+                      <h3 className="text-xl font-black text-slate-900">৳{financeSummary?.totalPaidAmount?.toLocaleString() || "0"}</h3>
+                      <p className="text-[9px] text-slate-500">Total value of all completed orders</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-                    {/* Left 2 cols: Pharmacy Credit Accounts */}
+                    {/* Left 2 cols: Pharmacy Registrations */}
                     <div className="lg:col-span-2 space-y-4">
                       <div className="bg-white/60 border border-slate-200 rounded-2xl p-4 sm:p-6 space-y-4">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                          <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">B2B Pharmacy Credit Registers</h3>
+                          <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">B2B Pharmacy Registrations</h3>
                           <div className="relative w-full sm:w-64">
                             <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                             <input
@@ -2654,15 +2619,11 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                             />
                           </div>
                         </div>
-
                         <div className="overflow-x-auto border border-slate-900 rounded-xl">
                           <table className="w-full text-left text-xs border-collapse">
                             <thead>
                               <tr className="bg-slate-50 text-slate-500 uppercase text-[9px] font-extrabold tracking-wider border-b border-slate-850">
                                 <th className="px-4 py-3">Pharmacy</th>
-                                <th className="px-4 py-3 text-right">Credit Bound</th>
-                                <th className="px-4 py-3 text-right">Used Credit</th>
-                                <th className="px-4 py-3 text-right">Available Limit</th>
                                 <th className="px-4 py-3 text-center">Status</th>
                               </tr>
                             </thead>
@@ -2674,15 +2635,6 @@ export default function AdminPanel({ currentUser, onLogout }: AdminPanelProps) {
                                     <td className="px-4 py-3">
                                       <p className="font-extrabold text-slate-900">{ph.pharmacyName}</p>
                                       <p className="text-[10px] text-slate-500 font-bold">{ph.city}</p>
-                                    </td>
-                                    <td className="px-4 py-3 text-right font-black text-slate-900">
-                                      ৳{ph.creditLimit?.toLocaleString()}
-                                    </td>
-                                    <td className="px-4 py-3 text-right font-black text-rose-400">
-                                      ৳{ph.usedCredit?.toLocaleString()}
-                                    </td>
-                                    <td className="px-4 py-3 text-right font-black text-emerald-400">
-                                      ৳{ph.availableCredit?.toLocaleString()}
                                     </td>
                                     <td className="px-4 py-3 text-center">
                                       <span className={`text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-full ${

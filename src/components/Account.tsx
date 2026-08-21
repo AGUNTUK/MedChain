@@ -43,7 +43,7 @@ export default function Account({
       const dataFav = await productService.getFavourites();
       setFavProducts(dataFav);
 
-      // Fetch completed orders to calculate credit line eligibility
+      // Fetch completed orders to calculate eligibility
       const orders = await orderService.getOrders();
       const completedTotal = orders
         .filter(o => o.status === 'Delivered' || o.status === 'Completed' || o.paymentStatus === 'Paid')
@@ -136,14 +136,14 @@ export default function Account({
         let icon = <AlertTriangle className="w-5 h-5 text-rose-500" />;
         let statusText = "Verification Required";
         let statusBadgeClass = "bg-rose-500/10 text-rose-600 border-rose-500/20";
-        let subText = "Tap to submit your National ID card and Drug License documents to unlock premium wholesale credit limits.";
+        let subText = "Tap to submit your National ID card and Drug License documents to unlock premium wholesale.";
 
         if (kycStatus === "Approved") {
           cardBg = "bg-emerald-50 border-emerald-100 text-emerald-800";
           icon = <Award className="w-5 h-5 text-emerald-600" />;
           statusText = "Verified Pharmacy";
           statusBadgeClass = "bg-emerald-500/10 text-emerald-600 border-emerald-500/20";
-          subText = "DGDA B2B regulatory audit completed. Priority dispatching and wholesale credit lines fully unlocked.";
+          subText = "DGDA B2B regulatory audit completed. Priority dispatching unlocked.";
         } else if (kycStatus === "Pending" || kycStatus === "Under Review") {
           cardBg = "bg-amber-50 border-amber-100 text-amber-850";
           icon = <Clock className="w-5 h-5 text-amber-500 animate-pulse" />;
@@ -183,70 +183,7 @@ export default function Account({
         );
       })()}
 
-      {/* High-Fidelity Credit Line & Balance Dashboard */}
-      <div className={`bg-gradient-to-br from-slate-900 via-slate-950 to-brand-charcoal border rounded-3xl p-5 text-slate-300 shadow-xl space-y-4 transition-all ${
-        isVerified ? "border-slate-800" : "border-rose-500/20"
-      }`}>
-        <div className="flex justify-between items-center border-b border-slate-800/80 pb-3">
-          <div className="flex items-center gap-2">
-            <Shield className="w-5 h-5 text-brand-purple" />
-            <div>
-              <h4 className="font-extrabold text-white text-xs tracking-tight">Wholesale Credit Line</h4>
-              <p className="text-[8.5px] text-slate-400 font-semibold font-mono">DGDA License Compliant Accounts Only</p>
-            </div>
-          </div>
-          <span className={`text-[8px] font-black px-2 py-0.5 rounded-full border ${
-            totalPurchased >= 0 && isVerified
-              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25 animate-pulse"
-              : "bg-amber-500/10 text-amber-400 border-amber-500/25"
-          }`}>
-            {totalPurchased >= 0 && isVerified ? "Eligible / Unlocked" : "In Progress"}
-          </span>
-        </div>
 
-        {/* Progress Bar Section */}
-        <div className="space-y-2">
-          <div className="flex justify-between items-end">
-            <div>
-              <span className="text-[9px] text-slate-400 block font-bold uppercase tracking-wider">Purchase Goal</span>
-              <span className="text-sm font-black text-white font-mono mt-0.5 block">
-                Total Purchased: ৳{totalPurchased.toLocaleString()} / ৳0
-              </span>
-            </div>
-            <span className="text-xs font-black text-brand-lime font-mono">
-              {Math.min(100, (totalPurchased / 1) * 100).toFixed(1)}%
-            </span>
-          </div>
-          <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-brand-lime rounded-full transition-all duration-1000"
-              style={{ width: `${Math.min(100, (totalPurchased / 1) * 100)}%` }}
-            ></div>
-          </div>
-        </div>
-
-        {/* Financial Metrics */}
-        <div className={`grid grid-cols-3 gap-2 text-center py-1 transition-opacity duration-255 ${isVerified ? "opacity-100" : "opacity-60"}`}>
-          <div className="bg-white/5 rounded-2xl p-2.5 border border-white/[0.04]">
-            <span className="text-[8.5px] text-slate-400 block font-bold uppercase tracking-wider">Total Limit</span>
-            <span className="text-sm font-black text-white font-mono mt-1 block">
-              ৳{totalPurchased >= 0 && isVerified ? "20,000" : "0"}
-            </span>
-          </div>
-          <div className="bg-white/5 rounded-2xl p-2.5 border border-white/[0.04]">
-            <span className="text-[8.5px] text-slate-400 block font-bold uppercase tracking-wider">Outstanding</span>
-            <span className="text-sm font-black text-rose-400 font-mono mt-1 block">
-              ৳{pharmacy && isVerified ? pharmacy.usedCredit.toLocaleString() : "0"}
-            </span>
-          </div>
-          <div className="bg-brand-purple/10 rounded-2xl p-2.5 border border-brand-purple/20">
-            <span className="text-[8.5px] text-brand-purple block font-black uppercase tracking-wider">Available</span>
-            <span className="text-sm font-black text-brand-lime font-mono mt-1 block">
-              ৳{totalPurchased >= 0 && isVerified ? (20000 - (pharmacy?.usedCredit || 0)).toLocaleString() : "0"}
-            </span>
-          </div>
-        </div>
-      </div>
 
       {/* Savings Metric Row */}
       {analytics && (

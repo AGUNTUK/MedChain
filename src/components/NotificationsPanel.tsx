@@ -104,7 +104,7 @@ export default function NotificationsPanel({ onClose, onRefreshNotifications }: 
           {!loading && notifications.length === 0 ? (
             <div className="text-center py-12 text-slate-400">
               <p className="text-xs font-semibold">No Broadcasts Active</p>
-              <p className="text-[9px] text-slate-400 mt-1">Updates on restocks and credit limits will show up here.</p>
+              <p className="text-[9px] text-slate-400 mt-1">Updates on restocks and approvals will show up here.</p>
             </div>
           ) : (
             notifications.map(n => {

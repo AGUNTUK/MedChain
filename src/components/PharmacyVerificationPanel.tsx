@@ -32,7 +32,6 @@ export default function PharmacyVerificationPanel({
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | "Pending" | "Verified" | "Suspended">("All");
   const [selectedPharmacy, setSelectedPharmacy] = useState<Pharmacy | null>(null);
-  const [creditLimitInput, setCreditLimitInput] = useState<string>("20000");
   const [rejectionReason, setRejectionReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [actionSuccess, setActionSuccess] = useState("");
@@ -69,7 +68,7 @@ export default function PharmacyVerificationPanel({
     return matchesSearch && matchesStatus;
   });
 
-  const handleUpdateStatus = async (pharmacyId: string, status: "Verified" | "Suspended" | "Pending", creditLimit?: number) => {
+  const handleUpdateStatus = async (pharmacyId: string, status: "Verified" | "Suspended" | "Pending") => {
     setActionLoading(true);
     setActionError("");
     setActionSuccess("");
@@ -82,8 +81,7 @@ export default function PharmacyVerificationPanel({
         body: JSON.stringify({
           status,
           reason: rejectionReason,
-          rejectionReason,
-          creditLimit
+          rejectionReason
         })
       });
 
@@ -115,7 +113,7 @@ export default function PharmacyVerificationPanel({
             <h2 className="text-xl font-bold tracking-tight">Pharmacy Compliance & Verification Hub</h2>
           </div>
           <p className="text-xs text-slate-300 mt-1">
-            Validate DGDA drug license credentials, assign wholesale credit lines, and verify B2B accounts across Bangladesh.
+            Validate DGDA drug license credentials and verify B2B accounts across Bangladesh.
           </p>
         </div>
 
@@ -252,12 +250,6 @@ export default function PharmacyVerificationPanel({
                         {pharm.address || pharm.city || "Dhaka"}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between pt-1 border-t border-slate-200">
-                      <span className="text-slate-400">Approved Credit:</span>
-                      <span className="font-bold text-emerald-700">
-                        ৳{(pharm.creditLimit || 20000).toLocaleString()} BDT
-                      </span>
-                    </div>
                   </div>
                 </div>
 
@@ -265,7 +257,6 @@ export default function PharmacyVerificationPanel({
                   <button
                     onClick={() => {
                       setSelectedPharmacy(pharm);
-                      setCreditLimitInput((pharm.creditLimit || 20000).toString());
                     }}
                     className="flex-1 py-2 px-3 bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
@@ -275,7 +266,7 @@ export default function PharmacyVerificationPanel({
 
                   {isPending && (
                     <button
-                      onClick={() => handleUpdateStatus(pharm.id, "Verified", 20000)}
+                      onClick={() => handleUpdateStatus(pharm.id, "Verified")}
                       className="py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-1 transition-colors cursor-pointer"
                       title="Quick Approve"
                     >
@@ -297,7 +288,7 @@ export default function PharmacyVerificationPanel({
             <div className="p-5 bg-gradient-to-r from-teal-800 to-slate-900 text-white flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-base">{selectedPharmacy.pharmacyName}</h3>
-                <p className="text-xs text-teal-200">DGDA Compliance & Credit Approval Inspection</p>
+                <p className="text-xs text-teal-200">DGDA Compliance Approval Inspection</p>
               </div>
               <button
                 onClick={() => setSelectedPharmacy(null)}
@@ -325,19 +316,6 @@ export default function PharmacyVerificationPanel({
                   <span className="text-slate-400 block text-[11px]">Current Status</span>
                   <span className="font-bold text-amber-700">{selectedPharmacy.status || "Pending"}</span>
                 </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Assigned B2B Credit Limit (BDT ৳)</label>
-                <input
-                  type="number"
-                  value={creditLimitInput}
-                  onChange={(e) => setCreditLimitInput(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-                <p className="text-[10px] text-slate-500 mt-1">
-                  Default credit line for pharmacy procurement orders is ৳20,000 BDT.
-                </p>
               </div>
 
               {selectedPharmacy.status !== "Suspended" && (
@@ -374,12 +352,12 @@ export default function PharmacyVerificationPanel({
               <button
                 disabled={actionLoading}
                 onClick={() =>
-                  handleUpdateStatus(selectedPharmacy.id, "Verified", parseFloat(creditLimitInput) || 20000)
+                  handleUpdateStatus(selectedPharmacy.id, "Verified")
                 }
                 className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl flex items-center gap-1 shadow-md cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                Approve & Grant Credit
+                Approve & Verify
               </button>
             </div>
           </div>

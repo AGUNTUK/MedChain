@@ -40,9 +40,6 @@ export interface Pharmacy {
   verificationNotes?: string;
   verifiedBy?: string;
   verifiedAt?: string;
-  creditLimit: number;
-  usedCredit: number;
-  availableCredit: number;
   
   // Custom Profile & KYC Verification Fields
   nidNumber?: string;
@@ -58,14 +55,6 @@ export interface Pharmacy {
   streetAddress?: string;
   logoUrl?: string;
   email?: string;
-}
-
-export interface CreditAccount {
-  id: string;
-  pharmacyId: string;
-  creditLimit: number;
-  usedCredit: number;
-  status: "Active" | "Suspended";
 }
 
 export type OrderStatus = "Pending" | "Confirmed" | "Processing" | "Packed" | "Out for Delivery" | "Delivered" | "Completed" | "Cancelled" | "Failed";

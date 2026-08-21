@@ -368,13 +368,6 @@ export async function getPharmacyProfile(userId: string): Promise<Pharmacy | nul
 
   if (!ph) return null;
 
-  // Get credit metrics
-  const { data: cr } = await supabaseAdmin
-    .from("credit_accounts")
-    .select("pharmacy_id, credit_limit, used_credit, available_credit")
-    .eq("pharmacy_id", ph.id)
-    .maybeSingle();
-
   const license = deserializeLicenseInfo(ph.license_information);
 
   return {
@@ -388,10 +381,7 @@ export async function getPharmacyProfile(userId: string): Promise<Pharmacy | nul
     ...license,
     licenseNo: license.licenseNo,
     verificationStatus: license.verificationStatus as any,
-    verificationNotes: "",
-    creditLimit: cr ? parseFloat(cr.credit_limit) : 20000,
-    usedCredit: cr ? parseFloat(cr.used_credit) : 0,
-    availableCredit: cr ? parseFloat(cr.available_credit) : 20000
+    verificationNotes: ""
   };
 }
 
@@ -404,12 +394,6 @@ export async function getPharmacyById(pharmacyId: string): Promise<Pharmacy | nu
 
   if (!ph) return null;
 
-  const { data: cr } = await supabaseAdmin
-    .from("credit_accounts")
-    .select("pharmacy_id, credit_limit, used_credit, available_credit")
-    .eq("pharmacy_id", ph.id)
-    .maybeSingle();
-
   const license = deserializeLicenseInfo(ph.license_information);
 
   return {
@@ -423,10 +407,7 @@ export async function getPharmacyById(pharmacyId: string): Promise<Pharmacy | nu
     ...license,
     licenseNo: license.licenseNo,
     verificationStatus: license.verificationStatus as any,
-    verificationNotes: "",
-    creditLimit: cr ? parseFloat(cr.credit_limit) : 20000,
-    usedCredit: cr ? parseFloat(cr.used_credit) : 0,
-    availableCredit: cr ? parseFloat(cr.available_credit) : 20000
+    verificationNotes: ""
   };
 }
 
@@ -438,26 +419,9 @@ export async function getAllPharmacies(page = 1, limit = 100): Promise<Pharmacy[
 
   if (!list || list.length === 0) return [];
   
-  const pharmacyIds = list.map((ph: any) => ph.id);
-  
-  const { data: crList } = await supabaseAdmin
-    .from("credit_accounts")
-    .select("pharmacy_id, credit_limit, used_credit, available_credit")
-    .in("pharmacy_id", pharmacyIds);
-    
-  const crMap = new Map();
-  if (crList) {
-    crList.forEach((cr: any) => {
-      crMap.set(cr.pharmacy_id, cr);
-    });
-  }
-
   const out: Pharmacy[] = [];
   for (const ph of list) {
-    const cr = crMap.get(ph.id);
-
     const license = deserializeLicenseInfo(ph.license_information);
-
     out.push({
       id: ph.id,
       pharmacyName: ph.pharmacy_name,
@@ -469,10 +433,7 @@ export async function getAllPharmacies(page = 1, limit = 100): Promise<Pharmacy[
       ...license,
       licenseNo: license.licenseNo,
       verificationStatus: license.verificationStatus as any,
-      verificationNotes: "",
-      creditLimit: cr ? parseFloat(cr.credit_limit) : 20000,
-      usedCredit: cr ? parseFloat(cr.used_credit) : 0,
-      availableCredit: cr ? parseFloat(cr.available_credit) : 20000
+      verificationNotes: ""
     });
   }
   return out;
@@ -488,8 +449,12 @@ export async function updatePharmacyProfile(userId: string, data: any) {
 
   const existingLicense = existing ? deserializeLicenseInfo(existing.license_information) : {};
 
-  // Preserve status, default to Pending for new profiles if not specified
-  const status = data.verificationStatus || existingLicense.verificationStatus || "Pending";
+  // For security, ignore any verificationStatus overrides from the client.
+  // Status can only be changed by admin endpoints.
+  delete data.verificationStatus;
+
+  // Preserve existing status, default to Pending for new profiles
+  const status = existingLicense.verificationStatus || "Pending";
   
   // Merge existing details with incoming data details
   const mergedLicense = {
@@ -535,15 +500,6 @@ export async function updatePharmacyProfile(userId: string, data: any) {
       .update(userUpdatePayload)
       .eq("id", userId);
 
-    // Automatically create or update credit account with 100k credit limit
-    await supabaseAdmin
-      .from("credit_accounts")
-      .upsert({
-        id: `ca_${ph.id}`,
-        pharmacy_id: ph.id,
-        credit_limit: 20000.00,
-        used_credit: 0.00
-      }, { onConflict: "pharmacy_id" });
   }
 
   return { data: ph, error };
@@ -586,18 +542,8 @@ export async function updatePharmacyStatus(pharmacyId: string, status: string, a
 
   if (!error) {
     if (normalizedStatus === "Verified" || normalizedStatus === "Approved") {
-      // Automatically create or update credit account
-      await supabaseAdmin
-        .from("credit_accounts")
-        .upsert({
-          id: `ca_${pharmacyId}`,
-          pharmacy_id: pharmacyId,
-          credit_limit: 20000.00,
-          used_credit: 0.00
-        }, { onConflict: "pharmacy_id" });
-
       // Automatically send notification
-      await sendNotification(rawPh.id, "Account Approved", "Your pharmacy verification account has been fully approved! ৳100,000 credit limit is now active.", "system");
+      await sendNotification(rawPh.id, "Account Approved", "Your pharmacy verification account has been fully approved! Wholesale purchasing is now active.", "system");
     } else if (normalizedStatus === "Suspended" || normalizedStatus === "Rejected") {
       const reasonText = notes ? ` Reason: ${notes}` : " Please contact support for details.";
       await sendNotification(rawPh.id, "Account Suspended", `Your pharmacy account verification status is suspended.${reasonText}`, "system");
@@ -605,15 +551,6 @@ export async function updatePharmacyStatus(pharmacyId: string, status: string, a
       await sendNotification(rawPh.id, "Verification Pending", "Your pharmacy profile status is now set to Pending review.", "system");
     }
   }
-
-  return { error };
-}
-
-export async function adjustPharmacyCredit(pharmacyId: string, newLimit: number) {
-  const { error } = await supabaseAdmin
-    .from("credit_accounts")
-    .update({ credit_limit: newLimit })
-    .eq("pharmacy_id", pharmacyId);
 
   return { error };
 }
@@ -1033,82 +970,6 @@ export async function createOrderTransaction(userId: string, pharmacyId: string,
     const finalTotalAmount = totalAmount + deliveryCharge;
     const totalSavings = totalMrp - totalAmount;
 
-    // 3. Handle credit check and deduct credit if bKash/Nagad not paid or ordered on Credit
-    let requiresCreditHold = (orderPayload.paymentMethod === "Cash on Delivery" || orderPayload.paymentMethod === "Credit Account") && orderPayload.paymentStatus !== "Paid";
-    if (requiresCreditHold) {
-      // Check cumulative spend for eligibility
-      const { data: pastOrders } = await supabaseAdmin
-        .from("orders")
-        .select("total_amount, status")
-        .eq("pharmacy_id", pharmacyId)
-        .in("status", ["Delivered", "Completed", "Pending", "Processing", "Packed", "Shipped"]);
-      
-      let cumulativeSpend = (pastOrders || []).reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
-      // Changed to 0 to allow all users to use the credit facility in the demo/dev environment
-      const ELIGIBILITY_THRESHOLD = 0; 
-      const CREDIT_CYCLE_LIMIT = 20000;
-
-      if (cumulativeSpend < ELIGIBILITY_THRESHOLD) {
-        throw new Error(`Credit facility not unlocked. ৳${(ELIGIBILITY_THRESHOLD - cumulativeSpend).toLocaleString()} more cumulative purchases required.`);
-      }
-
-      let { data: creditAcct } = await supabaseAdmin
-        .from("credit_accounts")
-        .select("*")
-        .eq("pharmacy_id", pharmacyId)
-        .maybeSingle();
-
-      if (!creditAcct) {
-        await supabaseAdmin
-          .from("credit_accounts")
-          .insert({
-            id: `ca_${pharmacyId}`,
-            pharmacy_id: pharmacyId,
-            credit_limit: CREDIT_CYCLE_LIMIT,
-            used_credit: 0.00
-          });
-        const { data: newCreditAcct } = await supabaseAdmin
-          .from("credit_accounts")
-          .select("*")
-          .eq("pharmacy_id", pharmacyId)
-          .maybeSingle();
-        creditAcct = newCreditAcct;
-      }
-
-      let creditLimit = creditAcct ? parseFloat(creditAcct.credit_limit) : CREDIT_CYCLE_LIMIT;
-      let usedCredit = creditAcct ? parseFloat(creditAcct.used_credit) : 0.00;
-      
-      // Auto-replenish if fully settled
-      if (usedCredit <= 0 && creditLimit !== CREDIT_CYCLE_LIMIT) {
-          creditLimit = CREDIT_CYCLE_LIMIT;
-          await supabaseAdmin
-            .from("credit_accounts")
-            .update({ credit_limit: creditLimit, used_credit: 0 })
-            .eq("pharmacy_id", pharmacyId);
-      }
-
-      let availableCredit = creditLimit - usedCredit;
-
-      if (availableCredit < finalTotalAmount) {
-        throw new Error(`Credit limit exceeded (Available: ৳${availableCredit.toLocaleString()}). Please settle your dues or choose another payment method.`);
-      }
-
-      const newUsedCredit = usedCredit + finalTotalAmount;
-      const { error: creditErr } = await supabaseAdmin
-        .from("credit_accounts")
-        .update({ used_credit: newUsedCredit })
-        .eq("pharmacy_id", pharmacyId);
-
-      if (creditErr) throw new Error("Failed to reserve credit line limits.");
-
-      backupState.push(async () => {
-        await supabaseAdmin
-          .from("credit_accounts")
-          .update({ used_credit: usedCredit })
-          .eq("pharmacy_id", pharmacyId);
-      });
-    }
-
     // 4. Reserve stock / update inventory FEFO atomically
     for (const pUpd of productsToUpdate) {
       const { error: invErr } = await supabaseAdmin
@@ -1512,24 +1373,6 @@ export async function updateOrderStatus(orderId: string, status: string, notes?:
             .eq("id", inv.id);
         }
       }
-
-      // 2. Restore credit
-      const requiresCreditRestore = order.paymentMethod === "Cash on Delivery" || order.paymentMethod === "Credit Account" as any;
-      if (requiresCreditRestore) {
-        const { data: creditAcct } = await supabaseAdmin
-          .from("credit_accounts")
-          .select("*")
-          .eq("pharmacy_id", order.pharmacyId)
-          .maybeSingle();
-
-        if (creditAcct) {
-          const oldUsed = parseFloat(creditAcct.used_credit);
-          await supabaseAdmin
-            .from("credit_accounts")
-            .update({ used_credit: Math.max(0, oldUsed - order.totalAmount) })
-            .eq("pharmacy_id", order.pharmacyId);
-        }
-      }
     }
 
     // Send notifications to pharmacy
@@ -1835,38 +1678,6 @@ export async function approveReturn(returnId: string, adminId: string) {
       .eq("id", inv.id);
   }
 
-  // Restore credit used_credit limit
-  const { data: order } = await supabaseAdmin
-    .from("orders")
-    .select("pharmacy_id, total_amount")
-    .eq("id", ret.order_id)
-    .maybeSingle();
-
-  if (order) {
-    const { data: cr } = await supabaseAdmin
-      .from("credit_accounts")
-      .select("*")
-      .eq("pharmacy_id", order.pharmacy_id)
-      .maybeSingle();
-
-    if (cr) {
-      // Find the product and deduce refund amount
-      const { data: prod } = await supabaseAdmin
-        .from("products")
-        .select("selling_price")
-        .eq("id", ret.product_id)
-        .maybeSingle();
-
-      const refundValue = (prod ? parseFloat(prod.selling_price) : 0) * ret.quantity;
-      const newUsed = Math.max(0, parseFloat(cr.used_credit) - refundValue);
-
-      await supabaseAdmin
-        .from("credit_accounts")
-        .update({ used_credit: newUsed })
-        .eq("pharmacy_id", order.pharmacy_id);
-    }
-  }
-
   // Log Audit trail
   await logAudit(`Approved return request ${returnId} for product ${ret.product_id}`, "Returns", returnId);
 
@@ -1893,23 +1704,6 @@ export async function processPaymentGatewayTransaction(orderId: string, paymentM
     .from("invoices")
     .update({ amount_paid: payAmount, amount_due: 0 })
     .eq("order_id", orderId);
-
-  // 3. Restore used credit limit if order previously held credit
-  if (order.pharmacy_id) {
-    const { data: creditAcct } = await supabaseAdmin
-      .from("credit_accounts")
-      .select("*")
-      .eq("pharmacy_id", order.pharmacy_id)
-      .maybeSingle();
-
-    if (creditAcct && parseFloat(creditAcct.used_credit) > 0) {
-      const newUsed = Math.max(0, parseFloat(creditAcct.used_credit) - payAmount);
-      await supabaseAdmin
-        .from("credit_accounts")
-        .update({ used_credit: newUsed })
-        .eq("pharmacy_id", order.pharmacy_id);
-    }
-  }
 
   // 4. Log Audit
   await logAudit(`Payment of ৳${payAmount.toLocaleString()} verified via ${paymentMethod} Gateway (TrxID: ${transactionId}) for Order ${orderId}`, "Finance", orderId, "Pharmacy User", "PaymentGateway");

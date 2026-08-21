@@ -31,6 +31,7 @@ export default function KYCVerificationHub({ pharmacy, onClose, onSaveSuccess }:
 
   // Interactive Camera Simulators
   const [activeCameraField, setActiveCameraField] = useState<string | null>(null);
+  const [isUpdatingDocuments, setIsUpdatingDocuments] = useState(false);
 
   // Drag and Drop simulation active
   const [dragField, setDragField] = useState<string | null>(null);
@@ -155,8 +156,7 @@ export default function KYCVerificationHub({ pharmacy, onClose, onSaveSuccess }:
         licenseNo,
         drugLicenseExpiry,
         drugLicenseUrl,
-        tradeLicenseNo,
-        verificationStatus: "Pending" // Set to Pending review on submission
+        tradeLicenseNo
       };
 
       await profileService.updatePharmacyProfile(payload);
@@ -170,26 +170,7 @@ export default function KYCVerificationHub({ pharmacy, onClose, onSaveSuccess }:
     }
   };
 
-  const handleSimulateDevApproval = async (status: "Approved" | "Pending") => {
-    setLoading(true);
-    setError("");
-    try {
-      await profileService.updatePharmacyProfile({
-        verificationStatus: status,
-        licenseNo: licenseNo || "DC-PH-55992"
-      });
-      setSuccess(`Account status updated to ${status === "Approved" ? "Verified" : "Pending Approval"}.`);
-      onSaveSuccess();
-      setTimeout(() => {
-        setSuccess("");
-        onClose();
-      }, 1000);
-    } catch (err: any) {
-      setError(err.message || "Failed simulation.");
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   const getStatusDisplay = () => {
     const status = pharmacy?.verificationStatus || "Pending";
@@ -199,7 +180,7 @@ export default function KYCVerificationHub({ pharmacy, onClose, onSaveSuccess }:
         color: "bg-emerald-500",
         bg: "bg-emerald-50 border-emerald-200 text-emerald-800",
         icon: <CheckCircle2 className="w-8 h-8 text-emerald-500" />,
-        desc: "Congratulations! Your pharmacy accounts are fully verified. You have full access to wholesale B2B credit terms and DGDA license procurement options."
+        desc: "Congratulations! Your pharmacy accounts are fully verified. You have full access to DGDA license procurement options."
       };
     }
     if (status === "Pending" || status === "Under Review") {
@@ -216,7 +197,7 @@ export default function KYCVerificationHub({ pharmacy, onClose, onSaveSuccess }:
       color: "bg-rose-500",
       bg: "bg-rose-50 border-rose-200 text-rose-800",
       icon: <AlertTriangle className="w-8 h-8 text-rose-500" />,
-      desc: "To access B2B drug supply credit lines, DGDA compliance, and corporate wholesale pricing, please complete national ID and drug license verification."
+      desc: "To access DGDA compliance and corporate wholesale pricing, please complete national ID and drug license verification."
     };
   };
 
@@ -252,8 +233,8 @@ export default function KYCVerificationHub({ pharmacy, onClose, onSaveSuccess }:
           </div>
         </div>
 
-        {/* Steps Progress Indicator (Only show if not already approved) */}
-        {pharmacy?.verificationStatus !== "Approved" && (
+        {/* Steps Progress Indicator (Only show if not already approved or if updating) */}
+        {(pharmacy?.verificationStatus !== "Approved" || isUpdatingDocuments) && (
           <div className="px-5 pt-4">
             <div className="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border border-slate-100">
               <div className="flex items-center gap-2">
@@ -298,8 +279,8 @@ export default function KYCVerificationHub({ pharmacy, onClose, onSaveSuccess }:
           )}
 
           {/* Verification screens */}
-          {pharmacy?.verificationStatus === "Approved" ? (
-            <div className="space-y-4 py-6 text-center">
+          {pharmacy?.verificationStatus === "Approved" && !isUpdatingDocuments ? (
+            <div className="space-y-4 py-6 text-center animate-fade-in">
               <div className="w-16 h-16 bg-emerald-500/10 text-emerald-500 border border-emerald-500/25 rounded-full flex items-center justify-center mx-auto shadow-inner">
                 <FileCheck className="w-8 h-8 text-emerald-500" />
               </div>
@@ -307,17 +288,20 @@ export default function KYCVerificationHub({ pharmacy, onClose, onSaveSuccess }:
                 <h4 className="text-base font-black text-slate-800">DGDA Compliant B2B Account</h4>
                 <p className="text-xs text-slate-400 font-semibold font-mono">License State: DC-PHARMACY-VERIFIED</p>
                 <p className="text-xs text-slate-500 leading-relaxed font-medium pt-2">
-                  All systems operating securely. This verified status enables ৳20,000 credit limits, custom multi-box discounts, and priority same-day depot distributions.
+                  All systems operating securely. This verified status enables wholesale volume pricing, priority same-day depot distribution, and official DGDA tax invoice generation.
                 </p>
               </div>
 
-              {/* Reset to simulate verification flow */}
+              {/* Action to update documents */}
               <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row gap-2 justify-center">
                 <button
-                  onClick={() => handleSimulateDevApproval("Pending")}
+                  onClick={() => {
+                    setIsUpdatingDocuments(true);
+                    setStep(1);
+                  }}
                   className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2.5 px-4 rounded-xl cursor-pointer transition-colors"
                 >
-                  Reset Status to Pending Approval
+                  Update License Documents
                 </button>
               </div>
             </div>
@@ -621,14 +605,6 @@ export default function KYCVerificationHub({ pharmacy, onClose, onSaveSuccess }:
                       className="bg-brand-purple text-white hover:bg-brand-purple/95 text-xs font-black py-2.5 px-6 rounded-xl cursor-pointer transition-colors"
                     >
                       Acknowledge & Close
-                    </button>
-                    
-                    {/* Simulator Button */}
-                    <button
-                      onClick={() => handleSimulateDevApproval("Approved")}
-                      className="bg-brand-lime text-slate-900 hover:bg-brand-lime/95 text-xs font-black py-2.5 px-6 rounded-xl cursor-pointer transition-colors border border-brand-lime/20"
-                    >
-                      Simulate Instant Approval (Dev Test)
                     </button>
                   </div>
                 </div>
