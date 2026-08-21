@@ -496,6 +496,7 @@ export default function App() {
                 onAddToCart={handleAddToCart}
                 favouriteIds={favouriteIds}
                 onRefreshProfile={refreshPharmacyProfile}
+                onTriggerTab={(tab) => setActiveTab(tab as any)}
               />
             );
           case "home":

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { User as UserIcon, Heart, Shield, RefreshCcw, LogOut, FileText, Check, ShoppingCart, LifeBuoy, Pencil, Award, Clock, AlertTriangle } from "lucide-react";
+import { User as UserIcon, Heart, Shield, RefreshCcw, LogOut, FileText, Check, ShoppingCart, LifeBuoy, Pencil, Award, Clock, AlertTriangle, Headset } from "lucide-react";
 import { Product, Pharmacy, User } from "../types";
 import { paymentService } from "../services/payment";
 import { productService } from "../services/product";
@@ -14,6 +14,7 @@ interface AccountProps {
   onAddToCart: (productId: string, qty: number) => Promise<boolean>;
   favouriteIds: string[];
   onRefreshProfile?: () => Promise<void>;
+  onTriggerTab?: (tab: string) => void;
 }
 
 export default function Account({
@@ -22,7 +23,8 @@ export default function Account({
   onLogout,
   onAddToCart,
   favouriteIds,
-  onRefreshProfile
+  onRefreshProfile,
+  onTriggerTab
 }: AccountProps) {
   const [analytics, setAnalytics] = useState<any>(null);
   const [favProducts, setFavProducts] = useState<Product[]>([]);
@@ -78,7 +80,7 @@ export default function Account({
   const isVerified = kycStatus === "Approved";
 
   return (
-    <div className="w-full h-full bg-slate-50 flex flex-col select-none overflow-y-auto p-4 space-y-4 pb-32">
+    <div className="w-full h-full bg-slate-50 flex flex-col select-none overflow-y-auto px-4 pt-10 pb-32 space-y-4">
       {/* Account Info Header */}
       <div className="bg-white rounded-3xl p-5 border border-slate-100 flex items-center gap-4 relative overflow-hidden shadow-sm">
         <div className="w-12 h-12 bg-brand-purple/10 border border-brand-purple/25 rounded-full flex items-center justify-center font-black text-brand-purple text-lg shadow-inner overflow-hidden flex-shrink-0">
@@ -89,28 +91,24 @@ export default function Account({
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="text-xs font-black text-brand-charcoal leading-tight truncate flex items-center gap-1">
+          <h2 className="text-base font-black text-brand-charcoal leading-tight truncate flex items-center gap-1.5">
             {pharmacy?.pharmacyName || "Pharmacy Profile"}
             {isVerified && (
-              <span className="bg-emerald-500/10 text-emerald-600 rounded-full p-0.5" title="Verified B2B Account">
-                <Check className="w-3 h-3 stroke-[3]" />
+              <span className="bg-emerald-500/10 text-emerald-600 rounded-full p-0.5" title="Verified DGDA Account">
+                <Check className="w-3.5 h-3.5 stroke-[3]" />
               </span>
             )}
           </h2>
-          <p className="text-[10px] text-slate-500 mt-0.5 font-semibold flex items-center gap-1">
-            <UserIcon className="w-3.5 h-3.5 text-brand-purple flex-shrink-0" />
-            <span className="truncate">Owner: {currentUser?.name || pharmacy?.ownerName || "Zahid Hasan"}</span>
+          <p className="text-xs text-slate-500 mt-1 font-semibold flex items-center gap-1">
+            <UserIcon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+            <span className="truncate">Proprietor: {pharmacy?.ownerName || currentUser?.name || "Zahid Hasan"}</span>
           </p>
-          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-            <span className="bg-brand-purple/10 text-brand-purple font-extrabold text-[8px] px-1.5 py-0.5 rounded-md">
-              Role: {currentUser?.role || "Pharmacy Owner"}
-            </span>
-            <span className="text-[9px] text-slate-400 font-bold font-mono">
+          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+            <span className="bg-slate-100 border border-slate-200 text-slate-600 font-bold font-mono text-[9px] px-2 py-0.5 rounded-md">
               Lic: {pharmacy?.licenseNo || "Pending"}
             </span>
           </div>
         </div>
-
         {/* Header interactive controls */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <button
@@ -119,13 +117,6 @@ export default function Account({
             title="Edit pharmacy details"
           >
             <Pencil className="w-4 h-4" />
-          </button>
-          <button
-            onClick={onLogout}
-            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-slate-50 rounded-xl transition-all cursor-pointer"
-            title="Sign out of MediChain"
-          >
-            <LogOut className="w-4.5 h-4.5" />
           </button>
         </div>
       </div>
@@ -200,6 +191,49 @@ export default function Account({
         </div>
       )}
 
+      {/* B2B Operational Quick-Action Grid */}
+      <div className="grid grid-cols-2 gap-3">
+        <button onClick={() => onTriggerTab && onTriggerTab("history")} className="bg-white p-3.5 rounded-3xl border border-slate-100 shadow-sm flex flex-col gap-2 hover:border-brand-purple/30 transition-all cursor-pointer items-start text-left">
+          <div className="p-2 bg-brand-purple/10 rounded-xl text-brand-purple">
+            <ShoppingCart className="w-4.5 h-4.5" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-brand-charcoal block">Order History</span>
+            <span className="text-[9px] text-slate-400 mt-0.5 block">View wholesale orders</span>
+          </div>
+        </button>
+        
+        <button className="bg-white p-3.5 rounded-3xl border border-slate-100 shadow-sm flex flex-col gap-2 hover:border-brand-purple/30 transition-all cursor-pointer items-start text-left">
+          <div className="p-2 bg-blue-500/10 rounded-xl text-blue-600">
+            <FileText className="w-4.5 h-4.5" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-brand-charcoal block">Tax & VAT</span>
+            <span className="text-[9px] text-slate-400 mt-0.5 block">Procurement statements</span>
+          </div>
+        </button>
+        
+        <button className="bg-white p-3.5 rounded-3xl border border-slate-100 shadow-sm flex flex-col gap-2 hover:border-brand-purple/30 transition-all cursor-pointer items-start text-left">
+          <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-600">
+            <Shield className="w-4.5 h-4.5" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-brand-charcoal block">Delivery Location</span>
+            <span className="text-[9px] text-slate-400 mt-0.5 block">Manage depot drop-offs</span>
+          </div>
+        </button>
+
+        <button className="bg-white p-3.5 rounded-3xl border border-slate-100 shadow-sm flex flex-col gap-2 hover:border-brand-purple/30 transition-all cursor-pointer items-start text-left">
+          <div className="p-2 bg-amber-500/10 rounded-xl text-amber-600">
+            <Headset className="w-4.5 h-4.5" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-brand-charcoal block">Depot Support</span>
+            <span className="text-[9px] text-slate-400 mt-0.5 block">24/7 Helpline & Dispatch</span>
+          </div>
+        </button>
+      </div>
+
       {/* Saved Favourites List / Quick order catalog */}
       <div className="bg-white rounded-3xl p-4 border border-slate-100 space-y-3 shadow-sm">
         <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
@@ -208,9 +242,15 @@ export default function Account({
         </h3>
 
         {favProducts.length === 0 ? (
-          <div className="py-6 text-center text-slate-400">
+          <div className="py-6 text-center text-slate-400 flex flex-col items-center">
             <p className="text-xs font-semibold">No Favorites Saved</p>
-            <p className="text-[10px] text-slate-400 mt-1">Tap hearts on catalog medicines for instant access here.</p>
+            <p className="text-[10px] text-slate-400 mt-1 mb-4">Tap hearts on catalog medicines for instant access here.</p>
+            <button
+              onClick={() => onTriggerTab && onTriggerTab("search")}
+              className="bg-brand-purple text-white px-4 py-2 rounded-xl text-[10px] font-extrabold shadow-sm hover:bg-brand-purple/90 transition-all cursor-pointer"
+            >
+              Browse Wholesale Catalog
+            </button>
           </div>
         ) : (
           <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
