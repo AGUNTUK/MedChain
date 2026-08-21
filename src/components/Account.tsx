@@ -80,9 +80,9 @@ export default function Account({
   const isVerified = kycStatus === "Approved";
 
   return (
-    <div className="w-full h-full bg-slate-50 flex flex-col select-none overflow-y-auto px-4 pt-10 pb-32 space-y-4">
+    <div className="h-full bg-slate-50 px-4 pt-6 pb-28 space-y-4 max-w-md mx-auto w-full select-none overflow-y-auto">
       {/* Account Info Header */}
-      <div className="bg-white rounded-3xl p-5 border border-slate-100 flex items-center gap-4 relative overflow-hidden shadow-sm">
+      <div className="p-4 sm:p-5 flex items-center justify-between gap-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
         <div className="w-12 h-12 bg-brand-purple/10 border border-brand-purple/25 rounded-full flex items-center justify-center font-black text-brand-purple text-lg shadow-inner overflow-hidden flex-shrink-0">
           {pharmacy?.logoUrl ? (
             <img referrerPolicy="no-referrer" src={pharmacy.logoUrl} alt="Logo" className="w-full h-full object-cover" />
@@ -90,7 +90,7 @@ export default function Account({
             pharmacy?.pharmacyName?.charAt(0) || "P"
           )}
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 flex flex-col justify-center">
           <h2 className="text-base font-black text-brand-charcoal leading-tight truncate flex items-center gap-1.5">
             {pharmacy?.pharmacyName || "Pharmacy Profile"}
             {isVerified && (
@@ -117,6 +117,13 @@ export default function Account({
             title="Edit pharmacy details"
           >
             <Pencil className="w-4 h-4" />
+          </button>
+          <button
+            onClick={onLogout}
+            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-slate-50 rounded-xl transition-all cursor-pointer"
+            title="Sign out of MediChain"
+          >
+            <LogOut className="w-4.5 h-4.5" />
           </button>
         </div>
       </div>
